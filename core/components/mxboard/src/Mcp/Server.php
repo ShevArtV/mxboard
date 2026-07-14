@@ -226,7 +226,7 @@ final class Server
 
         $q = $this->modx->newQuery(MxBoardColumn::class);
         $q->where($columnKey !== '' ? ['board_id' => $boardId, 'key' => $columnKey] : ['board_id' => $boardId]);
-        $q->sortby('rank', 'ASC');
+        $q->sortby('position', 'ASC');
 
         /** @var MxBoardColumn[] $columns */
         $columns = $this->modx->getCollection(MxBoardColumn::class, $q);
@@ -318,9 +318,9 @@ final class Server
             'assignee' => 'Assignee.username',
         ]);
 
-        $c->sortby('Column.rank', 'ASC');
+        $c->sortby('Column.position', 'ASC');
         $c->sortby('MxBoardTask.priority', 'DESC');
-        $c->sortby('MxBoardTask.rank', 'ASC');
+        $c->sortby('MxBoardTask.position', 'ASC');
         $c->limit(self::MAX_TASKS);
 
         $c->prepare();

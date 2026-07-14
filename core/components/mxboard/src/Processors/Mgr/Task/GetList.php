@@ -27,7 +27,7 @@ class GetList extends GetListProcessor
     /** Реальные колонки таблицы — только по ним можно сортировать. */
     protected array $sortable = [
         'id', 'board_id', 'column_id', 'title', 'author_id', 'assignee_id',
-        'rank', 'priority', 'createdon', 'updatedon', 'startedon', 'closedon',
+        'position', 'priority', 'createdon', 'updatedon', 'startedon', 'closedon',
     ];
 
     public function initialize()

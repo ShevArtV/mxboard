@@ -65,7 +65,7 @@ export function normalizeBoard(res) {
             id: Number(c.id) || 0,
             key: String(c.key ?? ''),
             name: String(c.name ?? c.key ?? ''),
-            rank: Number(c.rank) || 0,
+            position: Number(c.position) || 0,
             is_initial: !!Number(c.is_initial),
             is_ready: !!Number(c.is_ready),
             is_final: !!Number(c.is_final),
@@ -73,7 +73,7 @@ export function normalizeBoard(res) {
         };
     });
 
-    normalized.sort((a, b) => a.rank - b.rank);
+    normalized.sort((a, b) => a.position - b.position);
 
     return {
         board: root.board || root.object || null,

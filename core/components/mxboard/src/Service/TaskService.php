@@ -62,7 +62,7 @@ class TaskService
             'author_id' => (int) $user->get('id'),
             'assignee_id' => 0,
             'priority' => (int) ($data['priority'] ?? 0),
-            'rank' => $this->nextRank((int) $column->get('id')),
+            'position' => $this->nextPosition((int) $column->get('id')),
             'meta' => $this->decodeMeta($data['meta'] ?? null),
             'createdon' => $now,
             'updatedon' => $now,
@@ -190,7 +190,7 @@ class TaskService
         $isFinal = (bool) $target->get('is_final');
 
         $task->set('column_id', (int) $target->get('id'));
-        $task->set('rank', $this->nextRank((int) $target->get('id')));
+        $task->set('position', $this->nextPosition((int) $target->get('id')));
         $task->set('updatedon', $now);
         $task->set('closedon', $isFinal ? $now : 0);
 
@@ -338,9 +338,9 @@ class TaskService
         $c = $this->modx->newQuery(MxBoardColumn::class);
         $c->where([
             'board_id' => (int) $board->get('id'),
-            'rank:>' => (int) $current->get('rank'),
+            'position:>' => (int) $current->get('position'),
         ]);
-        $c->sortby('rank', 'ASC');
+        $c->sortby('position', 'ASC');
         $c->limit(1);
 
         /** @var MxBoardColumn|null $column */
@@ -364,7 +364,7 @@ class TaskService
         return (int) $this->modx->getCount(MxBoardTask::class, $c);
     }
 
-    private function nextRank(int $columnId): int
+    private function nextPosition(int $columnId): int
     {
         $c = $this->modx->newQuery(MxBoardTask::class);
         $c->where(['column_id' => $columnId]);

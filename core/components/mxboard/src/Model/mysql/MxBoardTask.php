@@ -23,7 +23,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'tor' => NULL,
             'author_id' => 0,
             'assignee_id' => 0,
-            'rank' => 0,
+            'position' => 0,
             'priority' => 0,
             'meta' => NULL,
             'createdon' => 0,
@@ -87,7 +87,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'rank' => 
+            'position' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -216,15 +216,15 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'rank' => 
+            'position' => 
             array (
-                'alias' => 'rank',
+                'alias' => 'position',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'rank' => 
+                    'position' => 
                     array (
                         'length' => '',
                         'collation' => 'A',

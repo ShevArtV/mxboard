@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ВНИМАНИЕ: поле порядка называется `position`, а НЕ `rank`.
+
+    В MySQL 8 слово RANK — зарезервированное (оконная функция). xPDO в ORDER BY имя поля
+    не квотит (`sortby('rank')` → `ORDER BY rank ASC`), запрос падает с ошибкой синтаксиса,
+    а xPDO молча возвращает пустую выборку — без исключения и без записи в лог. Проявляется
+    это как «нет следующей колонки» в местах, не связанных с сортировкой, и ищется долго.
+
+    По той же причине не заводить поля с именами: rows, groups, system, lead, first, last.
+-->
 <model package="MxBoard\Model" baseClass="xPDO\Om\xPDOObject" platform="mysql" defaultEngine="InnoDB" version="3.0">
 
     <object class="MxBoardBoard" table="mxboard_board" extends="xPDO\Om\xPDOSimpleObject">
@@ -24,7 +34,7 @@
         <field key="board_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
         <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
-        <field key="rank" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто вправе переводить карточку В эту колонку. CSV ролей: author, assignee, any
              и/или группы как group:Name. Пусто = только обладатель права mxboard_move_any. -->
         <field key="move_roles" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
@@ -43,8 +53,8 @@
             <column key="board_id" length="" collation="A" null="false"/>
             <column key="key" length="" collation="A" null="false"/>
         </index>
-        <index alias="rank" name="rank" primary="false" unique="false" type="BTREE">
-            <column key="rank" length="" collation="A" null="false"/>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
         </index>
 
         <aggregate alias="Board" class="MxBoard\Model\MxBoardBoard" local="board_id" foreign="id" cardinality="one" owner="foreign"/>
@@ -61,7 +71,7 @@
         <field key="author_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто взял задачу. 0 — свободна, доступна для захвата. -->
         <field key="assignee_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
-        <field key="rank" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="priority" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).
              Ядро их не интерпретирует: они для плагинов на события mxBoard. -->
@@ -83,8 +93,8 @@
         <index alias="assignee_id" name="assignee_id" primary="false" unique="false" type="BTREE">
             <column key="assignee_id" length="" collation="A" null="false"/>
         </index>
-        <index alias="rank" name="rank" primary="false" unique="false" type="BTREE">
-            <column key="rank" length="" collation="A" null="false"/>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
         </index>
         <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
             <column key="createdon" length="" collation="A" null="false"/>

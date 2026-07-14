@@ -73,15 +73,15 @@ $boardId = (int) $board->get('id');
 
 $columns = [
     // Постановка задач: кладёт автор (или менеджер с правом move_any).
-    ['key' => 'backlog', 'name' => 'Бэклог', 'rank' => 0, 'move_roles' => 'author', 'is_initial' => true],
+    ['key' => 'backlog', 'name' => 'Бэклог', 'position' => 0, 'move_roles' => 'author', 'is_initial' => true],
     // Готово к работе: отсюда исполнитель забирает карточку захватом.
-    ['key' => 'ready', 'name' => 'Готово к работе', 'rank' => 1, 'move_roles' => 'author', 'is_ready' => true],
+    ['key' => 'ready', 'name' => 'Готово к работе', 'position' => 1, 'move_roles' => 'author', 'is_ready' => true],
     // В работе: двигает тот, кто взял.
-    ['key' => 'in_progress', 'name' => 'В работе', 'rank' => 2, 'move_roles' => 'assignee'],
+    ['key' => 'in_progress', 'name' => 'В работе', 'position' => 2, 'move_roles' => 'assignee'],
     // На проверке: потолок исполнителя — дальше только автор.
-    ['key' => 'review', 'name' => 'На проверке', 'rank' => 3, 'move_roles' => 'assignee,author'],
+    ['key' => 'review', 'name' => 'На проверке', 'position' => 3, 'move_roles' => 'assignee,author'],
     // Готово: закрывает ТОЛЬКО автор задачи. Исполнитель сюда не дотянется.
-    ['key' => 'done', 'name' => 'Готово', 'rank' => 4, 'move_roles' => 'author', 'is_final' => true],
+    ['key' => 'done', 'name' => 'Готово', 'position' => 4, 'move_roles' => 'author', 'is_final' => true],
 ];
 
 foreach ($columns as $data) {

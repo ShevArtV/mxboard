@@ -12,7 +12,7 @@ use xPDO\xPDO;
  * @property string $tor
  * @property integer $author_id
  * @property integer $assignee_id
- * @property integer $rank
+ * @property integer $position
  * @property integer $priority
  * @property array $meta
  * @property integer $createdon

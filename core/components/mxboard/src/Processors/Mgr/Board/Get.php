@@ -15,8 +15,8 @@ use PDO;
 /**
  * Доска целиком — один запрос вместо N-запросов из UI.
  *
- * Отдаём готовую структуру для отрисовки: доска → колонки (по rank) → карточки
- * (по rank). Карточки, счётчики комментариев и имена пользователей собираются
+ * Отдаём готовую структуру для отрисовки: доска → колонки (по position) → карточки
+ * (по position). Карточки, счётчики комментариев и имена пользователей собираются
  * тремя запросами и склеиваются в PHP, а не циклом getObject на каждую карточку.
  */
 class Get extends Processor
@@ -71,7 +71,7 @@ class Get extends Processor
     }
 
     /**
-     * Колонки доски по rank, ключ массива — id колонки (для быстрой раскладки карточек).
+     * Колонки доски по position, ключ массива — id колонки (для быстрой раскладки карточек).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -79,7 +79,7 @@ class Get extends Processor
     {
         $c = $this->modx->newQuery(MxBoardColumn::class);
         $c->where(['board_id' => $boardId]);
-        $c->sortby('rank', 'ASC');
+        $c->sortby('position', 'ASC');
         $c->sortby('id', 'ASC');
 
         $columns = [];
@@ -94,7 +94,7 @@ class Get extends Processor
     }
 
     /**
-     * Карточки доски с именами автора и исполнителя, по rank.
+     * Карточки доски с именами автора и исполнителя, по position.
      *
      * @return list<array<string, mixed>>
      */
@@ -111,7 +111,7 @@ class Get extends Processor
             ['id', 'column_id', 'title', 'priority', 'createdon']
         ));
         $c->select(['Author.username AS author', 'Assignee.username AS assignee']);
-        $c->sortby('MxBoardTask.rank', 'ASC');
+        $c->sortby('MxBoardTask.position', 'ASC');
         $c->sortby('MxBoardTask.id', 'ASC');
 
         if (!$c->prepare() || !$c->stmt->execute()) {

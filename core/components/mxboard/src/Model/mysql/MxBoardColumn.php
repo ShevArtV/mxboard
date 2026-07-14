@@ -20,7 +20,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'board_id' => 0,
             'key' => '',
             'name' => '',
-            'rank' => 0,
+            'position' => 0,
             'move_roles' => '',
             'is_initial' => 0,
             'is_ready' => 0,
@@ -56,7 +56,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => false,
                 'default' => '',
             ),
-            'rank' => 
+            'position' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -151,15 +151,15 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                     ),
                 ),
             ),
-            'rank' => 
+            'position' => 
             array (
-                'alias' => 'rank',
+                'alias' => 'position',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'rank' => 
+                    'position' => 
                     array (
                         'length' => '',
                         'collation' => 'A',

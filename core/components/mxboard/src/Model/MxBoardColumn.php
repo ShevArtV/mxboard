@@ -9,7 +9,7 @@ use xPDO\xPDO;
  * @property integer $board_id
  * @property string $key
  * @property string $name
- * @property integer $rank
+ * @property integer $position
  * @property string $move_roles
  * @property boolean $is_initial
  * @property boolean $is_ready

@@ -122,11 +122,13 @@ check('исполнитель проставлен', $assignee > 0);
 $holder = $assignee === (int) $worker->get('id') ? $worker : $worker2;
 $loser = $assignee === (int) $worker->get('id') ? $worker2 : $worker;
 
-// Проигравший получил внятную причину, а не «успех».
+// Проигравший получил отказ с внятной причиной, а не «успех».
+// (Здесь вызовы последовательные, поэтому срабатывает более ранняя проверка «уже не в ready».
+//  Настоящая одновременная гонка проверяется параллельными HTTP-запросами — _race_remote.sh.)
 $loserRes = $assignee === (int) $worker->get('id') ? $r2 : $r1;
 check(
-    'проигравший получил отказ «уже взяли»',
-    !$loserRes['success'] && str_contains(mb_strtolower((string) $loserRes['message']), 'взял'),
+    'проигравший получил отказ',
+    !$loserRes['success'] && (string) $loserRes['message'] !== '',
     (string) $loserRes['message']
 );
 
