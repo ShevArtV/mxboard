@@ -20,7 +20,21 @@ cd "${PROJECT}"
 
 if [[ "${1:-}" != "--no-build" ]]; then
     echo "==> Сборка ${SIGNATURE}"
+
+    # node_modules (59 МБ) обязаны остаться за бортом. .packignore проекта билдер
+    # игнорирует — он читает его из своей install-папки (подводный камень #12 БЗ),
+    # поэтому единственный надёжный способ — вынести их из дерева на время сборки.
+    NM="assets/components/mxboard/js/mgr/node_modules"
+    STAGE="$(mktemp -d)"
+    trap '[[ -d "${STAGE}/node_modules" ]] && mv "${STAGE}/node_modules" "'"${PROJECT}"'/${NM}"; rm -rf "${STAGE}"' EXIT
+
+    [[ -d "${NM}" ]] && mv "${NM}" "${STAGE}/node_modules"
+
     "${MODXAPP}" build mxboard --no-check
+
+    [[ -d "${STAGE}/node_modules" ]] && mv "${STAGE}/node_modules" "${NM}"
+    trap - EXIT
+    rm -rf "${STAGE}"
 fi
 
 ZIP="core/packages/${SIGNATURE}.transport.zip"
