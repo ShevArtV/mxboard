@@ -51,4 +51,13 @@ rsync -az --no-perms -e ssh "${PROJECT}/_install_remote.php" "${REMOTE}:${REMOTE
 echo "==> Установка на стенде"
 ssh "${REMOTE}" "cd ~/${REMOTE_ROOT} && /usr/local/php/php-8.3/bin/php _install_remote.php ${SIGNATURE}; rm -f _install_remote.php"
 
+# Сброс OPcache. У PHP-FPM свой кэш опкодов, и CLI-установка его не трогает: без сброса
+# сайт продолжает выполнять ПРЕДЫДУЩУЮ версию классов — правка «не доезжает», хотя файлы
+# на диске новые. Ловится тяжело, поэтому делаем всегда.
+echo "==> Сброс OPcache (PHP-FPM)"
+printf '<?php if (function_exists("opcache_reset")) { opcache_reset(); echo "opcache reset\\n"; } else { echo "no opcache\\n"; }\n' \
+    | ssh "${REMOTE}" "cat > ~/${REMOTE_ROOT}/_opcache_reset.php"
+curl -sS "https://modx3.art-sites.ru/_opcache_reset.php" || true
+ssh "${REMOTE}" "rm -f ~/${REMOTE_ROOT}/_opcache_reset.php"
+
 echo "==> Готово: https://modx3.art-sites.ru/manager/ → Компоненты → mxBoard"

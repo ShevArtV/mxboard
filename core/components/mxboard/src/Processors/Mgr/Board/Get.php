@@ -54,8 +54,14 @@ class Get extends Processor
 
             $columns[$columnId]['tasks'][] = [
                 'id' => $taskId,
+                'column_id' => $columnId,
                 'title' => (string) $row['title'],
                 'priority' => (int) $row['priority'],
+                // Идентификаторы нужны интерфейсу не для показа, а для решений: по author_id
+                // доска понимает, вправе ли текущий пользователь тянуть карточку в done,
+                // по assignee_id — свободна она или уже взята. Одних имён недостаточно.
+                'author_id' => (int) $row['author_id'],
+                'assignee_id' => (int) $row['assignee_id'],
                 'author' => (string) ($row['author'] ?? ''),
                 'assignee' => $assignee !== '' ? $assignee : null,
                 'createdon' => (int) $row['createdon'],
@@ -104,11 +110,15 @@ class Get extends Processor
         $c->leftJoin(modUser::class, 'Author');
         $c->leftJoin(modUser::class, 'Assignee');
         $c->where(['MxBoardTask.board_id' => $boardId]);
+        // author_id и assignee_id нужны интерфейсу не для показа, а для решений:
+        // по author_id доска понимает, вправе ли текущий пользователь тянуть карточку
+        // в done, по assignee_id — свободна карточка или уже взята. Без них интерфейс
+        // считает автором никого и запрещает закрытие даже автору.
         $c->select($this->modx->getSelectColumns(
             MxBoardTask::class,
             'MxBoardTask',
             '',
-            ['id', 'column_id', 'title', 'priority', 'createdon']
+            ['id', 'column_id', 'title', 'priority', 'author_id', 'assignee_id', 'createdon']
         ));
         $c->select(['Author.username AS author', 'Assignee.username AS assignee']);
         $c->sortby('MxBoardTask.position', 'ASC');
