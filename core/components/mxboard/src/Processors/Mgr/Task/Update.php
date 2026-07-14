@@ -38,7 +38,7 @@ class Update extends Processor
         }
 
         $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
-        $isSuperuser = (bool) $user->get('sudo') || $this->modx->hasPermission(Transitions::PERMISSION_MOVE_ANY);
+        $isSuperuser = Transitions::isSuperuser($this->modx, $user);
         if (!$isAuthor && !$isSuperuser) {
             return $this->failure($this->modx->lexicon('mxboard_err_edit_denied'));
         }

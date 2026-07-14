@@ -46,7 +46,7 @@ class Transitions
         $isAssignee = $userId > 0 && $userId === $assigneeId;
 
         // Оператор с глобальным правом — вне правил колонки (разбор заторов, откаты).
-        $isSuperuser = (bool) $user->get('sudo') || $modx->hasPermission(self::PERMISSION_MOVE_ANY);
+        $isSuperuser = self::isSuperuser($modx, $user);
 
         // Закрытие — отдельный, более строгий случай.
         if ((bool) $target->get('is_final')) {
@@ -81,6 +81,31 @@ class Transitions
         }
 
         return ['allowed' => false, 'reason' => 'mxboard_err_move_denied'];
+    }
+
+    /**
+     * Обходит ли пользователь правила колонок.
+     *
+     * ВНИМАНИЕ, ловушка MODX: `modAccessibleObject::checkPolicy()` возвращает **true на любой
+     * вопрос**, если сессия не инициализирована (см. `modAccessibleObject::checkPolicy()` —
+     * ранний выход при `getSessionState() !== SESSION_STATE_INITIALIZED`). То есть в API-режиме
+     * без сессии `hasPermission()` объявил бы суперпользователем кого угодно — и любой агент
+     * закрывал бы чужие задачи, ради запрета которых всё и затевалось.
+     *
+     * Поэтому право спрашиваем только там, где ответу можно верить. Нет живой сессии —
+     * остаётся единственный надёжный признак: флаг `sudo` в самой записи пользователя.
+     */
+    public static function isSuperuser(modX $modx, modUser $user): bool
+    {
+        if ((bool) $user->get('sudo')) {
+            return true;
+        }
+
+        if ($modx->getSessionState() !== modX::SESSION_STATE_INITIALIZED) {
+            return false;
+        }
+
+        return (bool) $modx->hasPermission(self::PERMISSION_MOVE_ANY);
     }
 
     /**

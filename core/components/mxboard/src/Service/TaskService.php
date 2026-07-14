@@ -226,7 +226,7 @@ class TaskService
 
         $userId = (int) $user->get('id');
         $isAssignee = $userId === (int) $task->get('assignee_id');
-        $isSuperuser = (bool) $user->get('sudo') || $this->modx->hasPermission(Transitions::PERMISSION_MOVE_ANY);
+        $isSuperuser = Transitions::isSuperuser($this->modx, $user);
 
         if (!$isAssignee && !$isSuperuser) {
             return $this->fail('mxboard_err_move_denied');
