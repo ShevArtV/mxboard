@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<model package="MxBoard\Model" baseClass="xPDO\Om\xPDOObject" platform="mysql" defaultEngine="InnoDB" version="3.0">
+
+    <object class="MxBoardBoard" table="mxboard_board" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="unique"/>
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="description" dbtype="text" phptype="string" null="true"/>
+        <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="updatedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="key" name="key" primary="false" unique="true" type="BTREE">
+            <column key="key" length="" collation="A" null="false"/>
+        </index>
+        <index alias="active" name="active" primary="false" unique="false" type="BTREE">
+            <column key="active" length="" collation="A" null="false"/>
+        </index>
+
+        <composite alias="Columns" class="MxBoard\Model\MxBoardColumn" local="id" foreign="board_id" cardinality="many" owner="local"/>
+        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="board_id" cardinality="many" owner="local"/>
+    </object>
+
+    <object class="MxBoardColumn" table="mxboard_column" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="board_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="rank" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Кто вправе переводить карточку В эту колонку. CSV ролей: author, assignee, any
+             и/или группы как group:Name. Пусто = только обладатель права mxboard_move_any. -->
+        <field key="move_roles" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
+        <!-- Колонка, в которую попадает новая карточка. -->
+        <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <!-- Колонка, откуда исполнитель забирает карточку (захват). -->
+        <field key="is_ready" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <!-- Терминальная колонка: вход в неё = закрытие карточки (done). -->
+        <field key="is_final" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="board_id" name="board_id" primary="false" unique="false" type="BTREE">
+            <column key="board_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="board_column_key" name="board_column_key" primary="false" unique="true" type="BTREE">
+            <column key="board_id" length="" collation="A" null="false"/>
+            <column key="key" length="" collation="A" null="false"/>
+        </index>
+        <index alias="rank" name="rank" primary="false" unique="false" type="BTREE">
+            <column key="rank" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Board" class="MxBoard\Model\MxBoardBoard" local="board_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="column_id" cardinality="many" owner="local"/>
+    </object>
+
+    <object class="MxBoardTask" table="mxboard_task" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="board_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="column_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="title" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
+        <!-- Постановка задачи (ToR) в markdown. -->
+        <field key="tor" dbtype="mediumtext" phptype="string" null="true"/>
+        <!-- Кто поставил задачу. Только автор переводит карточку в финальную колонку. -->
+        <field key="author_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Кто взял задачу. 0 — свободна, доступна для захвата. -->
+        <field key="assignee_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="rank" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="priority" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).
+             Ядро их не интерпретирует: они для плагинов на события mxBoard. -->
+        <field key="meta" dbtype="mediumtext" phptype="json" null="true"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="updatedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="startedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="closedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="board_id" name="board_id" primary="false" unique="false" type="BTREE">
+            <column key="board_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="column_id" name="column_id" primary="false" unique="false" type="BTREE">
+            <column key="column_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="author_id" name="author_id" primary="false" unique="false" type="BTREE">
+            <column key="author_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="assignee_id" name="assignee_id" primary="false" unique="false" type="BTREE">
+            <column key="assignee_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="rank" name="rank" primary="false" unique="false" type="BTREE">
+            <column key="rank" length="" collation="A" null="false"/>
+        </index>
+        <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
+            <column key="createdon" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Board" class="MxBoard\Model\MxBoardBoard" local="board_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Column" class="MxBoard\Model\MxBoardColumn" local="column_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Author" class="MODX\Revolution\modUser" local="author_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Assignee" class="MODX\Revolution\modUser" local="assignee_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Comments" class="MxBoard\Model\MxBoardComment" local="id" foreign="task_id" cardinality="many" owner="local"/>
+        <composite alias="Logs" class="MxBoard\Model\MxBoardLog" local="id" foreign="task_id" cardinality="many" owner="local"/>
+    </object>
+
+    <object class="MxBoardComment" table="mxboard_comment" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="content" dbtype="mediumtext" phptype="string" null="true"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+
+        <index alias="task_id" name="task_id" primary="false" unique="false" type="BTREE">
+            <column key="task_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="user_id" name="user_id" primary="false" unique="false" type="BTREE">
+            <column key="user_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
+            <column key="createdon" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Task" class="MxBoard\Model\MxBoardTask" local="task_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="User" class="MODX\Revolution\modUser" local="user_id" foreign="id" cardinality="one" owner="foreign"/>
+    </object>
+
+    <!-- Журнал переходов: кто, когда и куда двигал карточку. Пишется процессорами,
+         из UI не редактируется — это защита от самоаттестации агентов. -->
+    <object class="MxBoardLog" table="mxboard_log" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- create | take | release | move | comment | close | reopen -->
+        <field key="action" dbtype="varchar" precision="32" phptype="string" null="false" default="" index="index"/>
+        <field key="from_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
+        <field key="to_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
+        <field key="note" dbtype="text" phptype="string" null="true"/>
+        <!-- Канал запроса: mgr (менеджер), api (REST), mcp (агент). -->
+        <field key="channel" dbtype="varchar" precision="16" phptype="string" null="false" default="mgr"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+
+        <index alias="task_id" name="task_id" primary="false" unique="false" type="BTREE">
+            <column key="task_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="user_id" name="user_id" primary="false" unique="false" type="BTREE">
+            <column key="user_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="action" name="action" primary="false" unique="false" type="BTREE">
+            <column key="action" length="" collation="A" null="false"/>
+        </index>
+        <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
+            <column key="createdon" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Task" class="MxBoard\Model\MxBoardTask" local="task_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="User" class="MODX\Revolution\modUser" local="user_id" foreign="id" cardinality="one" owner="foreign"/>
+    </object>
+
+    <!-- Токен агента для REST/MCP. Хранится только sha256-хэш: сам токен показывается
+         один раз при создании. Токен привязан к пользователю MODX, поэтому права
+         агента — это права его пользователя, отдельной модели прав нет. -->
+    <object class="MxBoardToken" table="mxboard_token" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="token_hash" dbtype="varchar" precision="64" phptype="string" null="false" default="" index="unique"/>
+        <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="lastusedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="token_hash" name="token_hash" primary="false" unique="true" type="BTREE">
+            <column key="token_hash" length="" collation="A" null="false"/>
+        </index>
+        <index alias="user_id" name="user_id" primary="false" unique="false" type="BTREE">
+            <column key="user_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="active" name="active" primary="false" unique="false" type="BTREE">
+            <column key="active" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="User" class="MODX\Revolution\modUser" local="user_id" foreign="id" cardinality="one" owner="foreign"/>
+    </object>
+
+</model>

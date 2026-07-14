@@ -1,0 +1,5 @@
+/core/packages/
+/core/components/mxboard/vendor/
+/assets/components/mxboard/node_modules/
+/.idea/
+.DS_Store

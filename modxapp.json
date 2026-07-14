@@ -1,0 +1,12 @@
+{
+    "author": "Shevchenko Arthur",
+    "email": "shev.art.v@ya.ru",
+    "gitlogin": "shevartv",
+    "phpVersion": "8.1",
+    "repository": "https://github.com/",
+    "template": "shevartv",
+    "generateElements": true,
+    "phpCsFixer": true,
+    "eslint": false,
+    "toolsConfigPath": ""
+}

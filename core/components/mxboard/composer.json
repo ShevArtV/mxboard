@@ -1,0 +1,32 @@
+{
+  "name": "shevartv/mxboard",
+  "description": "mxBoard — канбан-доска для ИИ-агентов: доска в менеджере, REST-API и MCP-эндпоинт",
+  "type": "modx-extra",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Shevchenko Arthur",
+      "email": "shev.art.v@ya.ru"
+    }
+  ],
+  "homepage": "https://github.com/shevartv/mxboard",
+  "require": {
+    "php": ">=8.1"
+  },
+  "require-dev": {
+    "phpstan/phpstan": "^1.10",
+    "friendsofphp/php-cs-fixer": "^3.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "MxBoard\\": "src/"
+    }
+  },
+  "scripts": {
+    "analyse": "phpstan analyse",
+    "cs-check": "php-cs-fixer fix --dry-run",
+    "cs-fix": "php-cs-fixer fix"
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}

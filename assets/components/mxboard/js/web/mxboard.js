@@ -1,0 +1,1 @@
+/* Mxboard frontend scripts */
