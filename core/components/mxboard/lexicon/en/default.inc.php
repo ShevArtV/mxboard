@@ -29,3 +29,11 @@ $_lang['mxboard_err_no_initial_column'] = 'The board has no initial column.';
 $_lang['mxboard_err_no_next_column'] = 'No next column to move the task to.';
 $_lang['mxboard_err_comment_empty'] = 'Comment is empty.';
 $_lang['mxboard_err_save'] = 'Failed to save.';
+$_lang['mxboard_err_unauthenticated'] = 'Authentication required.';
+$_lang['mxboard_err_edit_denied'] = 'Only the task author can edit it.';
+$_lang['mxboard_err_remove_denied'] = 'Only the task author can remove it.';
+$_lang['mxboard_err_remove_failed'] = 'Failed to remove.';
+$_lang['mxboard_err_user_not_found'] = 'User not found.';
+
+$_lang['mxboard_token'] = 'Token';
+$_lang['mxboard_token_created'] = 'Token created. Copy it now — it will not be shown again.';

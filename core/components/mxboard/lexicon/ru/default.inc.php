@@ -29,3 +29,11 @@ $_lang['mxboard_err_no_initial_column'] = 'У доски нет стартово
 $_lang['mxboard_err_no_next_column'] = 'Нет следующей колонки — некуда переводить задачу.';
 $_lang['mxboard_err_comment_empty'] = 'Пустой комментарий.';
 $_lang['mxboard_err_save'] = 'Не удалось сохранить.';
+$_lang['mxboard_err_unauthenticated'] = 'Требуется авторизация.';
+$_lang['mxboard_err_edit_denied'] = 'Править задачу может только её автор.';
+$_lang['mxboard_err_remove_denied'] = 'Удалить задачу может только её автор.';
+$_lang['mxboard_err_remove_failed'] = 'Не удалось удалить.';
+$_lang['mxboard_err_user_not_found'] = 'Пользователь не найден.';
+
+$_lang['mxboard_token'] = 'Токен';
+$_lang['mxboard_token_created'] = 'Токен создан. Скопируйте его сейчас — второй раз он не покажется.';
