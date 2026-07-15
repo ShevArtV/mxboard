@@ -13,7 +13,6 @@ use xPDO\xPDO;
  * @property string $move_roles
  * @property string $stage_key
  * @property boolean $is_initial
- * @property boolean $is_ready
  * @property boolean $is_final
  * @property integer $createdon
  *

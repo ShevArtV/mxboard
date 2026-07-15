@@ -171,6 +171,19 @@ class Transitions
         return (int) $modx->getCount(modUserGroupMember::class, $c) > 0;
     }
 
+    /** Член отдела: состоит ли пользователь в группе отдела (любой ролью, включая role=0). */
+    public static function isDepartmentMember(modX $modx, int $userId, int $usergroupId): bool
+    {
+        if ($userId <= 0 || $usergroupId <= 0) {
+            return false;
+        }
+
+        return (int) $modx->getCount(modUserGroupMember::class, [
+            'member' => $userId,
+            'user_group' => $usergroupId,
+        ]) > 0;
+    }
+
     /** Менеджер конкретного отдела: глобальный sudo или супер его группы. */
     public static function isDepartmentManager(modX $modx, modUser $user, int $departmentId): bool
     {

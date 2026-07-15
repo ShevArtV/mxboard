@@ -81,6 +81,24 @@ final class Router
             return $this->ok($schema);
         }
 
+        // GET /departments  и  /departments/{id}/{users|types}
+        if ($method === 'GET' && $resource === 'departments') {
+            if (!isset($seg[1])) {
+                return $this->ok($this->query->departments());
+            }
+            $departmentId = (int) $seg[1];
+            return match ($seg[2] ?? '') {
+                'users' => $this->ok($this->query->departmentUsers($departmentId)),
+                'types' => $this->ok($this->query->types($departmentId)),
+                default => $this->fail('mxboard_err_route_not_found', 404),
+            };
+        }
+
+        // GET /projects/{id}/columns — стадии проекта
+        if ($method === 'GET' && $resource === 'projects' && isset($seg[1]) && ($seg[2] ?? '') === 'columns') {
+            return $this->ok($this->query->columns((int) $seg[1]));
+        }
+
         // /tasks ...
         if ($resource === 'tasks') {
             return $this->tasksRoute($method, $seg, $body);
@@ -147,7 +165,6 @@ final class Router
         // POST /tasks/{id}/{action}
         if ($method === 'POST') {
             return match ($action) {
-                'take' => $this->result($this->tasks->take($this->user, $taskId, self::CHANNEL)),
                 'move' => $this->result($this->tasks->move(
                     $this->user,
                     $taskId,

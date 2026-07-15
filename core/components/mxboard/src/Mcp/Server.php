@@ -101,9 +101,10 @@ final class Server
             'capabilities' => ['tools' => (object) []],
             'serverInfo' => ['name' => self::SERVER_NAME, 'version' => self::SERVER_VERSION],
             'instructions' => 'Канбан-доски mxBoard (отдел → проект → задача). Порядок: project_list — '
-                . 'какие проекты есть; board_list — что на доске проекта; task_schema — какие поля нужны '
-                . 'для типа; task_create — поставить задачу (тип, дедлайн и обязательные поля обязательны); '
-                . 'task_take — взять свободную; task_comment — отчитаться; task_move — перевести. Незавершённая '
+                . 'какие проекты есть; board_list — что на доске проекта; task_schema — какие поля нужны для типа; '
+                . 'department_users — кого можно назначить исполнителем; task_create — поставить задачу (тип, '
+                . 'дедлайн, поля и ИСПОЛНИТЕЛЬ из отдела проекта обязательны); task_comment — отчитаться; '
+                . 'task_move — перевести. Исполнитель назначается при создании, свободного пула нет. Незавершённая '
                 . 'подзадача блокирует закрытие родителя. Всё пишется в журнал от вашего пользователя.',
         ];
     }
@@ -130,6 +131,13 @@ final class Server
     {
         return [
             $this->tool('project_list', 'Список проектов (отдел, ключ, имя).', []),
+            $this->tool('department_list', 'Список отделов (id, группа, имя).', []),
+            $this->tool('type_list', 'Типы задач отдела проекта (для task_create).', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+            ]),
+            $this->tool('stage_list', 'Стадии (колонки) проекта.', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+            ]),
             $this->tool('board_list', 'Что на доске проекта: колонки и видимые карточки.', [
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
                 'column' => ['type' => 'string', 'description' => 'Ключ колонки: показать только её.'],
@@ -142,20 +150,21 @@ final class Server
                 'type' => ['type' => 'string', 'description' => 'Ключ типа задачи.'],
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта (для определения отдела). По умолчанию — из настроек.'],
             ], ['type']),
-            $this->tool('task_create', 'Поставить задачу. Тип, заголовок, дедлайн и обязательные поля типа — обязательны. Автором станете вы.', [
+            $this->tool('task_create', 'Поставить задачу. Обязательны: тип, заголовок, дедлайн, поля типа и ИСПОЛНИТЕЛЬ (член отдела проекта — см. department_users). Автором станете вы.', [
                 'type' => ['type' => 'string', 'description' => 'Ключ типа задачи (см. project → task_schema).'],
                 'title' => ['type' => 'string', 'description' => 'Заголовок (≤250).'],
                 'deadline' => ['type' => 'string', 'description' => 'Дедлайн: дата YYYY-MM-DD или unix-время.'],
+                'assignee' => ['type' => 'string', 'description' => 'Исполнитель: username или id. Строго из отдела проекта (department_users).'],
                 'fields' => ['type' => 'object', 'description' => 'Значения полей типа: {ключ_поля: значение}.'],
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
                 'tor' => ['type' => 'string', 'description' => 'Постановка (ToR) в markdown.'],
                 'priority' => ['type' => 'integer', 'description' => 'Приоритет, больше — важнее.'],
                 'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя).'],
                 'meta' => ['type' => 'object', 'description' => 'Произвольные метаданные интегратора.'],
-            ], ['type', 'title', 'deadline']),
-            $this->tool('task_take', 'Взять свободную карточку. Захват атомарный: если уже забрали — ошибка.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
-            ], ['task_id']),
+            ], ['type', 'title', 'deadline', 'assignee']),
+            $this->tool('department_users', 'Кого можно назначить исполнителем — члены отдела проекта.', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+            ]),
             $this->tool('task_move', 'Перевести карточку в колонку по ключу. Если правила не пускают — ошибка с причиной.', [
                 'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
                 'column' => ['type' => 'string', 'description' => 'Ключ колонки назначения.'],
@@ -215,7 +224,7 @@ final class Server
                 'description' => ['type' => 'string'],
                 'columns' => [
                     'type' => 'array',
-                    'description' => 'Колонки: [{key, name, move_roles, stage_key?, is_initial, is_ready, is_final}]. Пусто — взять шаблон.',
+                    'description' => 'Колонки: [{key, name, move_roles, stage_key?, is_initial, is_final}]. Пусто — взять шаблон.',
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name']),
@@ -250,11 +259,14 @@ final class Server
 
         return match ($name) {
             'project_list' => $this->projectList(),
+            'department_list' => $this->departmentList(),
+            'type_list' => $this->typeList($args),
+            'stage_list' => $this->stageList($args),
             'board_list' => $this->boardList($args),
             'task_get' => $this->taskGet($args),
             'task_schema' => $this->taskSchema($args),
+            'department_users' => $this->departmentUsers($args),
             'task_create' => $this->taskCreate($args),
-            'task_take' => $this->taskTake($args),
             'task_move' => $this->taskMove($args),
             'task_comment' => $this->taskComment($args),
             'task_dispute_deadline' => $this->taskDispute($args),
@@ -279,6 +291,79 @@ final class Server
         $out = ['Проекты:'];
         foreach ($projects as $p) {
             $out[] = '  [' . $p['key'] . '] ' . $p['name'] . ' (отдел #' . $p['department_id'] . ')';
+        }
+
+        return $this->content(implode("\n", $out));
+    }
+
+    /** @return array<string, mixed> */
+    private function departmentList(): array
+    {
+        $departments = $this->query->departments();
+        if (!$departments) {
+            return $this->content('Отделов нет.');
+        }
+
+        $out = ['Отделы:'];
+        foreach ($departments as $d) {
+            $out[] = '  #' . $d['id'] . ' ' . $d['name'] . ' (группа #' . $d['usergroup_id'] . ')';
+        }
+
+        return $this->content(implode("\n", $out));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function typeList(array $args): array
+    {
+        $project = $this->resolveProject($this->str($args['project'] ?? null));
+        if (!$project) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
+        }
+
+        $types = $this->query->types((int) $project->get('department_id'));
+        if (!$types) {
+            return $this->content('В отделе проекта нет типов задач.');
+        }
+
+        $out = ['Типы задач (отдел проекта [' . $project->get('key') . ']):'];
+        foreach ($types as $t) {
+            $out[] = '  [' . $t['key'] . '] ' . $t['name'];
+        }
+
+        return $this->content(implode("\n", $out));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function stageList(array $args): array
+    {
+        $project = $this->resolveProject($this->str($args['project'] ?? null));
+        if (!$project) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
+        }
+
+        $columns = $this->query->columns((int) $project->get('id'));
+        if (!$columns) {
+            return $this->content('У проекта нет стадий.');
+        }
+
+        $out = ['Стадии проекта [' . $project->get('key') . ']:'];
+        foreach ($columns as $col) {
+            $flags = [];
+            if ($col['is_initial']) {
+                $flags[] = 'старт';
+            }
+            if ($col['is_final']) {
+                $flags[] = 'финальная';
+            }
+            $out[] = '  [' . $col['key'] . '] ' . $col['name'] . ($flags ? ' (' . implode(', ', $flags) . ')' : '');
         }
 
         return $this->content(implode("\n", $out));
@@ -310,10 +395,10 @@ final class Server
 
         foreach ($data['columns'] as $column) {
             $flags = [];
-            if ($column['is_ready']) {
-                $flags[] = 'можно брать: task_take';
+            if (!empty($column['is_initial'])) {
+                $flags[] = 'старт';
             }
-            if ($column['is_final']) {
+            if (!empty($column['is_final'])) {
                 $flags[] = 'финальная';
             }
             $tasks = $column['tasks'];
@@ -468,6 +553,7 @@ final class Server
             'type' => $this->str($args['type'] ?? null),
             'title' => $this->str($args['title'] ?? null),
             'deadline' => $this->deadline($args['deadline'] ?? null),
+            'assignee' => $args['assignee'] ?? null,
             'fields' => isset($args['fields']) && is_array($args['fields']) ? $args['fields'] : null,
             'tor' => $this->str($args['tor'] ?? null),
             'priority' => $this->int($args['priority'] ?? null),
@@ -489,19 +575,24 @@ final class Server
      *
      * @return array<string, mixed>
      */
-    private function taskTake(array $args): array
+    private function departmentUsers(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $project = $this->resolveProject($this->str($args['project'] ?? null));
+        if (!$project) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
         }
 
-        $result = $this->tasks->take($this->user, $taskId, self::CHANNEL);
-        if (!$result['success']) {
-            return $this->content($result['message'], true);
+        $users = $this->query->departmentUsers((int) $project->get('department_id'));
+        if (!$users) {
+            return $this->content('В отделе проекта нет пользователей — назначить некого.');
         }
 
-        return $this->content('Карточка #' . $taskId . ' взята в работу. Отчитывайтесь через task_comment, по готовности — task_move.');
+        $out = ['Кого можно назначить исполнителем (отдел проекта [' . $project->get('key') . ']):'];
+        foreach ($users as $u) {
+            $out[] = '  ' . $u['username'] . ' (#' . $u['id'] . ')';
+        }
+
+        return $this->content(implode("\n", $out));
     }
 
     /**

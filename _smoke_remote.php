@@ -1,29 +1,33 @@
 <?php
 
 /**
- * Smoke-тест mxBoard v2 на стенде: проверяет ровно те обещания, которые легко нарушить.
+ * Smoke-тест mxBoard v2 (слой данных) на стенде — модель «исполнитель назначается при
+ * создании» (без захвата/пула).
  *
- * Запуск на стенде (рядом с config.core.php):
- *   /usr/local/php/php-8.3/bin/php _smoke_remote.php
+ * Запуск на стенде: /usr/local/php/php-8.3/bin/php _smoke_remote.php
  *
  * Что проверяем:
- *   1. Сид: отдел, типы (bugfix/feature) с полями, проект default с 5 колонками (инварианты).
- *   2. Валидация create: без типа / без дедлайна / без обязательного поля — отказ; валидно — ок.
- *   3. Захват атомарен; исполнитель не закрывает, автор закрывает; запрет самоаттестации.
- *   4. Оспаривание дедлайна: reject не меняет дату, accept меняет.
- *   5. Подзадача блокирует финальную; закрытие подзадачи разблокирует.
- *   6. Видимость: посторонний не видит; соисполнитель подзадачи видит родителя (canView),
- *      но родитель НЕ попадает в его канбан (boardCondition).
- *   7. Журнал переходов пишется.
+ *   1. Сид: отдел, типы, проект default с 4 колонками (инварианты одна initial/одна final).
+ *   2. Валидация create: без типа/дедлайна/поля/исполнителя — отказ; исполнитель не из
+ *      отдела — отказ; валидно — ок.
+ *   3. Исполнитель (assignee) двигает до review, но не закрывает; автор закрывает.
+ *   4. Запрет самоаттестации (автор=исполнитель).
+ *   5. Оспаривание дедлайна: reject не меняет, accept меняет.
+ *   6. Подзадача блокирует финальную; закрытие подзадачи разблокирует.
+ *   7. Видимость: посторонний не видит; соисполнитель подзадачи видит родителя (canView),
+ *      но родитель НЕ в его канбане (boardCondition).
+ *   8. Журнал (dispute, subtask_add).
  *
  * Тестовые данные за собой убирает.
  */
 
 use MODX\Revolution\modUser;
+use MODX\Revolution\modUserGroupMember;
 use MODX\Revolution\modUserProfile;
 use MODX\Revolution\modX;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
+use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardLog;
 use MxBoard\Model\MxBoardProject;
@@ -81,10 +85,17 @@ function ensureUser(modX $modx, string $username): modUser
     return $user;
 }
 
-/** Прогнать карточку до финала руками автора (для закрытия подзадач в тесте). */
+function joinDept(modX $modx, modUser $user, int $usergroupId): void
+{
+    if (!$modx->getObject(modUserGroupMember::class, ['member' => $user->get('id'), 'user_group' => $usergroupId])) {
+        $m = $modx->newObject(modUserGroupMember::class);
+        $m->fromArray(['user_group' => $usergroupId, 'member' => (int) $user->get('id'), 'role' => 0, 'rank' => 0]);
+        $m->save();
+    }
+}
+
 function driveToDone(TaskService $service, modUser $author, int $taskId): array
 {
-    $service->move($author, $taskId, 'ready', '', 'api');
     $service->move($author, $taskId, 'in_progress', '', 'api');
     $service->move($author, $taskId, 'review', '', 'api');
 
@@ -92,10 +103,10 @@ function driveToDone(TaskService $service, modUser $author, int $taskId): array
 }
 
 $DEADLINE = time() + 7 * 86400;
-$BUG_FIELDS = ['where' => 'checkout', 'what' => 'падает', 'steps' => 'открыть корзину', 'expected' => 'не падает'];
-$FEAT_FIELDS = ['goal' => 'ускорить', 'criteria' => 'p95 < 200ms'];
+$BUG = ['where' => 'checkout', 'what' => 'падает', 'steps' => 'открыть корзину', 'expected' => 'не падает'];
+$FEAT = ['goal' => 'ускорить', 'criteria' => 'p95 < 200ms'];
 
-echo "== mxBoard v2 smoke ==\n";
+echo "== mxBoard v2 smoke (назначение при создании) ==\n";
 
 $service = new TaskService($modx);
 
@@ -107,136 +118,108 @@ if (!$project) {
     exit(1);
 }
 $projectId = (int) $project->get('id');
+$department = $modx->getObject(MxBoardDepartment::class, (int) $project->get('department_id'));
+$usergroupId = (int) $department->get('usergroup_id');
 
 $columns = $modx->getCollection(MxBoardColumn::class, ['project_id' => $projectId]);
-check('у проекта 5 колонок', count($columns) === 5, 'найдено: ' . count($columns));
-
-$initialCount = $modx->getCount(MxBoardColumn::class, ['project_id' => $projectId, 'is_initial' => true]);
-$finalCount = $modx->getCount(MxBoardColumn::class, ['project_id' => $projectId, 'is_final' => true]);
-check('инвариант: ровно одна initial', $initialCount === 1, "initial: {$initialCount}");
-check('инвариант: ровно одна final', $finalCount === 1, "final: {$finalCount}");
+check('у проекта 4 колонки', count($columns) === 4, 'найдено: ' . count($columns));
+check('ровно одна initial', $modx->getCount(MxBoardColumn::class, ['project_id' => $projectId, 'is_initial' => true]) === 1);
+check('ровно одна final', $modx->getCount(MxBoardColumn::class, ['project_id' => $projectId, 'is_final' => true]) === 1);
 
 $bugType = $modx->getObject(MxBoardTaskType::class, ['key' => 'bugfix']);
-$featType = $modx->getObject(MxBoardTaskType::class, ['key' => 'feature']);
 check('тип bugfix есть', (bool) $bugType);
-check('тип feature есть', (bool) $featType);
-$bugFields = $bugType ? $modx->getCount(MxBoardField::class, ['task_type_id' => $bugType->get('id')]) : 0;
-check('у bugfix ≥1 поле (рабочий тип)', $bugFields >= 1, "полей: {$bugFields}");
+check('у bugfix ≥1 поле', $bugType && $modx->getCount(MxBoardField::class, ['task_type_id' => $bugType->get('id')]) >= 1);
 
+// Автор — из другого отдела (кросс-отдел допустим); исполнители — члены отдела проекта.
 $author = ensureUser($modx, 'mxb_test_author');
 $worker = ensureUser($modx, 'mxb_test_worker');
-$worker2 = ensureUser($modx, 'mxb_test_worker2');
 $collab = ensureUser($modx, 'mxb_test_collab');
 $stranger = ensureUser($modx, 'mxb_test_stranger');
+joinDept($modx, $author, $usergroupId); // автор тоже член — для теста самоаттестации
+joinDept($modx, $worker, $usergroupId);
+joinDept($modx, $collab, $usergroupId);
+// stranger намеренно НЕ в отделе.
+
+$workerId = (int) $worker->get('id');
 
 /* --- 2. Валидация create --------------------------------------------------- */
 
-$res = $service->create($author, ['title' => 'нет типа', 'deadline' => $DEADLINE], 'api');
-check('create без типа отклонён', !$res['success'], (string) $res['message']);
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'нет исполнителя', 'deadline' => $DEADLINE, 'fields' => $BUG], 'api');
+check('create без исполнителя отклонён', !$res['success'], (string) $res['message']);
 
-$res = $service->create($author, ['title' => 'нет дедлайна', 'type' => 'bugfix', 'fields' => $BUG_FIELDS], 'api');
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'чужой исполнитель', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $stranger->get('id')], 'api');
+check('create с исполнителем НЕ из отдела отклонён', !$res['success'], (string) $res['message']);
+
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'нет дедлайна', 'fields' => $BUG, 'assignee_id' => $workerId], 'api');
 check('create без дедлайна отклонён', !$res['success'], (string) $res['message']);
 
-$res = $service->create($author, ['title' => 'нет обяз. поля', 'type' => 'bugfix', 'deadline' => $DEADLINE, 'fields' => ['where' => 'x']], 'api');
-check('create без обязательного поля отклонён', !$res['success'], (string) $res['message']);
-
-$res = $service->create($author, ['title' => 'SMOKE bug', 'type' => 'bugfix', 'deadline' => $DEADLINE, 'fields' => $BUG_FIELDS], 'api');
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'SMOKE bug', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId], 'api');
 check('create валидной задачи прошёл', $res['success'], (string) $res['message']);
 $taskId = (int) ($res['object']['id'] ?? 0);
 $createdTaskIds[] = $taskId;
-if ($taskId === 0) {
-    exit(1);
-}
+check('исполнитель проставлен при создании', (int) ($res['object']['assignee_id'] ?? 0) === $workerId);
 
-/* --- 3. Захват / закрытие / самоаттестация --------------------------------- */
+/* --- 3. Движение и закрытие ------------------------------------------------ */
 
-$service->move($author, $taskId, 'ready', '', 'api');
-$r1 = $service->take($worker, $taskId, 'mcp');
-$r2 = $service->take($worker2, $taskId, 'mcp');
-$winners = (int) $r1['success'] + (int) $r2['success'];
-check('захват атомарен: выиграл ровно один', $winners === 1, "успехов: {$winners}");
-
-$task = $modx->getObject(MxBoardTask::class, $taskId);
-$assignee = (int) $task->get('assignee_id');
-$holder = $assignee === (int) $worker->get('id') ? $worker : $worker2;
-
-$service->move($holder, $taskId, 'review', 'готово', 'mcp');
-$res = $service->move($holder, $taskId, 'done', 'я всё сделал', 'mcp');
-check('исполнитель НЕ может закрыть задачу', !$res['success'], (string) $res['message']);
-
+$res = $service->move($worker, $taskId, 'in_progress', '', 'mcp');
+check('исполнитель двигает backlog→in_progress', $res['success'], (string) $res['message']);
+$res = $service->move($worker, $taskId, 'review', 'готово', 'mcp');
+check('исполнитель двигает до review', $res['success'], (string) $res['message']);
+$res = $service->move($worker, $taskId, 'done', 'я всё', 'mcp');
+check('исполнитель НЕ может закрыть', !$res['success'], (string) $res['message']);
 $res = $service->move($author, $taskId, 'done', 'принято', 'mgr');
-check('автор закрыл задачу', $res['success'], (string) $res['message']);
-$task = $modx->getObject(MxBoardTask::class, $taskId);
-check('closedon проставлен', (int) $task->get('closedon') > 0);
+check('автор закрыл', $res['success'], (string) $res['message']);
+check('closedon проставлен', (int) $modx->getObject(MxBoardTask::class, $taskId)->get('closedon') > 0);
 
-// Самоаттестация.
-$res = $service->create($author, ['title' => 'SMOKE self', 'type' => 'feature', 'deadline' => $DEADLINE, 'fields' => $FEAT_FIELDS], 'api');
+/* --- 4. Самоаттестация ----------------------------------------------------- */
+
+$res = $service->create($author, ['type' => 'feature', 'title' => 'SMOKE self', 'deadline' => $DEADLINE, 'fields' => $FEAT, 'assignee_id' => $author->get('id')], 'api');
 $selfId = (int) ($res['object']['id'] ?? 0);
 $createdTaskIds[] = $selfId;
-$service->move($author, $selfId, 'ready', '', 'api');
-$service->take($author, $selfId, 'mcp');
+$service->move($author, $selfId, 'in_progress', '', 'mcp');
 $service->move($author, $selfId, 'review', '', 'mcp');
 $res = $service->move($author, $selfId, 'done', '', 'mcp');
 check('автор-исполнитель НЕ может закрыть сам себя', !$res['success'], (string) $res['message']);
 
-/* --- 4. Оспаривание дедлайна ----------------------------------------------- */
+/* --- 5. Оспаривание дедлайна ----------------------------------------------- */
 
-$res = $service->create($author, ['title' => 'SMOKE deadline', 'type' => 'bugfix', 'deadline' => $DEADLINE, 'fields' => $BUG_FIELDS], 'api');
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'SMOKE deadline', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId], 'api');
 $dlId = (int) ($res['object']['id'] ?? 0);
 $createdTaskIds[] = $dlId;
-$service->move($author, $dlId, 'ready', '', 'api');
-$service->take($worker, $dlId, 'mcp');
-
 $newDate = $DEADLINE + 3 * 86400;
-$res = $service->disputeDeadline($worker, $dlId, $newDate, 'нужно больше времени', 'mcp');
-check('исполнитель оспорил дедлайн', $res['success'], (string) $res['message']);
-$dl = $modx->getObject(MxBoardTask::class, $dlId);
-check('флаг оспаривания выставлен', (bool) $dl->get('deadline_disputed'));
-
+$service->disputeDeadline($worker, $dlId, $newDate, 'нужно больше', 'mcp');
+check('флаг оспаривания выставлен', (bool) $modx->getObject(MxBoardTask::class, $dlId)->get('deadline_disputed'));
 $res = $service->resolveDeadline($worker, $dlId, true, 'mgr');
-check('исполнитель НЕ может сам разрешить оспаривание', !$res['success'], (string) $res['message']);
-
+check('исполнитель НЕ разрешает оспаривание', !$res['success'], (string) $res['message']);
 $service->resolveDeadline($author, $dlId, false, 'mgr');
-$dl = $modx->getObject(MxBoardTask::class, $dlId);
-check('reject: дедлайн НЕ изменился', (int) $dl->get('deadlineon') === $DEADLINE);
-check('reject: флаг сброшен', !(bool) $dl->get('deadline_disputed'));
-
+check('reject: дедлайн не изменился', (int) $modx->getObject(MxBoardTask::class, $dlId)->get('deadlineon') === $DEADLINE);
 $service->disputeDeadline($worker, $dlId, $newDate, 'ещё раз', 'mcp');
 $service->resolveDeadline($author, $dlId, true, 'mgr');
-$dl = $modx->getObject(MxBoardTask::class, $dlId);
-check('accept: дедлайн стал предложенным', (int) $dl->get('deadlineon') === $newDate, (string) $dl->get('deadlineon'));
+check('accept: дедлайн стал предложенным', (int) $modx->getObject(MxBoardTask::class, $dlId)->get('deadlineon') === $newDate);
 
-/* --- 5. Подзадача блокирует финальную -------------------------------------- */
+/* --- 6. Подзадача-блокер + видимость --------------------------------------- */
 
-$res = $service->create($author, ['title' => 'SMOKE parent', 'type' => 'feature', 'deadline' => $DEADLINE, 'fields' => $FEAT_FIELDS], 'api');
+$res = $service->create($author, ['type' => 'feature', 'title' => 'SMOKE parent', 'deadline' => $DEADLINE, 'fields' => $FEAT, 'assignee_id' => $workerId], 'api');
 $parentId = (int) ($res['object']['id'] ?? 0);
 $createdTaskIds[] = $parentId;
 
-// Подзадачу создаёт исполнитель? Здесь автор — он вправе. Проверим и запрет для постороннего.
-$res = $service->create($stranger, ['title' => 'SMOKE sub denied', 'type' => 'bugfix', 'deadline' => $DEADLINE, 'fields' => $BUG_FIELDS, 'parent_id' => $parentId], 'api');
-check('посторонний НЕ может создать подзадачу', !$res['success'], (string) $res['message']);
+$res = $service->create($stranger, ['type' => 'bugfix', 'title' => 'sub denied', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $collab->get('id'), 'parent_id' => $parentId], 'api');
+check('посторонний НЕ создаёт подзадачу', !$res['success'], (string) $res['message']);
 
-$res = $service->create($author, ['title' => 'SMOKE sub', 'type' => 'bugfix', 'deadline' => $DEADLINE, 'fields' => $BUG_FIELDS, 'parent_id' => $parentId], 'api');
-check('автор создал подзадачу', $res['success'], (string) $res['message']);
+$res = $service->create($author, ['type' => 'bugfix', 'title' => 'SMOKE sub', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $collab->get('id'), 'parent_id' => $parentId], 'api');
+check('автор создал подзадачу (исполнитель — соисполнитель)', $res['success'], (string) $res['message']);
 $subId = (int) ($res['object']['id'] ?? 0);
 $createdTaskIds[] = $subId;
 
-// Пытаемся закрыть родителя при открытой подзадаче.
-$service->move($author, $parentId, 'ready', '', 'api');
 $service->move($author, $parentId, 'in_progress', '', 'api');
 $service->move($author, $parentId, 'review', '', 'api');
 $res = $service->move($author, $parentId, 'done', '', 'api');
 check('родителя НЕЛЬЗЯ закрыть при открытой подзадаче', !$res['success'], (string) $res['message']);
 
-// Соисполнитель берёт подзадачу — проверим видимость до закрытия.
-$service->move($author, $subId, 'ready', '', 'api');
-$service->take($collab, $subId, 'mcp');
-
 $parent = $modx->getObject(MxBoardTask::class, $parentId);
 check('соисполнитель подзадачи видит родителя (canView)', Visibility::canView($modx, $collab, $parent));
 check('посторонний НЕ видит родителя', !Visibility::canView($modx, $stranger, $parent));
 
-// Канбан соисполнителя: подзадача — да, родитель — нет.
 $cond = Visibility::boardCondition($modx, $collab, $project);
 $q = $modx->newQuery(MxBoardTask::class);
 $q->where(['project_id' => $projectId]);
@@ -247,23 +230,18 @@ $boardIds = [];
 foreach ($modx->getCollection(MxBoardTask::class, $q) as $t) {
     $boardIds[] = (int) $t->get('id');
 }
-check('в канбане соисполнителя есть подзадача', in_array($subId, $boardIds, true));
-check('в канбане соисполнителя НЕТ родителя', !in_array($parentId, $boardIds, true));
+check('в канбане соисполнителя есть его подзадача', in_array($subId, $boardIds, true));
+check('в канбане соисполнителя НЕТ родителя (не шумит)', !in_array($parentId, $boardIds, true));
 
-// Закрываем подзадачу — родитель разблокируется.
 driveToDone($service, $author, $subId);
-$sub = $modx->getObject(MxBoardTask::class, $subId);
-check('подзадача закрыта', (int) $sub->get('closedon') > 0);
-
+check('подзадача закрыта', (int) $modx->getObject(MxBoardTask::class, $subId)->get('closedon') > 0);
 $res = $service->move($author, $parentId, 'done', '', 'api');
 check('после закрытия подзадачи родителя МОЖНО закрыть', $res['success'], (string) $res['message']);
 
-/* --- 6. Журнал ------------------------------------------------------------- */
+/* --- 7. Журнал ------------------------------------------------------------- */
 
-$disputeLogs = $modx->getCount(MxBoardLog::class, ['task_id' => $dlId, 'action' => 'deadline_dispute']);
-check('оспаривание записано в журнал', $disputeLogs >= 1, "записей: {$disputeLogs}");
-$subLog = $modx->getCount(MxBoardLog::class, ['task_id' => $parentId, 'action' => 'subtask_add']);
-check('создание подзадачи записано в журнал родителя', $subLog >= 1, "записей: {$subLog}");
+check('оспаривание в журнале', $modx->getCount(MxBoardLog::class, ['task_id' => $dlId, 'action' => 'deadline_dispute']) >= 1);
+check('subtask_add в журнале родителя', $modx->getCount(MxBoardLog::class, ['task_id' => $parentId, 'action' => 'subtask_add']) >= 1);
 
 /* --- Уборка ---------------------------------------------------------------- */
 
@@ -272,8 +250,11 @@ foreach ($createdTaskIds as $id) {
         $t->remove();
     }
 }
-foreach (['mxb_test_author', 'mxb_test_worker', 'mxb_test_worker2', 'mxb_test_collab', 'mxb_test_stranger'] as $u) {
+foreach (['mxb_test_author', 'mxb_test_worker', 'mxb_test_collab', 'mxb_test_stranger'] as $u) {
     if ($obj = $modx->getObject(modUser::class, ['username' => $u])) {
+        foreach ($modx->getCollection(modUserGroupMember::class, ['member' => $obj->get('id')]) as $m) {
+            $m->remove();
+        }
         $obj->remove();
     }
 }

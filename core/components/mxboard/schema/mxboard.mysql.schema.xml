@@ -84,8 +84,6 @@
         <field key="stage_key" dbtype="varchar" precision="100" phptype="string" null="true" default="" index="index"/>
         <!-- Колонка, в которую попадает новая карточка. Инвариант: ровно одна на проект. -->
         <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
-        <!-- Колонка, откуда исполнитель забирает карточку (захват). -->
-        <field key="is_ready" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <!-- Терминальная колонка: вход в неё = закрытие карточки. Инвариант: ровно одна на проект. -->
         <field key="is_final" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>

@@ -239,7 +239,6 @@ class StructureService
                 'move_roles' => $col['move_roles'],
                 'stage_key' => $col['stage_key'],
                 'is_initial' => $col['is_initial'],
-                'is_ready' => $col['is_ready'],
                 'is_final' => $col['is_final'],
                 'createdon' => $now,
             ]);
@@ -337,7 +336,6 @@ class StructureService
                 'move_roles' => trim((string) ($raw['move_roles'] ?? '')),
                 'stage_key' => trim((string) ($raw['stage_key'] ?? '')),
                 'is_initial' => $isInitial,
-                'is_ready' => !empty($raw['is_ready']),
                 'is_final' => $isFinal,
             ];
         }
@@ -369,7 +367,6 @@ class StructureService
                 'move_roles' => (string) $column->get('move_roles'),
                 'stage_key' => (string) $column->get('stage_key'),
                 'is_initial' => (bool) $column->get('is_initial'),
-                'is_ready' => (bool) $column->get('is_ready'),
                 'is_final' => (bool) $column->get('is_final'),
             ];
         }

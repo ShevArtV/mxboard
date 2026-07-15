@@ -108,6 +108,13 @@ if (!$modx->getObject(modUserGroupMember::class, ['user_group' => $usergroupId, 
     ]);
     $member->save();
 }
+// worker — рядовой член отдела (role=0): чтобы его можно было назначить исполнителем.
+if (!$modx->getObject(modUserGroupMember::class, ['user_group' => $usergroupId, 'member' => $worker->get('id')])) {
+    $wm = $modx->newObject(modUserGroupMember::class);
+    $wm->fromArray(['user_group' => $usergroupId, 'member' => (int) $worker->get('id'), 'role' => 0, 'rank' => 0]);
+    $wm->save();
+}
+$workerId = (int) $worker->get('id');
 
 // Пароль реально выставился (нужно для Basic-входа в curl-смоуке).
 check('пароль worker проверяется passwordMatches', $worker->passwordMatches('Worker!pass123'));
@@ -177,12 +184,26 @@ check('REST GET /projects', $r['status'] === 200 && $r['body']['success']);
 $r = $workerRest->dispatch('GET', ['board'], ['project' => 'default'], []);
 check('REST GET /board', $r['status'] === 200 && isset($r['body']['data']['columns']));
 
-// create → take → move → comment
-$r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'REST smoke', 'deadline' => $DEADLINE, 'fields' => $BUG]);
+// Списочные методы.
+$r = $workerRest->dispatch('GET', ['departments'], [], []);
+check('REST GET /departments', $r['status'] === 200 && is_array($r['body']['data']));
+$r = $workerRest->dispatch('GET', ['departments', (string) $departmentId, 'users'], [], []);
+check('REST GET /departments/{id}/users (worker в списке)', $r['status'] === 200
+    && in_array($workerId, array_map(static fn ($u) => (int) $u['id'], $r['body']['data']), true));
+$r = $workerRest->dispatch('GET', ['departments', (string) $departmentId, 'types'], [], []);
+check('REST GET /departments/{id}/types', $r['status'] === 200 && count($r['body']['data']) >= 1);
+$r = $workerRest->dispatch('GET', ['projects', (string) $projectId, 'columns'], [], []);
+check('REST GET /projects/{id}/columns (4 стадии)', $r['status'] === 200 && count($r['body']['data']) === 4);
+
+// create (исполнитель обязателен и из отдела) → get → comment
+$r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'REST smoke', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId]);
 check('REST POST /tasks создаёт (201)', $r['status'] === 201 && $r['body']['success'], (string) $r['body']['message']);
 $taskId = (int) ($r['body']['data']['id'] ?? 0);
+check('REST create: исполнитель проставлен', (int) ($r['body']['data']['assignee_id'] ?? 0) === $workerId);
 
-$workerRest->dispatch('POST', ['tasks', (string) $taskId, 'take'], [], []); // worker=автор берёт свою (для теста цепочки)
+$r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'no assignee', 'deadline' => $DEADLINE, 'fields' => $BUG]);
+check('REST POST /tasks без исполнителя → 400', $r['status'] === 400 && !$r['body']['success']);
+
 $r = $workerRest->dispatch('GET', ['tasks', (string) $taskId], [], []);
 check('REST GET /tasks/{id} с деталями', $r['status'] === 200 && (int) $r['body']['data']['id'] === $taskId);
 

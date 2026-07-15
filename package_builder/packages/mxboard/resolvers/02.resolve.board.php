@@ -157,18 +157,17 @@ foreach ($types as $tPos => $typeData) {
 
 /* --- Колонки: общий шаблон и конкретный проект ------------------------------ */
 
-// Пять стадий. Инвариант: ровно одна initial (backlog) и ровно одна final (done).
+// Четыре стадии. Инвариант: ровно одна initial (backlog) и ровно одна final (done).
+// Исполнитель назначается при создании — карточка сразу именная, «свободного пула» нет.
 $columns = [
-    // Постановка задач: кладёт автор (или менеджер с правом move_any).
-    ['key' => 'backlog', 'name' => 'Бэклог', 'position' => 0, 'move_roles' => 'author', 'stage_key' => 'backlog', 'is_initial' => true],
-    // Готово к работе: отсюда исполнитель забирает карточку захватом.
-    ['key' => 'ready', 'name' => 'Готово к работе', 'position' => 1, 'move_roles' => 'author', 'stage_key' => 'ready', 'is_ready' => true],
-    // В работе: двигает тот, кто взял.
-    ['key' => 'in_progress', 'name' => 'В работе', 'position' => 2, 'move_roles' => 'assignee', 'stage_key' => 'in_progress'],
+    // Бэклог: новая карточка падает сюда (с уже назначенным исполнителем).
+    ['key' => 'backlog', 'name' => 'Бэклог', 'position' => 0, 'move_roles' => 'assignee,author', 'stage_key' => 'backlog', 'is_initial' => true],
+    // В работе: двигает исполнитель.
+    ['key' => 'in_progress', 'name' => 'В работе', 'position' => 1, 'move_roles' => 'assignee', 'stage_key' => 'in_progress'],
     // На проверке: потолок исполнителя — дальше только автор.
-    ['key' => 'review', 'name' => 'На проверке', 'position' => 3, 'move_roles' => 'assignee,author', 'stage_key' => 'review'],
+    ['key' => 'review', 'name' => 'На проверке', 'position' => 2, 'move_roles' => 'assignee,author', 'stage_key' => 'review'],
     // Готово: закрывает ТОЛЬКО автор задачи (или менеджер). Исполнитель сюда не дотянется.
-    ['key' => 'done', 'name' => 'Готово', 'position' => 4, 'move_roles' => 'author', 'stage_key' => 'done', 'is_final' => true],
+    ['key' => 'done', 'name' => 'Готово', 'position' => 3, 'move_roles' => 'author', 'stage_key' => 'done', 'is_final' => true],
 ];
 
 $seedColumns = static function (int $projectId) use ($modx, $columns, $now): void {
@@ -183,7 +182,6 @@ $seedColumns = static function (int $projectId) use ($modx, $columns, $now): voi
             'project_id' => $projectId,
             'stage_key' => '',
             'is_initial' => false,
-            'is_ready' => false,
             'is_final' => false,
             'createdon' => $now,
         ], $data));

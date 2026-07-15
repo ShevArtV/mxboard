@@ -10,6 +10,7 @@ use MxBoard\Helpers\Transitions;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
+use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardLog;
 use MxBoard\Model\MxBoardProject;
@@ -93,6 +94,18 @@ class TaskService
             return $this->fail($fieldError);
         }
 
+        // Исполнитель назначается автором при создании: обязателен и строго из отдела проекта.
+        [$assignee, $assigneeError] = $this->resolveAssignee($data['assignee_id'] ?? $data['assignee'] ?? null, $project);
+        if ($assigneeError !== null) {
+            return $this->fail($assigneeError);
+        }
+        $assigneeId = (int) $assignee->get('id');
+
+        $limit = (int) $this->modx->getOption('mxboard.wip_limit', null, 0);
+        if ($limit > 0 && $this->openCountFor($assigneeId) >= $limit) {
+            return $this->fail('mxboard_err_wip_limit');
+        }
+
         $column = $this->columnBy($project, ['is_initial' => true]);
         if (!$column) {
             return $this->fail('mxboard_err_no_initial_column');
@@ -110,7 +123,7 @@ class TaskService
             'title' => $title,
             'tor' => (string) ($data['tor'] ?? ''),
             'author_id' => (int) $user->get('id'),
-            'assignee_id' => 0,
+            'assignee_id' => $assigneeId,
             'priority' => (int) ($data['priority'] ?? 0),
             'position' => $this->nextPosition((int) $column->get('id')),
             'deadlineon' => $deadline,
@@ -133,75 +146,6 @@ class TaskService
             // Отметка в журнале родителя: у него появилась (блокирующая) подзадача.
             $this->log($parent, $user, 'subtask_add', '', '', 'task#' . (int) $task->get('id'), $channel);
         }
-
-        return $this->ok($task);
-    }
-
-    /**
-     * Захватить свободную карточку из ready-колонки и перевести в работу.
-     *
-     * Захват атомарный: UPDATE ... WHERE assignee_id = 0 — гонку выигрывает ровно один
-     * агент, второй получает 0 затронутых строк и внятный отказ. Проверка «свободна?»
-     * отдельным SELECT'ом здесь не годится: между SELECT и UPDATE влезет второй агент.
-     *
-     * @return array{success: bool, message: string, object: array<string, mixed>|null}
-     */
-    public function take(modUser $user, int $taskId, string $channel = 'mcp'): array
-    {
-        /** @var MxBoardTask|null $task */
-        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
-        if (!$task) {
-            return $this->fail('mxboard_err_task_not_found');
-        }
-
-        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
-        $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
-        if (!$project || !$current) {
-            return $this->fail('mxboard_err_task_not_found');
-        }
-
-        // Брать можно только из колонки «готово к работе».
-        if (!(bool) $current->get('is_ready')) {
-            return $this->fail('mxboard_err_not_ready');
-        }
-
-        $target = $this->nextColumnAfter($project, $current);
-        if (!$target) {
-            return $this->fail('mxboard_err_no_next_column');
-        }
-
-        $userId = (int) $user->get('id');
-
-        $limit = (int) $this->modx->getOption('mxboard.wip_limit', null, 0);
-        if ($limit > 0 && $this->inProgressCount($project, $userId) >= $limit) {
-            return $this->fail('mxboard_err_wip_limit');
-        }
-
-        $table = $this->modx->getTableName(MxBoardTask::class);
-        $now = time();
-
-        $sql = "UPDATE {$table}
-                   SET assignee_id = :uid, column_id = :col, startedon = :now, updatedon = :now
-                 WHERE id = :id AND assignee_id = 0";
-
-        $stmt = $this->modx->prepare($sql);
-        $stmt->execute([
-            ':uid' => $userId,
-            ':col' => (int) $target->get('id'),
-            ':now' => $now,
-            ':id' => $taskId,
-        ]);
-
-        if ($stmt->rowCount() === 0) {
-            // Ноль строк = карточку уже забрали между нашим чтением и апдейтом.
-            return $this->fail('mxboard_err_already_taken');
-        }
-
-        /** @var MxBoardTask $task */
-        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
-
-        $this->log($task, $user, 'take', (string) $current->get('key'), (string) $target->get('key'), '', $channel);
-        $this->fireEvent('mxbOnTaskTake', $task, $user, ['channel' => $channel]);
 
         return $this->ok($task);
     }
@@ -275,58 +219,6 @@ class TaskService
         if ($isFinal) {
             $this->fireEvent('mxbOnTaskClose', $task, $user, ['channel' => $channel]);
         }
-
-        return $this->ok($task);
-    }
-
-    /**
-     * Отпустить карточку (вернуть в ready и снять исполнителя).
-     *
-     * @return array{success: bool, message: string, object: array<string, mixed>|null}
-     */
-    public function release(modUser $user, int $taskId, string $note = '', string $channel = 'mcp'): array
-    {
-        /** @var MxBoardTask|null $task */
-        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
-        if (!$task) {
-            return $this->fail('mxboard_err_task_not_found');
-        }
-
-        $userId = (int) $user->get('id');
-        $isAssignee = $userId === (int) $task->get('assignee_id');
-
-        if (!$isAssignee && !Transitions::isManager($this->modx, $user, $task)) {
-            return $this->fail('mxboard_err_move_denied');
-        }
-
-        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
-        $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
-        $ready = $project ? $this->columnBy($project, ['is_ready' => true]) : null;
-        if (!$ready) {
-            return $this->fail('mxboard_err_column_not_found');
-        }
-
-        $task->fromArray([
-            'assignee_id' => 0,
-            'column_id' => (int) $ready->get('id'),
-            'startedon' => 0,
-            'updatedon' => time(),
-        ]);
-
-        if (!$task->save()) {
-            return $this->fail('mxboard_err_save');
-        }
-
-        $this->log(
-            $task,
-            $user,
-            'release',
-            $current ? (string) $current->get('key') : '',
-            (string) $ready->get('key'),
-            $note,
-            $channel
-        );
-        $this->fireEvent('mxbOnTaskRelease', $task, $user, ['channel' => $channel]);
 
         return $this->ok($task);
     }
@@ -504,6 +396,15 @@ class TaskService
             $task->set('priority', (int) $data['priority']);
         }
 
+        // Переназначение: новый исполнитель тоже строго из отдела проекта.
+        if (array_key_exists('assignee_id', $data) || array_key_exists('assignee', $data)) {
+            [$assignee, $assigneeError] = $this->resolveAssignee($data['assignee_id'] ?? $data['assignee'], $project);
+            if ($assigneeError !== null) {
+                return $this->fail($assigneeError);
+            }
+            $task->set('assignee_id', (int) $assignee->get('id'));
+        }
+
         if (array_key_exists('deadline', $data) || array_key_exists('deadlineon', $data)) {
             $deadline = $this->normalizeDeadline($data['deadline'] ?? $data['deadlineon']);
             if ($deadline <= 0) {
@@ -659,6 +560,42 @@ class TaskService
     }
 
     /**
+     * Разрешить и провалидировать исполнителя. Обязателен и СТРОГО из отдела проекта
+     * (автор может быть из другого отдела — «программист ставит задачу дизайнеру», —
+     * но работать будет член отдела проекта).
+     *
+     * @param mixed $ref id (int) или username (string)
+     *
+     * @return array{0: modUser|null, 1: string|null} [исполнитель, ключ-ошибки]
+     */
+    private function resolveAssignee(mixed $ref, MxBoardProject $project): array
+    {
+        if ($ref === null || $ref === '' || $ref === 0 || $ref === '0') {
+            return [null, 'mxboard_err_assignee_required'];
+        }
+
+        $criteria = is_numeric($ref) ? ['id' => (int) $ref] : ['username' => (string) $ref];
+        /** @var modUser|null $assignee */
+        $assignee = $this->modx->getObject(modUser::class, $criteria);
+        if (!$assignee || !(bool) $assignee->get('active')) {
+            return [null, 'mxboard_err_assignee_not_found'];
+        }
+
+        /** @var MxBoardDepartment|null $department */
+        $department = $this->modx->getObject(MxBoardDepartment::class, (int) $project->get('department_id'));
+        $usergroupId = $department ? (int) $department->get('usergroup_id') : 0;
+        if ($usergroupId <= 0) {
+            return [null, 'mxboard_err_department_not_found'];
+        }
+
+        if (!Transitions::isDepartmentMember($this->modx, (int) $assignee->get('id'), $usergroupId)) {
+            return [null, 'mxboard_err_assignee_not_in_department'];
+        }
+
+        return [$assignee, null];
+    }
+
+    /**
      * Проверить и нормализовать значения полей типа.
      *
      * Обязательные поля должны быть заполнены; в результат кладём только известные ключи.
@@ -703,36 +640,13 @@ class TaskService
         ]) > 0;
     }
 
-    /** Следующая по порядку колонка (куда карточка едет при захвате). */
-    private function nextColumnAfter(MxBoardProject $project, MxBoardColumn $current): ?MxBoardColumn
+    /** Сколько незакрытых карточек на исполнителе (для wip_limit), по всем проектам. */
+    private function openCountFor(int $userId): int
     {
-        $c = $this->modx->newQuery(MxBoardColumn::class);
-        $c->where([
-            'project_id' => (int) $project->get('id'),
-            'position:>' => (int) $current->get('position'),
+        return (int) $this->modx->getCount(MxBoardTask::class, [
+            'assignee_id' => $userId,
+            'closedon' => 0,
         ]);
-        $c->sortby('position', 'ASC');
-        $c->limit(1);
-
-        /** @var MxBoardColumn|null $column */
-        $column = $this->modx->getObject(MxBoardColumn::class, $c);
-
-        return $column;
-    }
-
-    /** Сколько карточек уже в работе у пользователя (для wip_limit). */
-    private function inProgressCount(MxBoardProject $project, int $userId): int
-    {
-        $c = $this->modx->newQuery(MxBoardTask::class);
-        $c->innerJoin(MxBoardColumn::class, 'Column');
-        $c->where([
-            'MxBoardTask.project_id' => (int) $project->get('id'),
-            'MxBoardTask.assignee_id' => $userId,
-            'Column.is_final' => false,
-            'MxBoardTask.startedon:>' => 0,
-        ]);
-
-        return (int) $this->modx->getCount(MxBoardTask::class, $c);
     }
 
     private function nextPosition(int $columnId): int

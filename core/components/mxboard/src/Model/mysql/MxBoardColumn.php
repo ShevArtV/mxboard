@@ -24,7 +24,6 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'move_roles' => '',
             'stage_key' => '',
             'is_initial' => 0,
-            'is_ready' => 0,
             'is_final' => 0,
             'createdon' => 0,
         ),
@@ -85,15 +84,6 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'index' => 'index',
             ),
             'is_initial' => 
-            array (
-                'dbtype' => 'tinyint',
-                'precision' => '1',
-                'attributes' => 'unsigned',
-                'phptype' => 'boolean',
-                'null' => false,
-                'default' => 0,
-            ),
-            'is_ready' => 
             array (
                 'dbtype' => 'tinyint',
                 'precision' => '1',

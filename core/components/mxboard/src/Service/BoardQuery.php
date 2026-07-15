@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace MxBoard\Service;
 
 use MODX\Revolution\modUser;
+use MODX\Revolution\modUserGroupMember;
 use MODX\Revolution\modX;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
+use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardTask;
@@ -57,6 +59,117 @@ class BoardQuery
     }
 
     /**
+     * Список отделов (реестр). Имена/группы не секретны — скоуп по видимости на карточках.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function departments(): array
+    {
+        $c = $this->modx->newQuery(MxBoardDepartment::class);
+        $c->where(['active' => true]);
+        $c->sortby('position', 'ASC');
+
+        $out = [];
+        /** @var MxBoardDepartment $department */
+        foreach ($this->modx->getCollection(MxBoardDepartment::class, $c) as $department) {
+            $out[] = [
+                'id' => (int) $department->get('id'),
+                'usergroup_id' => (int) $department->get('usergroup_id'),
+                'name' => (string) $department->get('name'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Типы задач отдела (для формы создания: выбор типа).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function types(int $departmentId): array
+    {
+        $c = $this->modx->newQuery(MxBoardTaskType::class);
+        $c->where(['department_id' => $departmentId, 'active' => true]);
+        $c->sortby('position', 'ASC');
+
+        $out = [];
+        /** @var MxBoardTaskType $type */
+        foreach ($this->modx->getCollection(MxBoardTaskType::class, $c) as $type) {
+            $out[] = [
+                'id' => (int) $type->get('id'),
+                'key' => (string) $type->get('key'),
+                'name' => (string) $type->get('name'),
+                'description' => (string) $type->get('description'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Колонки/стадии проекта (для админки стадий и заголовков доски).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function columns(int $projectId): array
+    {
+        $c = $this->modx->newQuery(MxBoardColumn::class);
+        $c->where(['project_id' => $projectId]);
+        $c->sortby('position', 'ASC');
+
+        $out = [];
+        /** @var MxBoardColumn $column */
+        foreach ($this->modx->getCollection(MxBoardColumn::class, $c) as $column) {
+            $out[] = [
+                'id' => (int) $column->get('id'),
+                'key' => (string) $column->get('key'),
+                'name' => (string) $column->get('name'),
+                'position' => (int) $column->get('position'),
+                'move_roles' => (string) $column->get('move_roles'),
+                'stage_key' => (string) $column->get('stage_key'),
+                'is_initial' => (bool) $column->get('is_initial'),
+                'is_final' => (bool) $column->get('is_final'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Пользователи, которых можно назначить исполнителем в проектах отдела — члены его группы.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function departmentUsers(int $departmentId): array
+    {
+        /** @var MxBoardDepartment|null $department */
+        $department = $this->modx->getObject(MxBoardDepartment::class, $departmentId);
+        $usergroupId = $department ? (int) $department->get('usergroup_id') : 0;
+        if ($usergroupId <= 0) {
+            return [];
+        }
+
+        $c = $this->modx->newQuery(modUserGroupMember::class);
+        $c->innerJoin(modUser::class, 'User');
+        $c->where(['modUserGroupMember.user_group' => $usergroupId, 'User.active' => true]);
+        $c->select(['user_id' => 'User.id', 'username' => 'User.username']);
+        $c->sortby('User.username', 'ASC');
+
+        $c->prepare();
+        if (!$c->stmt || !$c->stmt->execute()) {
+            return [];
+        }
+
+        $out = [];
+        foreach ((array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $out[] = ['id' => (int) $row['user_id'], 'username' => (string) $row['username']];
+        }
+
+        return $out;
+    }
+
+    /**
      * Доска проекта: колонки и видимые карточки в них.
      *
      * @param array<string, mixed> $filters column (ключ), mine (bool), author_id, assignee_id
@@ -90,7 +203,7 @@ class BoardQuery
             $cols[] = [
                 'key' => $key,
                 'name' => (string) $column->get('name'),
-                'is_ready' => (bool) $column->get('is_ready'),
+                'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
                 'stage_key' => (string) $column->get('stage_key'),
                 'tasks' => $byColumn[$key] ?? [],
