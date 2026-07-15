@@ -156,13 +156,13 @@ if (!(bool) $modx->getOption('mxboard.mcp_enabled', null, true)) {
     mxb_rpc_error(403, -32001, $modx->lexicon('mxboard_err_mcp_disabled') ?: 'MCP endpoint is disabled', $id);
 }
 
-$bearer = \MxBoard\Helpers\TokenAuth::bearerFromRequest();
-$user = $bearer !== '' ? \MxBoard\Helpers\TokenAuth::authenticate($modx, $bearer) : null;
-unset($bearer, $raw); // секрет дальше не живёт и никуда не пишется
+// Оба метода: Authorization: Bearer <токен> или Basic <логин:пароль MODX>.
+$user = \MxBoard\Helpers\ApiAuth::authenticate($modx);
+unset($raw); // секрет дальше не живёт и никуда не пишется
 
 if (!$user) {
-    header('WWW-Authenticate: Bearer realm="mxboard"');
-    mxb_rpc_error(401, -32001, $modx->lexicon('mxboard_err_token_invalid') ?: 'Invalid token', $id);
+    header('WWW-Authenticate: Bearer realm="mxboard", Basic realm="mxboard"');
+    mxb_rpc_error(401, -32001, $modx->lexicon('mxboard_err_token_invalid') ?: 'Invalid credentials', $id);
 }
 
 // Всё, что дальше, происходит от имени владельца токена: и правила переходов,

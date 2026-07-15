@@ -160,12 +160,67 @@ class Transitions
         }
 
         $c = $modx->newQuery(modUserGroupMember::class);
-        $c->innerJoin(modUserGroupRole::class, 'Role');
+        $c->innerJoin(modUserGroupRole::class, 'UserGroupRole');
         $c->where([
             'modUserGroupMember.member' => $userId,
             'modUserGroupMember.user_group' => $usergroupId,
             'modUserGroupMember.role:!=' => 0,
-            'Role.authority:<=' => $threshold,
+            'UserGroupRole.authority:<=' => $threshold,
+        ]);
+
+        return (int) $modx->getCount(modUserGroupMember::class, $c) > 0;
+    }
+
+    /** Менеджер конкретного отдела: глобальный sudo или супер его группы. */
+    public static function isDepartmentManager(modX $modx, modUser $user, int $departmentId): bool
+    {
+        if (self::isSuperuser($modx, $user)) {
+            return true;
+        }
+
+        /** @var MxBoardDepartment|null $department */
+        $department = $modx->getObject(MxBoardDepartment::class, $departmentId);
+        $usergroupId = $department ? (int) $department->get('usergroup_id') : 0;
+
+        return $usergroupId > 0 && self::isGroupSuper($modx, $user, $usergroupId);
+    }
+
+    /**
+     * Менеджер хотя бы одного отдела — признак «агент-менеджер» для фильтра tools/list.
+     *
+     * Глобальный sudo, либо супер группы любого зарегистрированного отдела.
+     */
+    public static function isAnyDepartmentManager(modX $modx, modUser $user): bool
+    {
+        if (self::isSuperuser($modx, $user)) {
+            return true;
+        }
+
+        $userId = (int) $user->get('id');
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $threshold = (int) $modx->getOption('mxboard.group_admin_authority', null, 0);
+        if ($threshold <= 0) {
+            return false;
+        }
+
+        $deptGroups = [];
+        foreach ($modx->getCollection(MxBoardDepartment::class, ['active' => true]) as $department) {
+            $deptGroups[] = (int) $department->get('usergroup_id');
+        }
+        if (!$deptGroups) {
+            return false;
+        }
+
+        $c = $modx->newQuery(modUserGroupMember::class);
+        $c->innerJoin(modUserGroupRole::class, 'UserGroupRole');
+        $c->where([
+            'modUserGroupMember.member' => $userId,
+            'modUserGroupMember.user_group:IN' => $deptGroups,
+            'modUserGroupMember.role:!=' => 0,
+            'UserGroupRole.authority:<=' => $threshold,
         ]);
 
         return (int) $modx->getCount(modUserGroupMember::class, $c) > 0;

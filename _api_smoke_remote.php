@@ -1,0 +1,211 @@
+<?php
+
+/**
+ * Smoke Фазы 2 (in-process): фильтрация tools/list и маршрутизация REST/MCP напрямую,
+ * без HTTP — проверяем логику каналов и паритет прав. Транспорт+авторизацию проверяет
+ * отдельный curl-смоук с локали (для него скрипт готовит и печатает креды).
+ *
+ * Запуск на стенде: /usr/local/php/php-8.3/bin/php _api_smoke_remote.php
+ * Тестовые сущности НЕ убирает (нужны для curl) — уборка в _api_teardown_remote.php.
+ */
+
+use MODX\Revolution\modSystemSetting;
+use MODX\Revolution\modUser;
+use MODX\Revolution\modUserGroupMember;
+use MODX\Revolution\modUserGroupRole;
+use MODX\Revolution\modUserProfile;
+use MODX\Revolution\modX;
+use MxBoard\Mcp\Server;
+use MxBoard\Model\MxBoardDepartment;
+use MxBoard\Model\MxBoardProject;
+use MxBoard\Model\MxBoardToken;
+use MxBoard\Rest\Router;
+
+define('MODX_API_MODE', true);
+
+require_once __DIR__ . '/config.core.php';
+require_once MODX_CORE_PATH . 'vendor/autoload.php';
+
+$modx = modX::getInstance('mxbapismoke');
+$modx->initialize('mgr');
+$modx->getService('lexicon', 'modLexicon');
+$modx->lexicon->load('mxboard:default');
+
+$corePath = MODX_CORE_PATH . 'components/mxboard/';
+if (is_file($corePath . 'vendor/autoload.php')) {
+    require_once $corePath . 'vendor/autoload.php';
+}
+if (!isset($modx->packages['MxBoard\\Model'])) {
+    $modx->addPackage('MxBoard\\Model', $corePath . 'src/', null, 'MxBoard\\');
+}
+
+$pass = 0;
+$fail = 0;
+function check(string $name, bool $ok, string $detail = ''): void
+{
+    global $pass, $fail;
+    if ($ok) {
+        $pass++;
+        echo "  OK   {$name}\n";
+    } else {
+        $fail++;
+        echo "  FAIL {$name}" . ($detail !== '' ? " — {$detail}" : '') . "\n";
+    }
+}
+
+function ensureUser(modX $modx, string $username, string $password, bool $sudo): modUser
+{
+    /** @var modUser|null $user */
+    $user = $modx->getObject(modUser::class, ['username' => $username]);
+    if (!$user) {
+        $user = $modx->newObject(modUser::class);
+        $user->set('username', $username);
+        $profile = $modx->newObject(modUserProfile::class);
+        $profile->set('email', $username . '@mxboard.test');
+        $user->addOne($profile);
+    }
+    $user->set('active', 1);
+    $user->set('sudo', $sudo);
+    $user->set('password', $password);
+    $user->save();
+
+    return $user;
+}
+
+echo "== mxBoard API smoke (in-process) ==\n";
+
+$worker = ensureUser($modx, 'mxb_api_worker', 'Worker!pass123', false);
+$mgr = ensureUser($modx, 'mxb_api_mgr', 'Mgr!pass123', false);
+
+$project = $modx->getObject(MxBoardProject::class, ['key' => 'default']);
+$departmentId = (int) $project->get('department_id');
+$department = $modx->getObject(MxBoardDepartment::class, $departmentId);
+$usergroupId = (int) $department->get('usergroup_id');
+
+// Делаем mgr менеджером отдела через НАСТОЯЩИЙ механизм: членство в группе отдела с
+// ролью низкого authority + порог group_admin_authority. Флаг sudo через API не ставится
+// (MODX защищает). Порог пишем в БД и сбрасываем кэш настроек — чтобы и curl-процесс увидел.
+$modx->setOption('mxboard.group_admin_authority', 9999);
+if ($setting = $modx->getObject(modSystemSetting::class, 'mxboard.group_admin_authority')) {
+    $setting->set('value', '9999');
+    $setting->save();
+}
+$modx->getCacheManager()->refresh(['system_settings' => []]);
+
+$role = $modx->getObject(modUserGroupRole::class, ['name' => 'mxb-smoke-admin']);
+if (!$role) {
+    $role = $modx->newObject(modUserGroupRole::class);
+    $role->fromArray(['name' => 'mxb-smoke-admin', 'authority' => 1]);
+    $role->save();
+}
+if (!$modx->getObject(modUserGroupMember::class, ['user_group' => $usergroupId, 'member' => $mgr->get('id')])) {
+    $member = $modx->newObject(modUserGroupMember::class);
+    $member->fromArray([
+        'user_group' => $usergroupId,
+        'member' => (int) $mgr->get('id'),
+        'role' => (int) $role->get('id'),
+        'rank' => 0,
+    ]);
+    $member->save();
+}
+
+// Пароль реально выставился (нужно для Basic-входа в curl-смоуке).
+check('пароль worker проверяется passwordMatches', $worker->passwordMatches('Worker!pass123'));
+check('пароль mgr проверяется passwordMatches', $mgr->passwordMatches('Mgr!pass123'));
+
+// Токен для worker (Bearer в curl-смоуке).
+$rawToken = bin2hex(random_bytes(24));
+foreach ($modx->getCollection(MxBoardToken::class, ['user_id' => $worker->get('id')]) as $t) {
+    $t->remove();
+}
+$token = $modx->newObject(MxBoardToken::class);
+$token->fromArray([
+    'user_id' => (int) $worker->get('id'),
+    'name' => 'api-smoke',
+    'token_hash' => hash('sha256', $rawToken),
+    'active' => true,
+    'createdon' => time(),
+]);
+$token->save();
+
+$DEADLINE = time() + 7 * 86400;
+$BUG = ['where' => 'checkout', 'what' => 'падает', 'steps' => 'открыть', 'expected' => 'ок'];
+
+/* --- MCP: фильтрация tools/list --------------------------------------------- */
+
+$toolNames = static function (Server $s): array {
+    $resp = $s->handle(['jsonrpc' => '2.0', 'id' => 1, 'method' => 'tools/list']);
+    $names = [];
+    foreach ($resp['result']['tools'] ?? [] as $t) {
+        $names[] = $t['name'];
+    }
+    return $names;
+};
+
+$workerMcp = new Server($modx, $worker);
+$mgrMcp = new Server($modx, $mgr);
+
+$wNames = $toolNames($workerMcp);
+$mNames = $toolNames($mgrMcp);
+
+check('MCP worker видит базовые тулы (task_create)', in_array('task_create', $wNames, true));
+check('MCP worker НЕ видит структурные (type_create)', !in_array('type_create', $wNames, true));
+check('MCP mgr видит структурные (type_create/project_create/department_register)',
+    in_array('type_create', $mNames, true) && in_array('project_create', $mNames, true) && in_array('department_register', $mNames, true));
+
+// MCP tools/call: project_list доступен, type_create — только менеджеру.
+$call = static function (Server $s, string $name, array $args): array {
+    return $s->handle(['jsonrpc' => '2.0', 'id' => 2, 'method' => 'tools/call', 'params' => ['name' => $name, 'arguments' => $args]]);
+};
+$r = $call($workerMcp, 'project_list', []);
+check('MCP project_list работает', empty($r['result']['isError']));
+
+$r = $call($workerMcp, 'type_create', ['department_id' => $departmentId, 'key' => 'x', 'name' => 'X', 'fields' => [['key' => 'a', 'label' => 'A']]]);
+check('MCP type_create отклонён для worker', !empty($r['result']['isError']));
+
+$r = $call($mgrMcp, 'type_create', ['department_id' => $departmentId, 'key' => 'smoke_type', 'name' => 'Smoke', 'fields' => [['key' => 'note', 'label' => 'Заметка', 'required' => true]]]);
+check('MCP type_create проходит у mgr', empty($r['result']['isError']), json_encode($r['result']['content'][0]['text'] ?? '', JSON_UNESCAPED_UNICODE));
+
+/* --- REST: маршрутизация Router --------------------------------------------- */
+
+$workerRest = new Router($modx, $worker);
+$mgrRest = new Router($modx, $mgr);
+
+$r = $workerRest->dispatch('GET', ['projects'], [], []);
+check('REST GET /projects', $r['status'] === 200 && $r['body']['success']);
+
+$r = $workerRest->dispatch('GET', ['board'], ['project' => 'default'], []);
+check('REST GET /board', $r['status'] === 200 && isset($r['body']['data']['columns']));
+
+// create → take → move → comment
+$r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'REST smoke', 'deadline' => $DEADLINE, 'fields' => $BUG]);
+check('REST POST /tasks создаёт (201)', $r['status'] === 201 && $r['body']['success'], (string) $r['body']['message']);
+$taskId = (int) ($r['body']['data']['id'] ?? 0);
+
+$workerRest->dispatch('POST', ['tasks', (string) $taskId, 'take'], [], []); // worker=автор берёт свою (для теста цепочки)
+$r = $workerRest->dispatch('GET', ['tasks', (string) $taskId], [], []);
+check('REST GET /tasks/{id} с деталями', $r['status'] === 200 && (int) $r['body']['data']['id'] === $taskId);
+
+$r = $workerRest->dispatch('POST', ['tasks', (string) $taskId, 'comment'], [], ['content' => 'из REST']);
+check('REST POST /tasks/{id}/comment', $r['status'] === 200 && $r['body']['success'], (string) $r['body']['message']);
+
+// Структура: worker запрещено, mgr можно.
+$r = $workerRest->dispatch('POST', ['types'], [], ['department_id' => $departmentId, 'key' => 'y', 'name' => 'Y', 'fields' => [['key' => 'a', 'label' => 'A']]]);
+check('REST POST /types отклонён для worker', $r['status'] === 400 && !$r['body']['success']);
+
+$r = $mgrRest->dispatch('POST', ['projects'], [], ['department_id' => $departmentId, 'key' => 'smoke_proj', 'name' => 'Smoke proj']);
+check('REST POST /projects проходит у mgr (из шаблона колонок)', $r['status'] === 201 && $r['body']['success'], (string) $r['body']['message']);
+
+$r = $workerRest->dispatch('GET', ['nope'], [], []);
+check('REST неизвестный маршрут → 404', $r['status'] === 404);
+
+// Уборка созданных в этом смоуке задач (пользователей/токен оставляем для curl).
+if ($taskId) {
+    $workerRest->dispatch('DELETE', ['tasks', (string) $taskId], [], []);
+}
+
+echo "\n== Итог in-process: {$pass} прошло, {$fail} упало ==\n";
+echo "CREDS worker_token={$rawToken}\n";
+echo "CREDS worker_user=mxb_api_worker worker_pass=Worker!pass123\n";
+echo "CREDS mgr_user=mxb_api_mgr mgr_pass=Mgr!pass123\n";
+exit($fail > 0 ? 1 : 0);

@@ -78,7 +78,7 @@ class TaskService
             return $this->fail('mxboard_err_title_too_long');
         }
 
-        $deadline = (int) ($data['deadline'] ?? $data['deadlineon'] ?? 0);
+        $deadline = $this->normalizeDeadline($data['deadline'] ?? $data['deadlineon'] ?? null);
         if ($deadline <= 0) {
             return $this->fail('mxboard_err_deadline_required');
         }
@@ -505,7 +505,7 @@ class TaskService
         }
 
         if (array_key_exists('deadline', $data) || array_key_exists('deadlineon', $data)) {
-            $deadline = (int) ($data['deadline'] ?? $data['deadlineon']);
+            $deadline = $this->normalizeDeadline($data['deadline'] ?? $data['deadlineon']);
             if ($deadline <= 0) {
                 return $this->fail('mxboard_err_deadline_required');
             }
@@ -741,6 +741,25 @@ class TaskService
         $c->where(['column_id' => $columnId]);
 
         return (int) $this->modx->getCount(MxBoardTask::class, $c);
+    }
+
+    /**
+     * Разобрать дедлайн из любого канала: unix-число как есть, строку-дату — через strtotime.
+     *
+     * Централизовано ЗДЕСЬ, а не в фасадах (MCP/REST): иначе REST-путь принимал бы
+     * "2026-12-31" и обрезал его в (int) до 2026 (эпоха 1970-х) — задача создавалась бы
+     * с битым дедлайном, но валидацию (>0) проходила.
+     */
+    private function normalizeDeadline(mixed $value): int
+    {
+        if (is_numeric($value)) {
+            return (int) $value;
+        }
+        if (is_string($value) && trim($value) !== '') {
+            return (int) (strtotime(trim($value)) ?: 0);
+        }
+
+        return 0;
     }
 
     /**

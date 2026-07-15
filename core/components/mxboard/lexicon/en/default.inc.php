@@ -55,6 +55,26 @@ $_lang['mxboard_err_dispute_assignee_only'] = 'Only the assignee can dispute the
 $_lang['mxboard_err_no_dispute'] = 'There is no active deadline dispute on this task.';
 $_lang['mxboard_err_author_only'] = 'This action is available only to the task author or a manager.';
 
+// v2: structure (MCP/REST) and routing.
+$_lang['mxboard_err_group_required'] = 'User group is required.';
+$_lang['mxboard_err_group_not_found'] = 'User group not found.';
+$_lang['mxboard_err_structure_denied'] = 'Structure operations are available only to a department manager.';
+$_lang['mxboard_err_department_required'] = 'Department is required.';
+$_lang['mxboard_err_department_not_found'] = 'Department not found.';
+$_lang['mxboard_err_type_key_name_required'] = 'Task type requires a key and a name.';
+$_lang['mxboard_err_type_exists'] = 'A task type with this key already exists in the department.';
+$_lang['mxboard_err_field_invalid'] = 'Invalid type field (key and label are required).';
+$_lang['mxboard_err_field_duplicate'] = 'Duplicate field key.';
+$_lang['mxboard_err_field_type_invalid'] = 'Invalid field type.';
+$_lang['mxboard_err_project_key_name_required'] = 'Project requires a key and a name.';
+$_lang['mxboard_err_project_exists'] = 'A project with this key already exists in the department.';
+$_lang['mxboard_err_column_invalid'] = 'Invalid column (key and name are required).';
+$_lang['mxboard_err_column_duplicate'] = 'Duplicate column key.';
+$_lang['mxboard_err_column_invariant'] = 'Exactly one initial and exactly one final column are required.';
+$_lang['mxboard_err_no_template_columns'] = 'No column template (project_id=0).';
+$_lang['mxboard_err_route_not_found'] = 'Route not found.';
+$_lang['mxboard_err_api_disabled'] = 'REST API is disabled by the mxboard.api_enabled system setting.';
+
 $_lang['mxboard_department'] = 'Department';
 $_lang['mxboard_project'] = 'Project';
 $_lang['mxboard_task_type'] = 'Task type';
