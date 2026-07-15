@@ -17,14 +17,20 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
         ),
         'fields' => 
         array (
-            'board_id' => 0,
+            'project_id' => 0,
+            'parent_id' => 0,
+            'type_id' => 0,
             'column_id' => 0,
             'title' => '',
             'tor' => NULL,
             'author_id' => 0,
             'assignee_id' => 0,
-            'position' => 0,
             'priority' => 0,
+            'position' => 0,
+            'deadlineon' => 0,
+            'deadline_disputed' => 0,
+            'deadline_proposed' => 0,
+            'fields' => NULL,
             'meta' => NULL,
             'createdon' => 0,
             'updatedon' => 0,
@@ -33,7 +39,27 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
         ),
         'fieldMeta' => 
         array (
-            'board_id' => 
+            'project_id' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+                'index' => 'index',
+            ),
+            'parent_id' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+                'index' => 'index',
+            ),
+            'type_id' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -87,6 +113,15 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
+            'priority' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+            ),
             'position' => 
             array (
                 'dbtype' => 'integer',
@@ -97,14 +132,39 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'priority' => 
+            'deadlineon' => 
             array (
                 'dbtype' => 'integer',
-                'precision' => '11',
+                'precision' => '20',
                 'attributes' => 'unsigned',
                 'phptype' => 'integer',
                 'null' => false,
                 'default' => 0,
+                'index' => 'index',
+            ),
+            'deadline_disputed' => 
+            array (
+                'dbtype' => 'tinyint',
+                'precision' => '1',
+                'attributes' => 'unsigned',
+                'phptype' => 'boolean',
+                'null' => false,
+                'default' => 0,
+            ),
+            'deadline_proposed' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '20',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+            ),
+            'fields' => 
+            array (
+                'dbtype' => 'mediumtext',
+                'phptype' => 'json',
+                'null' => true,
             ),
             'meta' => 
             array (
@@ -152,15 +212,47 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
         ),
         'indexes' => 
         array (
-            'board_id' => 
+            'project_id' => 
             array (
-                'alias' => 'board_id',
+                'alias' => 'project_id',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'board_id' => 
+                    'project_id' => 
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
+            'parent_id' => 
+            array (
+                'alias' => 'parent_id',
+                'primary' => false,
+                'unique' => false,
+                'type' => 'BTREE',
+                'columns' => 
+                array (
+                    'parent_id' => 
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
+            'type_id' => 
+            array (
+                'alias' => 'type_id',
+                'primary' => false,
+                'unique' => false,
+                'type' => 'BTREE',
+                'columns' => 
+                array (
+                    'type_id' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -232,6 +324,22 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
+            'deadlineon' => 
+            array (
+                'alias' => 'deadlineon',
+                'primary' => false,
+                'unique' => false,
+                'type' => 'BTREE',
+                'columns' => 
+                array (
+                    'deadlineon' => 
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
             'createdon' => 
             array (
                 'alias' => 'createdon',
@@ -251,6 +359,14 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
         ),
         'composites' => 
         array (
+            'Subtasks' => 
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardTask',
+                'local' => 'id',
+                'foreign' => 'parent_id',
+                'cardinality' => 'many',
+                'owner' => 'local',
+            ),
             'Comments' => 
             array (
                 'class' => 'MxBoard\\Model\\MxBoardComment',
@@ -270,10 +386,10 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
         ),
         'aggregates' => 
         array (
-            'Board' => 
+            'Project' => 
             array (
-                'class' => 'MxBoard\\Model\\MxBoardBoard',
-                'local' => 'board_id',
+                'class' => 'MxBoard\\Model\\MxBoardProject',
+                'local' => 'project_id',
                 'foreign' => 'id',
                 'cardinality' => 'one',
                 'owner' => 'foreign',
@@ -282,6 +398,22 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             array (
                 'class' => 'MxBoard\\Model\\MxBoardColumn',
                 'local' => 'column_id',
+                'foreign' => 'id',
+                'cardinality' => 'one',
+                'owner' => 'foreign',
+            ),
+            'Type' => 
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardTaskType',
+                'local' => 'type_id',
+                'foreign' => 'id',
+                'cardinality' => 'one',
+                'owner' => 'foreign',
+            ),
+            'Parent' => 
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardTask',
+                'local' => 'parent_id',
                 'foreign' => 'id',
                 'cardinality' => 'one',
                 'owner' => 'foreign',

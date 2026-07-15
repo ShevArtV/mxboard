@@ -1,8 +1,8 @@
 <?php
 
 return [
-    // Доска по умолчанию: используется, когда клиент не указал board явно.
-    'mxboard.default_board' => [
+    // Проект по умолчанию: используется, когда клиент не указал project явно.
+    'mxboard.default_project' => [
         'xtype' => 'textfield',
         'value' => 'default',
         'area' => 'mxboard_main',
@@ -31,5 +31,18 @@ return [
         'xtype' => 'numberfield',
         'value' => '0',
         'area' => 'mxboard_rights',
+    ],
+    // Порог authority роли, при котором член группы отдела считается её супер-пользователем.
+    // В MODX меньше authority = больше прав; 0 = фича выключена (штатный минимум authority = 1).
+    'mxboard.group_admin_authority' => [
+        'xtype' => 'numberfield',
+        'value' => '0',
+        'area' => 'mxboard_rights',
+    ],
+    // Медиа-источник MODX для загрузки файлов в поля-файлы (0 — источник по умолчанию).
+    'mxboard.media_source' => [
+        'xtype' => 'numberfield',
+        'value' => '0',
+        'area' => 'mxboard_main',
     ],
 ];

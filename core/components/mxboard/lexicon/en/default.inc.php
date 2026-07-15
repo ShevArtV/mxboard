@@ -38,5 +38,30 @@ $_lang['mxboard_err_remove_denied'] = 'Only the task author can remove it.';
 $_lang['mxboard_err_remove_failed'] = 'Failed to remove.';
 $_lang['mxboard_err_user_not_found'] = 'User not found.';
 
+// v2: hierarchy, types, deadlines, subtasks.
+$_lang['mxboard_err_project_not_found'] = 'Project not found.';
+$_lang['mxboard_err_parent_not_found'] = 'Parent task not found.';
+$_lang['mxboard_err_parent_other_project'] = 'A subtask must belong to the same project as its parent.';
+$_lang['mxboard_err_subtask_denied'] = 'Only the author or assignee of the parent task can create a subtask.';
+$_lang['mxboard_err_title_too_long'] = 'Title exceeds 250 characters.';
+$_lang['mxboard_err_deadline_required'] = 'A valid deadline is required.';
+$_lang['mxboard_err_type_required'] = 'Task type is required.';
+$_lang['mxboard_err_type_not_found'] = 'Task type not found in this department.';
+$_lang['mxboard_err_type_no_fields'] = 'The task type has no fields — it is not a working type.';
+$_lang['mxboard_err_field_required'] = 'Not all required type fields are filled in.';
+$_lang['mxboard_err_open_subtasks'] = 'Cannot close the task: it has unfinished subtasks.';
+$_lang['mxboard_err_view_denied'] = 'You have no access to this task.';
+$_lang['mxboard_err_dispute_assignee_only'] = 'Only the assignee can dispute the deadline.';
+$_lang['mxboard_err_no_dispute'] = 'There is no active deadline dispute on this task.';
+$_lang['mxboard_err_author_only'] = 'This action is available only to the task author or a manager.';
+
+$_lang['mxboard_department'] = 'Department';
+$_lang['mxboard_project'] = 'Project';
+$_lang['mxboard_task_type'] = 'Task type';
+$_lang['mxboard_task_field'] = 'Field';
+$_lang['mxboard_task_deadline'] = 'Deadline';
+$_lang['mxboard_task_subtasks'] = 'Subtasks';
+$_lang['mxboard_deadline_disputed'] = 'Deadline disputed';
+
 $_lang['mxboard_token'] = 'Token';
 $_lang['mxboard_token_created'] = 'Token created. Copy it now — it will not be shown again.';

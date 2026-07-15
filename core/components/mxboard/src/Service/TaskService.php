@@ -7,27 +7,38 @@ namespace MxBoard\Service;
 use MODX\Revolution\modUser;
 use MODX\Revolution\modX;
 use MxBoard\Helpers\Transitions;
-use MxBoard\Model\MxBoardBoard;
+use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
+use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardLog;
+use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardTask;
+use MxBoard\Model\MxBoardTaskType;
 
 /**
  * Вся логика жизненного цикла карточки в одном месте.
  *
  * Процессоры (менеджер), REST и MCP — тонкие обёртки над этим сервисом: правила
- * перехода и журнал не должны зависеть от того, каким каналом пришёл запрос,
- * иначе агент найдёт канал, где проверка слабее.
+ * перехода, валидация и журнал не должны зависеть от того, каким каналом пришёл
+ * запрос, иначе агент найдёт канал, где проверка слабее.
  */
 class TaskService
 {
+    /** Длина заголовка — встроенный инвариант задачи. */
+    private const TITLE_MAX = 250;
+
     public function __construct(private modX $modx)
     {
     }
 
     /**
-     * Создать карточку. Попадает в initial-колонку доски.
+     * Создать карточку. Попадает в initial-колонку проекта.
+     *
+     * Валидация (встроенные инварианты + поля типа): тип обязателен и «рабочий»,
+     * title непустой ≤250, deadline > 0, обязательные поля типа заполнены. Если задан
+     * parent_id — это подзадача: родитель обязан существовать, быть в том же проекте,
+     * а создающий — его автором или исполнителем.
      *
      * @param array<string, mixed> $data
      *
@@ -35,17 +46,54 @@ class TaskService
      */
     public function create(modUser $user, array $data, string $channel = 'mgr'): array
     {
-        $board = $this->resolveBoard($data['board'] ?? null);
-        if (!$board) {
-            return $this->fail('mxboard_err_board_not_found');
+        $project = $this->resolveProject($data);
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+
+        // Подзадача: проверяем родителя и права до всего остального.
+        $parentId = (int) ($data['parent_id'] ?? 0);
+        $parent = null;
+        if ($parentId > 0) {
+            /** @var MxBoardTask|null $parent */
+            $parent = $this->modx->getObject(MxBoardTask::class, $parentId);
+            if (!$parent) {
+                return $this->fail('mxboard_err_parent_not_found');
+            }
+            if ((int) $parent->get('project_id') !== (int) $project->get('id')) {
+                return $this->fail('mxboard_err_parent_other_project');
+            }
+            $uid = (int) $user->get('id');
+            $isParentParty = $uid === (int) $parent->get('author_id') || $uid === (int) $parent->get('assignee_id');
+            if (!$isParentParty && !Transitions::isManager($this->modx, $user, $parent)) {
+                return $this->fail('mxboard_err_subtask_denied');
+            }
         }
 
         $title = trim((string) ($data['title'] ?? ''));
         if ($title === '') {
             return $this->fail('mxboard_err_title_required');
         }
+        if (mb_strlen($title) > self::TITLE_MAX) {
+            return $this->fail('mxboard_err_title_too_long');
+        }
 
-        $column = $this->columnBy($board, ['is_initial' => true]);
+        $deadline = (int) ($data['deadline'] ?? $data['deadlineon'] ?? 0);
+        if ($deadline <= 0) {
+            return $this->fail('mxboard_err_deadline_required');
+        }
+
+        [$type, $typeError] = $this->resolveType($data['type_id'] ?? $data['type'] ?? null, $project);
+        if ($typeError !== null) {
+            return $this->fail($typeError);
+        }
+
+        [$fields, $fieldError] = $this->validateFields($type, $this->decodeJson($data['fields'] ?? null) ?? []);
+        if ($fieldError !== null) {
+            return $this->fail($fieldError);
+        }
+
+        $column = $this->columnBy($project, ['is_initial' => true]);
         if (!$column) {
             return $this->fail('mxboard_err_no_initial_column');
         }
@@ -55,7 +103,9 @@ class TaskService
         /** @var MxBoardTask $task */
         $task = $this->modx->newObject(MxBoardTask::class);
         $task->fromArray([
-            'board_id' => (int) $board->get('id'),
+            'project_id' => (int) $project->get('id'),
+            'parent_id' => $parentId,
+            'type_id' => (int) $type->get('id'),
             'column_id' => (int) $column->get('id'),
             'title' => $title,
             'tor' => (string) ($data['tor'] ?? ''),
@@ -63,7 +113,11 @@ class TaskService
             'assignee_id' => 0,
             'priority' => (int) ($data['priority'] ?? 0),
             'position' => $this->nextPosition((int) $column->get('id')),
-            'meta' => $this->decodeMeta($data['meta'] ?? null),
+            'deadlineon' => $deadline,
+            'deadline_disputed' => 0,
+            'deadline_proposed' => 0,
+            'fields' => $fields,
+            'meta' => $this->decodeJson($data['meta'] ?? null),
             'createdon' => $now,
             'updatedon' => $now,
         ]);
@@ -74,6 +128,11 @@ class TaskService
 
         $this->log($task, $user, 'create', '', (string) $column->get('key'), '', $channel);
         $this->fireEvent('mxbOnTaskCreate', $task, $user, ['channel' => $channel]);
+
+        if ($parent) {
+            // Отметка в журнале родителя: у него появилась (блокирующая) подзадача.
+            $this->log($parent, $user, 'subtask_add', '', '', 'task#' . (int) $task->get('id'), $channel);
+        }
 
         return $this->ok($task);
     }
@@ -95,9 +154,9 @@ class TaskService
             return $this->fail('mxboard_err_task_not_found');
         }
 
-        $board = $this->modx->getObject(MxBoardBoard::class, (int) $task->get('board_id'));
+        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
         $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
-        if (!$board || !$current) {
+        if (!$project || !$current) {
             return $this->fail('mxboard_err_task_not_found');
         }
 
@@ -106,7 +165,7 @@ class TaskService
             return $this->fail('mxboard_err_not_ready');
         }
 
-        $target = $this->nextColumnAfter($board, $current);
+        $target = $this->nextColumnAfter($project, $current);
         if (!$target) {
             return $this->fail('mxboard_err_no_next_column');
         }
@@ -114,7 +173,7 @@ class TaskService
         $userId = (int) $user->get('id');
 
         $limit = (int) $this->modx->getOption('mxboard.wip_limit', null, 0);
-        if ($limit > 0 && $this->inProgressCount($board, $userId) >= $limit) {
+        if ($limit > 0 && $this->inProgressCount($project, $userId) >= $limit) {
             return $this->fail('mxboard_err_wip_limit');
         }
 
@@ -150,6 +209,9 @@ class TaskService
     /**
      * Перевести карточку в колонку. Здесь же — единственная точка закрытия задачи.
      *
+     * Инвариант: в финальную колонку нельзя, пока есть незавершённая подзадача. Это
+     * структурная блокировка — она действует и на автора/менеджера, а не только на роли.
+     *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
     public function move(modUser $user, int $taskId, string $columnKey, string $note = '', string $channel = 'mgr'): array
@@ -160,13 +222,13 @@ class TaskService
             return $this->fail('mxboard_err_task_not_found');
         }
 
-        $board = $this->modx->getObject(MxBoardBoard::class, (int) $task->get('board_id'));
+        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
         $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
-        if (!$board) {
-            return $this->fail('mxboard_err_board_not_found');
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
         }
 
-        $target = $this->columnBy($board, ['key' => $columnKey]);
+        $target = $this->columnBy($project, ['key' => $columnKey]);
         if (!$target) {
             return $this->fail('mxboard_err_column_not_found');
         }
@@ -180,6 +242,13 @@ class TaskService
             return $this->fail($verdict['reason']);
         }
 
+        $isFinal = (bool) $target->get('is_final');
+
+        // Блокер: незавершённая подзадача не даёт закрыть родителя.
+        if ($isFinal && $this->hasOpenSubtasks($taskId)) {
+            return $this->fail('mxboard_err_open_subtasks');
+        }
+
         $this->fireEvent('mxbOnBeforeTaskMove', $task, $user, [
             'channel' => $channel,
             'from' => $current ? (string) $current->get('key') : '',
@@ -187,7 +256,6 @@ class TaskService
         ]);
 
         $now = time();
-        $isFinal = (bool) $target->get('is_final');
 
         $task->set('column_id', (int) $target->get('id'));
         $task->set('position', $this->nextPosition((int) $target->get('id')));
@@ -226,15 +294,14 @@ class TaskService
 
         $userId = (int) $user->get('id');
         $isAssignee = $userId === (int) $task->get('assignee_id');
-        $isSuperuser = Transitions::isSuperuser($this->modx, $user);
 
-        if (!$isAssignee && !$isSuperuser) {
+        if (!$isAssignee && !Transitions::isManager($this->modx, $user, $task)) {
             return $this->fail('mxboard_err_move_denied');
         }
 
-        $board = $this->modx->getObject(MxBoardBoard::class, (int) $task->get('board_id'));
+        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
         $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
-        $ready = $board ? $this->columnBy($board, ['is_ready' => true]) : null;
+        $ready = $project ? $this->columnBy($project, ['is_ready' => true]) : null;
         if (!$ready) {
             return $this->fail('mxboard_err_column_not_found');
         }
@@ -265,7 +332,10 @@ class TaskService
     }
 
     /**
-     * Комментарий к карточке — как агенты отчитываются о ходе работы.
+     * Комментарий к карточке — как участники отчитываются о ходе работы.
+     *
+     * Комментировать вправе тот, кто видит задачу (автор/исполнитель/соисполнитель
+     * подзадачи/менеджер) — та же логика, что и детальный просмотр.
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
@@ -280,6 +350,10 @@ class TaskService
         $task = $this->modx->getObject(MxBoardTask::class, $taskId);
         if (!$task) {
             return $this->fail('mxboard_err_task_not_found');
+        }
+
+        if (!Visibility::canView($this->modx, $user, $task)) {
+            return $this->fail('mxboard_err_view_denied');
         }
 
         /** @var MxBoardComment $comment */
@@ -305,39 +379,336 @@ class TaskService
         ];
     }
 
-    /** Доска по ключу; без ключа — из системной настройки. */
-    public function resolveBoard(?string $key = null): ?MxBoardBoard
+    /**
+     * Оспорить дедлайн: исполнитель предлагает новую дату с причиной. Меняет дедлайн
+     * не он — только автор через resolveDeadline.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function disputeDeadline(modUser $user, int $taskId, int $proposedDate, string $reason = '', string $channel = 'mcp'): array
     {
-        $key = $key ?: (string) $this->modx->getOption('mxboard.default_board', null, 'default');
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
 
-        /** @var MxBoardBoard|null $board */
-        $board = $this->modx->getObject(MxBoardBoard::class, ['key' => $key, 'active' => true]);
+        if ((int) $user->get('id') !== (int) $task->get('assignee_id')) {
+            return $this->fail('mxboard_err_dispute_assignee_only');
+        }
 
-        return $board;
+        if ($proposedDate <= 0) {
+            return $this->fail('mxboard_err_deadline_required');
+        }
+
+        $task->fromArray([
+            'deadline_disputed' => 1,
+            'deadline_proposed' => $proposedDate,
+            'updatedon' => time(),
+        ]);
+
+        if (!$task->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->log($task, $user, 'deadline_dispute', '', '', mb_substr($reason, 0, 255), $channel);
+        $this->fireEvent('mxbOnDeadlineDispute', $task, $user, ['channel' => $channel, 'proposed' => $proposedDate, 'reason' => $reason]);
+
+        return $this->ok($task);
     }
 
     /**
-     * Колонка доски по произвольному критерию.
+     * Разрешить оспаривание дедлайна: автор/менеджер принимает (дедлайн = предложенный)
+     * или отклоняет (остаётся прежний). В обоих случаях флаг и предложение сбрасываются.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function resolveDeadline(modUser $user, int $taskId, bool $accept, string $channel = 'mgr'): array
+    {
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
+        $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
+        if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
+            return $this->fail('mxboard_err_author_only');
+        }
+
+        if (!(bool) $task->get('deadline_disputed')) {
+            return $this->fail('mxboard_err_no_dispute');
+        }
+
+        $proposed = (int) $task->get('deadline_proposed');
+        if ($accept && $proposed > 0) {
+            $task->set('deadlineon', $proposed);
+        }
+        $task->fromArray([
+            'deadline_disputed' => 0,
+            'deadline_proposed' => 0,
+            'updatedon' => time(),
+        ]);
+
+        if (!$task->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->log($task, $user, $accept ? 'deadline_accepted' : 'deadline_rejected', '', '', '', $channel);
+        $this->fireEvent('mxbOnDeadlineResolve', $task, $user, ['channel' => $channel, 'accepted' => $accept]);
+
+        return $this->ok($task);
+    }
+
+    /**
+     * Правка карточки автором/менеджером: заголовок, ToR, приоритет, дедлайн, тип, поля.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function update(modUser $user, int $taskId, array $data, string $channel = 'mgr'): array
+    {
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
+        $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
+        if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
+            return $this->fail('mxboard_err_author_only');
+        }
+
+        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+
+        if (array_key_exists('title', $data)) {
+            $title = trim((string) $data['title']);
+            if ($title === '') {
+                return $this->fail('mxboard_err_title_required');
+            }
+            if (mb_strlen($title) > self::TITLE_MAX) {
+                return $this->fail('mxboard_err_title_too_long');
+            }
+            $task->set('title', $title);
+        }
+
+        if (array_key_exists('tor', $data)) {
+            $task->set('tor', (string) $data['tor']);
+        }
+
+        if (array_key_exists('priority', $data)) {
+            $task->set('priority', (int) $data['priority']);
+        }
+
+        if (array_key_exists('deadline', $data) || array_key_exists('deadlineon', $data)) {
+            $deadline = (int) ($data['deadline'] ?? $data['deadlineon']);
+            if ($deadline <= 0) {
+                return $this->fail('mxboard_err_deadline_required');
+            }
+            $task->set('deadlineon', $deadline);
+        }
+
+        // Смена типа (если пришла) валидируется; поля перепроверяются под действующий тип.
+        $type = null;
+        if (array_key_exists('type_id', $data) || array_key_exists('type', $data)) {
+            [$type, $typeError] = $this->resolveType($data['type_id'] ?? $data['type'], $project);
+            if ($typeError !== null) {
+                return $this->fail($typeError);
+            }
+            $task->set('type_id', (int) $type->get('id'));
+        }
+
+        if (array_key_exists('fields', $data)) {
+            if ($type === null) {
+                /** @var MxBoardTaskType|null $type */
+                $type = $this->modx->getObject(MxBoardTaskType::class, (int) $task->get('type_id'));
+            }
+            if (!$type) {
+                return $this->fail('mxboard_err_type_not_found');
+            }
+            [$fields, $fieldError] = $this->validateFields($type, $this->decodeJson($data['fields']) ?? []);
+            if ($fieldError !== null) {
+                return $this->fail($fieldError);
+            }
+            $task->set('fields', $fields);
+        }
+
+        $task->set('updatedon', time());
+
+        if (!$task->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->log($task, $user, 'update', '', '', '', $channel);
+        $this->fireEvent('mxbOnTaskUpdate', $task, $user, ['channel' => $channel]);
+
+        return $this->ok($task);
+    }
+
+    /**
+     * Удалить карточку (автор/менеджер). Подзадачи не удаляются вместе с родителем —
+     * они чужая работа: их открепляем (parent_id = 0), затем удаляем родителя
+     * (его комментарии и журнал уйдут каскадом composite-связей).
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function delete(modUser $user, int $taskId, string $channel = 'mgr'): array
+    {
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
+        $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
+        if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
+            return $this->fail('mxboard_err_author_only');
+        }
+
+        // Открепляем подзадачи, чтобы каскад composite не снёс чужие задачи.
+        $childrenTable = $this->modx->getTableName(MxBoardTask::class);
+        $stmt = $this->modx->prepare("UPDATE {$childrenTable} SET parent_id = 0 WHERE parent_id = :id");
+        $stmt->execute([':id' => $taskId]);
+
+        if (!$task->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->fireEvent('mxbOnTaskDelete', $task, $user, ['channel' => $channel]);
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Проект по данным запроса: project_id (int) → project (key) → настройка по умолчанию.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function resolveProject(array $data): ?MxBoardProject
+    {
+        $projectId = (int) ($data['project_id'] ?? 0);
+        if ($projectId > 0) {
+            /** @var MxBoardProject|null $project */
+            $project = $this->modx->getObject(MxBoardProject::class, ['id' => $projectId, 'active' => true]);
+
+            return $project;
+        }
+
+        $key = trim((string) ($data['project'] ?? ''));
+        $key = $key !== '' ? $key : (string) $this->modx->getOption('mxboard.default_project', null, 'default');
+
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, ['key' => $key, 'active' => true]);
+
+        return $project;
+    }
+
+    /**
+     * Колонка проекта по произвольному критерию.
      *
      * @param array<string, mixed> $criteria
      */
-    public function columnBy(MxBoardBoard $board, array $criteria): ?MxBoardColumn
+    public function columnBy(MxBoardProject $project, array $criteria): ?MxBoardColumn
     {
         /** @var MxBoardColumn|null $column */
         $column = $this->modx->getObject(
             MxBoardColumn::class,
-            array_merge(['board_id' => (int) $board->get('id')], $criteria)
+            array_merge(['project_id' => (int) $project->get('id')], $criteria)
         );
 
         return $column;
     }
 
+    /**
+     * Разрешить и провалидировать тип задачи для проекта.
+     *
+     * Тип обязателен, принадлежит отделу проекта, активен и «рабочий» (имеет ≥1 поле).
+     *
+     * @param mixed $typeRef id (int) или ключ типа (string)
+     *
+     * @return array{0: MxBoardTaskType|null, 1: string|null} [тип, ключ-ошибки]
+     */
+    private function resolveType(mixed $typeRef, MxBoardProject $project): array
+    {
+        if ($typeRef === null || $typeRef === '' || $typeRef === 0 || $typeRef === '0') {
+            return [null, 'mxboard_err_type_required'];
+        }
+
+        $departmentId = (int) $project->get('department_id');
+        $criteria = is_numeric($typeRef)
+            ? ['id' => (int) $typeRef, 'department_id' => $departmentId, 'active' => true]
+            : ['key' => (string) $typeRef, 'department_id' => $departmentId, 'active' => true];
+
+        /** @var MxBoardTaskType|null $type */
+        $type = $this->modx->getObject(MxBoardTaskType::class, $criteria);
+        if (!$type) {
+            return [null, 'mxboard_err_type_not_found'];
+        }
+
+        // «Рабочий» тип обязан иметь хотя бы одно своё поле.
+        $fieldCount = $this->modx->getCount(MxBoardField::class, ['task_type_id' => (int) $type->get('id')]);
+        if ($fieldCount < 1) {
+            return [null, 'mxboard_err_type_no_fields'];
+        }
+
+        return [$type, null];
+    }
+
+    /**
+     * Проверить и нормализовать значения полей типа.
+     *
+     * Обязательные поля должны быть заполнены; в результат кладём только известные ключи.
+     *
+     * @param array<string, mixed> $input
+     *
+     * @return array{0: array<string, mixed>, 1: string|null} [нормализованные поля, ключ-ошибки]
+     */
+    private function validateFields(MxBoardTaskType $type, array $input): array
+    {
+        $out = [];
+
+        $c = $this->modx->newQuery(MxBoardField::class);
+        $c->where(['task_type_id' => (int) $type->get('id')]);
+        $c->sortby('position', 'ASC');
+        /** @var MxBoardField[] $fields */
+        $fields = $this->modx->getCollection(MxBoardField::class, $c);
+
+        foreach ($fields as $field) {
+            $key = (string) $field->get('key');
+            $value = $input[$key] ?? null;
+            $filled = $value !== null && (!is_string($value) || trim($value) !== '');
+
+            if ((bool) $field->get('required') && !$filled) {
+                return [[], 'mxboard_err_field_required'];
+            }
+
+            if ($filled) {
+                $out[$key] = $value;
+            }
+        }
+
+        return [$out, null];
+    }
+
+    /** Есть ли у задачи незавершённые подзадачи (closedon = 0 = не в финальной стадии). */
+    private function hasOpenSubtasks(int $taskId): bool
+    {
+        return (int) $this->modx->getCount(MxBoardTask::class, [
+            'parent_id' => $taskId,
+            'closedon' => 0,
+        ]) > 0;
+    }
+
     /** Следующая по порядку колонка (куда карточка едет при захвате). */
-    private function nextColumnAfter(MxBoardBoard $board, MxBoardColumn $current): ?MxBoardColumn
+    private function nextColumnAfter(MxBoardProject $project, MxBoardColumn $current): ?MxBoardColumn
     {
         $c = $this->modx->newQuery(MxBoardColumn::class);
         $c->where([
-            'board_id' => (int) $board->get('id'),
+            'project_id' => (int) $project->get('id'),
             'position:>' => (int) $current->get('position'),
         ]);
         $c->sortby('position', 'ASC');
@@ -350,12 +721,12 @@ class TaskService
     }
 
     /** Сколько карточек уже в работе у пользователя (для wip_limit). */
-    private function inProgressCount(MxBoardBoard $board, int $userId): int
+    private function inProgressCount(MxBoardProject $project, int $userId): int
     {
         $c = $this->modx->newQuery(MxBoardTask::class);
         $c->innerJoin(MxBoardColumn::class, 'Column');
         $c->where([
-            'MxBoardTask.board_id' => (int) $board->get('id'),
+            'MxBoardTask.project_id' => (int) $project->get('id'),
             'MxBoardTask.assignee_id' => $userId,
             'Column.is_final' => false,
             'MxBoardTask.startedon:>' => 0,
@@ -372,14 +743,18 @@ class TaskService
         return (int) $this->modx->getCount(MxBoardTask::class, $c);
     }
 
-    /** @return array<string, mixed>|null */
-    private function decodeMeta(mixed $meta): ?array
+    /**
+     * Декодировать JSON-вход (поля/мета): массив как есть, строку — распарсить.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function decodeJson(mixed $value): ?array
     {
-        if (is_array($meta)) {
-            return $meta;
+        if (is_array($value)) {
+            return $value;
         }
-        if (is_string($meta) && trim($meta) !== '') {
-            $decoded = json_decode($meta, true);
+        if (is_string($value) && trim($value) !== '') {
+            $decoded = json_decode($value, true);
 
             return is_array($decoded) ? $decoded : null;
         }

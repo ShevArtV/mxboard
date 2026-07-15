@@ -40,8 +40,11 @@ if (!isset($modx->packages['MxBoard\\Model'])) {
 }
 
 $classes = [
-    \MxBoard\Model\MxBoardBoard::class,
+    \MxBoard\Model\MxBoardDepartment::class,
+    \MxBoard\Model\MxBoardProject::class,
     \MxBoard\Model\MxBoardColumn::class,
+    \MxBoard\Model\MxBoardTaskType::class,
+    \MxBoard\Model\MxBoardField::class,
     \MxBoard\Model\MxBoardTask::class,
     \MxBoard\Model\MxBoardComment::class,
     \MxBoard\Model\MxBoardLog::class,

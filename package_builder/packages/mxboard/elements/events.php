@@ -14,4 +14,8 @@ return [
     'mxbOnTaskMove',
     'mxbOnTaskClose',
     'mxbOnTaskComment',
+    'mxbOnTaskUpdate',
+    'mxbOnTaskDelete',
+    'mxbOnDeadlineDispute',
+    'mxbOnDeadlineResolve',
 ];

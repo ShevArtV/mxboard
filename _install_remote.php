@@ -3,7 +3,7 @@
 /**
  * Headless-установка transport-пакета mxBoard на MODX 3 стенде.
  * Кладётся в корень стенда (рядом с config.core.php), запускается php-8.x:
- *   /usr/local/php/php-8.3/bin/php _install_remote.php mxboard-1.0.0-alpha
+ *   /usr/local/php/php-8.3/bin/php _install_remote.php mxboard-2.0.0-alpha
  * Если пакет уже стоит — переустанавливает начисто (uninstall + remove → install).
  */
 
@@ -21,7 +21,7 @@ $modx->getService('lexicon', 'modLexicon');
 $modx->setLogLevel(modX::LOG_LEVEL_INFO);
 $modx->setLogTarget('ECHO');
 
-$signature = $argv[1] ?? 'mxboard-1.0.0-alpha';
+$signature = $argv[1] ?? 'mxboard-2.0.0-alpha';
 if (!preg_match('/^(.+)-(\d+\.\d+\.\d+)(?:-(.+))?$/', $signature, $m)) {
     echo "BAD SIGNATURE: {$signature}\n";
     exit(1);

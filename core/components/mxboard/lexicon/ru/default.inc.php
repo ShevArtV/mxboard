@@ -38,5 +38,30 @@ $_lang['mxboard_err_remove_denied'] = 'Удалить задачу может т
 $_lang['mxboard_err_remove_failed'] = 'Не удалось удалить.';
 $_lang['mxboard_err_user_not_found'] = 'Пользователь не найден.';
 
+// v2: иерархия, типы, дедлайны, подзадачи.
+$_lang['mxboard_err_project_not_found'] = 'Проект не найден.';
+$_lang['mxboard_err_parent_not_found'] = 'Родительская задача не найдена.';
+$_lang['mxboard_err_parent_other_project'] = 'Подзадача должна быть в том же проекте, что и родитель.';
+$_lang['mxboard_err_subtask_denied'] = 'Создавать подзадачу может только автор или исполнитель основной задачи.';
+$_lang['mxboard_err_title_too_long'] = 'Заголовок длиннее 250 символов.';
+$_lang['mxboard_err_deadline_required'] = 'Не указан корректный дедлайн.';
+$_lang['mxboard_err_type_required'] = 'Не указан тип задачи.';
+$_lang['mxboard_err_type_not_found'] = 'Тип задачи не найден в этом отделе.';
+$_lang['mxboard_err_type_no_fields'] = 'У типа задачи нет ни одного поля — он нерабочий.';
+$_lang['mxboard_err_field_required'] = 'Заполнены не все обязательные поля типа.';
+$_lang['mxboard_err_open_subtasks'] = 'Нельзя закрыть задачу: есть незавершённые подзадачи.';
+$_lang['mxboard_err_view_denied'] = 'Нет доступа к этой задаче.';
+$_lang['mxboard_err_dispute_assignee_only'] = 'Оспорить дедлайн может только исполнитель.';
+$_lang['mxboard_err_no_dispute'] = 'По этой задаче нет активного оспаривания дедлайна.';
+$_lang['mxboard_err_author_only'] = 'Действие доступно только автору задачи или менеджеру.';
+
+$_lang['mxboard_department'] = 'Отдел';
+$_lang['mxboard_project'] = 'Проект';
+$_lang['mxboard_task_type'] = 'Тип задачи';
+$_lang['mxboard_task_field'] = 'Поле';
+$_lang['mxboard_task_deadline'] = 'Дедлайн';
+$_lang['mxboard_task_subtasks'] = 'Подзадачи';
+$_lang['mxboard_deadline_disputed'] = 'Дедлайн оспорен';
+
 $_lang['mxboard_token'] = 'Токен';
 $_lang['mxboard_token_created'] = 'Токен создан. Скопируйте его сейчас — второй раз он не покажется.';

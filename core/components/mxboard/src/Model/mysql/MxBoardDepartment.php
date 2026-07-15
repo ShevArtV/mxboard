@@ -3,13 +3,13 @@ namespace MxBoard\Model\mysql;
 
 use xPDO\xPDO;
 
-class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
+class MxBoardDepartment extends \MxBoard\Model\MxBoardDepartment
 {
 
     public static $metaMap = array (
         'package' => 'MxBoard\\Model',
         'version' => '3.0',
-        'table' => 'mxboard_column',
+        'table' => 'mxboard_department',
         'extends' => 'xPDO\\Om\\xPDOSimpleObject',
         'tableMeta' => 
         array (
@@ -17,20 +17,15 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
         ),
         'fields' => 
         array (
-            'project_id' => 0,
-            'key' => '',
+            'usergroup_id' => 0,
             'name' => '',
+            'active' => 1,
             'position' => 0,
-            'move_roles' => '',
-            'stage_key' => '',
-            'is_initial' => 0,
-            'is_ready' => 0,
-            'is_final' => 0,
             'createdon' => 0,
         ),
         'fieldMeta' => 
         array (
-            'project_id' => 
+            'usergroup_id' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -38,16 +33,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'phptype' => 'integer',
                 'null' => false,
                 'default' => 0,
-                'index' => 'index',
-            ),
-            'key' => 
-            array (
-                'dbtype' => 'varchar',
-                'precision' => '100',
-                'phptype' => 'string',
-                'null' => false,
-                'default' => '',
-                'index' => 'index',
+                'index' => 'unique',
             ),
             'name' => 
             array (
@@ -56,6 +42,16 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'phptype' => 'string',
                 'null' => false,
                 'default' => '',
+            ),
+            'active' => 
+            array (
+                'dbtype' => 'tinyint',
+                'precision' => '1',
+                'attributes' => 'unsigned',
+                'phptype' => 'boolean',
+                'null' => false,
+                'default' => 1,
+                'index' => 'index',
             ),
             'position' => 
             array (
@@ -66,50 +62,6 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => false,
                 'default' => 0,
                 'index' => 'index',
-            ),
-            'move_roles' => 
-            array (
-                'dbtype' => 'varchar',
-                'precision' => '255',
-                'phptype' => 'string',
-                'null' => false,
-                'default' => '',
-            ),
-            'stage_key' => 
-            array (
-                'dbtype' => 'varchar',
-                'precision' => '100',
-                'phptype' => 'string',
-                'null' => true,
-                'default' => '',
-                'index' => 'index',
-            ),
-            'is_initial' => 
-            array (
-                'dbtype' => 'tinyint',
-                'precision' => '1',
-                'attributes' => 'unsigned',
-                'phptype' => 'boolean',
-                'null' => false,
-                'default' => 0,
-            ),
-            'is_ready' => 
-            array (
-                'dbtype' => 'tinyint',
-                'precision' => '1',
-                'attributes' => 'unsigned',
-                'phptype' => 'boolean',
-                'null' => false,
-                'default' => 0,
-            ),
-            'is_final' => 
-            array (
-                'dbtype' => 'tinyint',
-                'precision' => '1',
-                'attributes' => 'unsigned',
-                'phptype' => 'boolean',
-                'null' => false,
-                'default' => 0,
             ),
             'createdon' => 
             array (
@@ -123,15 +75,15 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
         ),
         'indexes' => 
         array (
-            'project_id' => 
+            'usergroup_id' => 
             array (
-                'alias' => 'project_id',
+                'alias' => 'usergroup_id',
                 'primary' => false,
-                'unique' => false,
+                'unique' => true,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'project_id' => 
+                    'usergroup_id' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -139,21 +91,15 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                     ),
                 ),
             ),
-            'project_column_key' => 
+            'active' => 
             array (
-                'alias' => 'project_column_key',
+                'alias' => 'active',
                 'primary' => false,
-                'unique' => true,
+                'unique' => false,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'project_id' => 
-                    array (
-                        'length' => '',
-                        'collation' => 'A',
-                        'null' => false,
-                    ),
-                    'key' => 
+                    'active' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -177,40 +123,32 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                     ),
                 ),
             ),
-            'stage_key' => 
-            array (
-                'alias' => 'stage_key',
-                'primary' => false,
-                'unique' => false,
-                'type' => 'BTREE',
-                'columns' => 
-                array (
-                    'stage_key' => 
-                    array (
-                        'length' => '',
-                        'collation' => 'A',
-                        'null' => true,
-                    ),
-                ),
-            ),
         ),
         'composites' => 
         array (
-            'Tasks' => 
+            'Projects' => 
             array (
-                'class' => 'MxBoard\\Model\\MxBoardTask',
+                'class' => 'MxBoard\\Model\\MxBoardProject',
                 'local' => 'id',
-                'foreign' => 'column_id',
+                'foreign' => 'department_id',
+                'cardinality' => 'many',
+                'owner' => 'local',
+            ),
+            'Types' => 
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardTaskType',
+                'local' => 'id',
+                'foreign' => 'department_id',
                 'cardinality' => 'many',
                 'owner' => 'local',
             ),
         ),
         'aggregates' => 
         array (
-            'Project' => 
+            'Group' => 
             array (
-                'class' => 'MxBoard\\Model\\MxBoardProject',
-                'local' => 'project_id',
+                'class' => 'MODX\\Revolution\\modUserGroup',
+                'local' => 'usergroup_id',
                 'foreign' => 'id',
                 'cardinality' => 'one',
                 'owner' => 'foreign',

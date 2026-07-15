@@ -8,71 +8,185 @@
     это как «нет следующей колонки» в местах, не связанных с сортировкой, и ищется долго.
 
     По той же причине не заводить поля с именами: rows, groups, system, lead, first, last.
+
+    v2: иерархия отдел → проект → задача. «Доска» распалась на «проект» (владелец колонок)
+    и «отдел» (реестр групп MODX). Задачи типизированы (mxboard_task_type + mxboard_field),
+    контент типа лежит в mxboard_task.fields (JSON). Подзадачи — та же таблица через parent_id.
 -->
 <model package="MxBoard\Model" baseClass="xPDO\Om\xPDOObject" platform="mysql" defaultEngine="InnoDB" version="3.0">
 
-    <object class="MxBoardBoard" table="mxboard_board" extends="xPDO\Om\xPDOSimpleObject">
-        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="unique"/>
+    <!-- Реестр отделов: помечает, какая группа пользователей MODX является отделом.
+         Членство, роли, «супер группы» (authority роли) — всё из MODX, здесь не дублируется. -->
+    <object class="MxBoardDepartment" table="mxboard_department" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="usergroup_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="unique"/>
+        <!-- Переопределение имени отдела. Пусто = берём имя группы MODX. -->
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="usergroup_id" name="usergroup_id" primary="false" unique="true" type="BTREE">
+            <column key="usergroup_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="active" name="active" primary="false" unique="false" type="BTREE">
+            <column key="active" length="" collation="A" null="false"/>
+        </index>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Group" class="MODX\Revolution\modUserGroup" local="usergroup_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Projects" class="MxBoard\Model\MxBoardProject" local="id" foreign="department_id" cardinality="many" owner="local"/>
+        <composite alias="Types" class="MxBoard\Model\MxBoardTaskType" local="id" foreign="department_id" cardinality="many" owner="local"/>
+    </object>
+
+    <!-- Проект = доска: владеет колонками и задачами, принадлежит отделу. -->
+    <object class="MxBoardProject" table="mxboard_project" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="department_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
         <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
         <field key="description" dbtype="text" phptype="string" null="true"/>
         <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <field key="updatedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
 
-        <index alias="key" name="key" primary="false" unique="true" type="BTREE">
+        <index alias="department_id" name="department_id" primary="false" unique="false" type="BTREE">
+            <column key="department_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="department_key" name="department_key" primary="false" unique="true" type="BTREE">
+            <column key="department_id" length="" collation="A" null="false"/>
             <column key="key" length="" collation="A" null="false"/>
         </index>
         <index alias="active" name="active" primary="false" unique="false" type="BTREE">
             <column key="active" length="" collation="A" null="false"/>
         </index>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
+        </index>
 
-        <composite alias="Columns" class="MxBoard\Model\MxBoardColumn" local="id" foreign="board_id" cardinality="many" owner="local"/>
-        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="board_id" cardinality="many" owner="local"/>
+        <aggregate alias="Department" class="MxBoard\Model\MxBoardDepartment" local="department_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Columns" class="MxBoard\Model\MxBoardColumn" local="id" foreign="project_id" cardinality="many" owner="local"/>
+        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="project_id" cardinality="many" owner="local"/>
     </object>
 
     <object class="MxBoardColumn" table="mxboard_column" extends="xPDO\Om\xPDOSimpleObject">
-        <field key="board_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Владелец колонки. project_id = 0 — глобальный шаблон колонок (для новых проектов). -->
+        <field key="project_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
         <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
         <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто вправе переводить карточку В эту колонку. CSV ролей: author, assignee, any
              и/или группы как group:Name. Пусто = только обладатель права mxboard_move_any. -->
         <field key="move_roles" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
-        <!-- Колонка, в которую попадает новая карточка. -->
+        <!-- Необязательный сквозной тег стадии: одинаковый ключ в разных проектах даёт
+             кросс-проектную отчётность («сколько задач на review по всем проектам»). -->
+        <field key="stage_key" dbtype="varchar" precision="100" phptype="string" null="true" default="" index="index"/>
+        <!-- Колонка, в которую попадает новая карточка. Инвариант: ровно одна на проект. -->
         <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <!-- Колонка, откуда исполнитель забирает карточку (захват). -->
         <field key="is_ready" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
-        <!-- Терминальная колонка: вход в неё = закрытие карточки (done). -->
+        <!-- Терминальная колонка: вход в неё = закрытие карточки. Инвариант: ровно одна на проект. -->
         <field key="is_final" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
 
-        <index alias="board_id" name="board_id" primary="false" unique="false" type="BTREE">
-            <column key="board_id" length="" collation="A" null="false"/>
+        <index alias="project_id" name="project_id" primary="false" unique="false" type="BTREE">
+            <column key="project_id" length="" collation="A" null="false"/>
         </index>
-        <index alias="board_column_key" name="board_column_key" primary="false" unique="true" type="BTREE">
-            <column key="board_id" length="" collation="A" null="false"/>
+        <index alias="project_column_key" name="project_column_key" primary="false" unique="true" type="BTREE">
+            <column key="project_id" length="" collation="A" null="false"/>
+            <column key="key" length="" collation="A" null="false"/>
+        </index>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
+        </index>
+        <index alias="stage_key" name="stage_key" primary="false" unique="false" type="BTREE">
+            <column key="stage_key" length="" collation="A" null="true"/>
+        </index>
+
+        <aggregate alias="Project" class="MxBoard\Model\MxBoardProject" local="project_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="column_id" cardinality="many" owner="local"/>
+    </object>
+
+    <!-- Тип задачи: набор обязательных/дополнительных полей. Принадлежит отделу.
+         «Рабочий» тип обязан иметь ≥1 своё поле (инвариант проверяется в сервисе). -->
+    <object class="MxBoardTaskType" table="mxboard_task_type" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="department_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="description" dbtype="text" phptype="string" null="true"/>
+        <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="department_id" name="department_id" primary="false" unique="false" type="BTREE">
+            <column key="department_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="department_type_key" name="department_type_key" primary="false" unique="true" type="BTREE">
+            <column key="department_id" length="" collation="A" null="false"/>
+            <column key="key" length="" collation="A" null="false"/>
+        </index>
+        <index alias="active" name="active" primary="false" unique="false" type="BTREE">
+            <column key="active" length="" collation="A" null="false"/>
+        </index>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Department" class="MxBoard\Model\MxBoardDepartment" local="department_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Fields" class="MxBoard\Model\MxBoardField" local="id" foreign="task_type_id" cardinality="many" owner="local"/>
+    </object>
+
+    <!-- Дополнительное поле типа задачи. Описывает ТОЛЬКО добавочный контент: встроенные
+         поля (title, deadline, type) в mxboard_field не описываются. -->
+    <object class="MxBoardField" table="mxboard_field" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="task_type_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
+        <field key="label" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <!-- text | textarea | url | number | date | select | user | file -->
+        <field key="type" dbtype="varchar" precision="20" phptype="string" null="false" default="text"/>
+        <field key="required" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Варианты для select и прочие настройки поля (JSON). -->
+        <field key="options" dbtype="mediumtext" phptype="json" null="true"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="task_type_id" name="task_type_id" primary="false" unique="false" type="BTREE">
+            <column key="task_type_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="type_field_key" name="type_field_key" primary="false" unique="true" type="BTREE">
+            <column key="task_type_id" length="" collation="A" null="false"/>
             <column key="key" length="" collation="A" null="false"/>
         </index>
         <index alias="position" name="position" primary="false" unique="false" type="BTREE">
             <column key="position" length="" collation="A" null="false"/>
         </index>
 
-        <aggregate alias="Board" class="MxBoard\Model\MxBoardBoard" local="board_id" foreign="id" cardinality="one" owner="foreign"/>
-        <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="column_id" cardinality="many" owner="local"/>
+        <aggregate alias="Type" class="MxBoard\Model\MxBoardTaskType" local="task_type_id" foreign="id" cardinality="one" owner="foreign"/>
     </object>
 
     <object class="MxBoardTask" table="mxboard_task" extends="xPDO\Om\xPDOSimpleObject">
-        <field key="board_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="project_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- 0 — самостоятельная задача; >0 — подзадача (та же таблица). Родитель нельзя
+             перевести в финальную, пока есть незавершённый потомок. -->
+        <field key="parent_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="type_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="column_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="title" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
         <!-- Постановка задачи (ToR) в markdown. -->
         <field key="tor" dbtype="mediumtext" phptype="string" null="true"/>
-        <!-- Кто поставил задачу. Только автор переводит карточку в финальную колонку. -->
+        <!-- Кто поставил задачу. Только автор/супер/sudo переводит карточку в финальную колонку. -->
         <field key="author_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто взял задачу. 0 — свободна, доступна для захвата. -->
         <field key="assignee_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
-        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="priority" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Дедлайн (unix). Оспаривается исполнителем, но меняет его только автор. -->
+        <field key="deadlineon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="deadline_disputed" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <field key="deadline_proposed" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <!-- Формализованный контент задачи по типу: {field_key: value}. -->
+        <field key="fields" dbtype="mediumtext" phptype="json" null="true"/>
         <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).
              Ядро их не интерпретирует: они для плагинов на события mxBoard. -->
         <field key="meta" dbtype="mediumtext" phptype="json" null="true"/>
@@ -81,8 +195,14 @@
         <field key="startedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <field key="closedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
 
-        <index alias="board_id" name="board_id" primary="false" unique="false" type="BTREE">
-            <column key="board_id" length="" collation="A" null="false"/>
+        <index alias="project_id" name="project_id" primary="false" unique="false" type="BTREE">
+            <column key="project_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="parent_id" name="parent_id" primary="false" unique="false" type="BTREE">
+            <column key="parent_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="type_id" name="type_id" primary="false" unique="false" type="BTREE">
+            <column key="type_id" length="" collation="A" null="false"/>
         </index>
         <index alias="column_id" name="column_id" primary="false" unique="false" type="BTREE">
             <column key="column_id" length="" collation="A" null="false"/>
@@ -96,14 +216,20 @@
         <index alias="position" name="position" primary="false" unique="false" type="BTREE">
             <column key="position" length="" collation="A" null="false"/>
         </index>
+        <index alias="deadlineon" name="deadlineon" primary="false" unique="false" type="BTREE">
+            <column key="deadlineon" length="" collation="A" null="false"/>
+        </index>
         <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
             <column key="createdon" length="" collation="A" null="false"/>
         </index>
 
-        <aggregate alias="Board" class="MxBoard\Model\MxBoardBoard" local="board_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Project" class="MxBoard\Model\MxBoardProject" local="project_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Column" class="MxBoard\Model\MxBoardColumn" local="column_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Type" class="MxBoard\Model\MxBoardTaskType" local="type_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Parent" class="MxBoard\Model\MxBoardTask" local="parent_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Author" class="MODX\Revolution\modUser" local="author_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Assignee" class="MODX\Revolution\modUser" local="assignee_id" foreign="id" cardinality="one" owner="foreign"/>
+        <composite alias="Subtasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="parent_id" cardinality="many" owner="local"/>
         <composite alias="Comments" class="MxBoard\Model\MxBoardComment" local="id" foreign="task_id" cardinality="many" owner="local"/>
         <composite alias="Logs" class="MxBoard\Model\MxBoardLog" local="id" foreign="task_id" cardinality="many" owner="local"/>
     </object>
@@ -133,7 +259,8 @@
     <object class="MxBoardLog" table="mxboard_log" extends="xPDO\Om\xPDOSimpleObject">
         <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
-        <!-- create | take | release | move | comment | close | reopen -->
+        <!-- create | take | release | move | comment | close | reopen
+             | deadline_dispute | deadline_accepted | deadline_rejected | subtask_add -->
         <field key="action" dbtype="varchar" precision="32" phptype="string" null="false" default="" index="index"/>
         <field key="from_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
         <field key="to_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
