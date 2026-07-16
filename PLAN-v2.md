@@ -302,15 +302,20 @@ vue-router; навигация родитель↔подзадача, «← на
   резолвятся, консоль чистая. Бэкенд Groups smoke — 4/4 (остальной CRUD в 3a 54/54).
 - [x] Коммит (90e9c7e).
 
-#### 3d — Кнопка + поле «Токен агента» в профиле пользователя
-- [ ] Плагин на `OnManagerPageBeforeRender` (детект security/user/update|create), гейт
-  `sudo`, инъекция JS (`addLastJavascript`/`addHtml`). Поле показывает текущий токен, кнопка
-  генерирует/перевыпускает.
-- [ ] Хранение (вариант A): сырой токен в `profile.extended.mxboard` (`token`, `token_id`,
-  `createdon`) — виден/копируется; `sha256` — в `mxboard_token` для входа. Один токен на
-  пользователя: генерация удаляет прежнюю строку по `token_id` (именованные токены старого
-  раздела не трогает). Процессор `Token/IssueForUser`.
-- [ ] Браузер. Коммит.
+#### 3d — Кнопка + поле «Токен агента» в профиле пользователя ✅
+- [x] Плагин `mxBoardProfileToken` на `OnManagerPageBeforeRender` (static, объявлен в
+  `elements/plugins.php`): детект `security/user/update|create`, гейт `sudo`, инъекция через
+  `addHtml` (конфиг + лексикон в `MODx.lang`) + `addLastJavascript` (виджет). Виджет
+  `js/mgr/profile-token.js` — vanilla (профиль это ExtJS, не Vue), строки из `MODx.lang`
+  (без хардкода): показывает текущий токен, копирование, кнопка «Сгенерировать/Перевыпустить».
+- [x] Хранение (вариант A): сырой токен в `profile.extended.mxboard` (`token`, `token_id`,
+  `createdon`); `sha256` — в `mxboard_token` (`name=profile`). Один токен на пользователя:
+  перевыпуск удаляет прежнюю строку по `token_id`, именованные токены раздела не трогает.
+  Процессоры `Token/IssueForUser` (гейт sudo) + `Token/GetForUser` (чтение текущего).
+- [x] Бэкенд-smoke 10/10 (выпуск/чтение/перевыпуск, хранение в extended+хэш, гейт sudo,
+  инвариант «один токен»). Плагин собран (`Plugins: 1`) и установлен. Живая вставка виджета
+  в ExtJS-профиль — за пользователем (harness ExtJS-страницу не воспроизводит).
+- [ ] Коммит.
 
 #### 3e — Уведомления + непрочитанные комментарии  ⛔ ЖДЁТ порт `universaleventbus` на MODX 3
 > Транспорт доставки — `universaleventbus` (пакет пользователя), сейчас MODX 2. Порт —

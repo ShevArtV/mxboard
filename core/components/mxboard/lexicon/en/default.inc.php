@@ -282,3 +282,14 @@ $_lang['mxboard_ui_struct_is_initial'] = 'Initial';
 $_lang['mxboard_ui_struct_is_final'] = 'Final';
 $_lang['mxboard_ui_struct_flag_transfer'] = 'The initial/final flag is moved from the previous column — there is always exactly one of each.';
 $_lang['mxboard_ui_struct_confirm_remove_column'] = 'Delete column “[[+name]]”? Not allowed for initial/final or a non-empty column.';
+
+// v2 (3d): "Agent token" widget on the user profile page (sudo only).
+$_lang['mxboard_ui_profile_section'] = 'mxBoard agent token';
+$_lang['mxboard_ui_profile_hint'] = 'One token per user for agent access to REST/MCP. The agent has this user\'s permissions.';
+$_lang['mxboard_ui_profile_generate'] = 'Generate';
+$_lang['mxboard_ui_profile_regenerate'] = 'Reissue';
+$_lang['mxboard_ui_profile_none'] = 'No token issued';
+$_lang['mxboard_ui_profile_created'] = 'Issued';
+$_lang['mxboard_ui_profile_confirm_regen'] = 'Reissue the token? The previous one will stop working.';
+$_lang['mxboard_ui_profile_save_first'] = 'Save the user first, then issue a token.';
+$_lang['mxboard_ui_profile_copied'] = 'Token copied';

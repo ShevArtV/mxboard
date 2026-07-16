@@ -282,3 +282,14 @@ $_lang['mxboard_ui_struct_is_initial'] = 'Стартовая';
 $_lang['mxboard_ui_struct_is_final'] = 'Финальная';
 $_lang['mxboard_ui_struct_flag_transfer'] = 'Отметка «стартовая»/«финальная» переносится с прежней колонки — их всегда ровно по одной.';
 $_lang['mxboard_ui_struct_confirm_remove_column'] = 'Удалить колонку «[[+name]]»? Нельзя для стартовой/финальной и непустой.';
+
+// v2 (3d): виджет «Токен агента» на странице профиля пользователя (только sudo).
+$_lang['mxboard_ui_profile_section'] = 'Токен агента mxBoard';
+$_lang['mxboard_ui_profile_hint'] = 'Один токен на пользователя для доступа агента к REST/MCP. Права агента = права этого пользователя.';
+$_lang['mxboard_ui_profile_generate'] = 'Сгенерировать';
+$_lang['mxboard_ui_profile_regenerate'] = 'Перевыпустить';
+$_lang['mxboard_ui_profile_none'] = 'Токен не выдан';
+$_lang['mxboard_ui_profile_created'] = 'Выдан';
+$_lang['mxboard_ui_profile_confirm_regen'] = 'Перевыпустить токен? Прежний перестанет работать.';
+$_lang['mxboard_ui_profile_save_first'] = 'Сначала сохраните пользователя, затем выдайте токен.';
+$_lang['mxboard_ui_profile_copied'] = 'Токен скопирован';
