@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Tag } from 'primevue';
 import { priorityMeta, userName, fmtDay, isOverdue } from '../utils/format.js';
+import { t } from '../utils/i18n.js';
 
 const props = defineProps({
     task: { type: Object, required: true },
@@ -26,7 +27,7 @@ const deadline = computed(() => fmtDay(props.task.deadlineon));
         @click="emit('open')"
     >
         <div class="mxb-card-title">
-            <i v-if="task.parent_id" class="pi pi-sitemap mxb-sub-icon" title="Подзадача" />
+            <i v-if="task.parent_id" class="pi pi-sitemap mxb-sub-icon" :title="t('mxboard_ui_subtask')" />
             {{ task.title }}
         </div>
         <div class="mxb-card-meta">
@@ -38,7 +39,7 @@ const deadline = computed(() => fmtDay(props.task.deadlineon));
                 :class="{ 'mxb-overdue': overdue, 'mxb-disputed': task.deadline_disputed }"
             >
                 <i class="pi pi-calendar" />{{ deadline }}
-                <i v-if="task.deadline_disputed" class="pi pi-flag-fill mxb-flag" title="Дедлайн оспорен" />
+                <i v-if="task.deadline_disputed" class="pi pi-flag-fill mxb-flag" :title="t('mxboard_ui_deadline_disputed_hint')" />
             </span>
         </div>
     </div>

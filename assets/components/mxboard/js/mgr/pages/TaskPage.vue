@@ -7,6 +7,7 @@ import {
 import {
     PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, toDateInput, isOverdue, normalizeTask,
 } from '../utils/format.js';
+import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import TypeFields from '../components/TypeFields.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
@@ -57,17 +58,12 @@ const fieldRows = computed(() => {
         .map((f) => ({ key: f.key, label: f.label, value: values[f.key] }));
 });
 
-const ACTIONS = {
-    create: 'создана',
-    move: 'перемещена',
-    close: 'закрыта',
-    comment: 'комментарий',
-    update: 'изменена',
-    subtask_add: 'добавлена подзадача',
-    deadline_dispute: 'дедлайн оспорен',
-    deadline_accepted: 'новый дедлайн принят',
-    deadline_rejected: 'оспаривание отклонено',
-};
+// Человеческое название действия журнала (ключ mxboard_act_<action>), иначе — как есть.
+function actionLabel(action) {
+    const key = `mxboard_act_${action}`;
+    const label = t(key);
+    return label === key ? action : label;
+}
 
 watch(() => props.taskId, (id) => {
     if (id) load(id);
@@ -90,7 +86,7 @@ async function load(id) {
         disputeOpen.value = false;
         loadContext();
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Задача не загружена', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_task_load'), detail: errorMessage(e), life: 8000 });
         emit('back');
     } finally {
         loading.value = false;
@@ -100,14 +96,14 @@ async function load(id) {
 // Схема типа (лейблы полей) и колонки проекта (смена стадии) — вспомогательное,
 // молча игнорируем сбой: без них страница всё равно читаема.
 async function loadContext() {
-    const t = task.value;
-    if (!t) return;
+    const cur = task.value;
+    if (!cur) return;
     try {
-        const res = await TypeApi.schema({ project_id: t.project_id, type: t.type_key });
+        const res = await TypeApi.schema({ project_id: cur.project_id, type: cur.type_key });
         schema.value = res.object ?? null;
     } catch { schema.value = null; }
     try {
-        const res = await ColumnApi.getList(t.project_id);
+        const res = await ColumnApi.getList(cur.project_id);
         columns.value = listOf(res);
     } catch { columns.value = []; }
 }
@@ -132,7 +128,7 @@ async function act(fn, okMessage) {
         if (okMessage) toast.add({ severity: 'success', summary: okMessage, life: 3000 });
         return true;
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Отказано', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
         return false;
     } finally {
         busy.value = false;
@@ -141,13 +137,13 @@ async function act(fn, okMessage) {
 
 async function moveTo(columnKey) {
     if (!columnKey || columnKey === task.value.column_key) return;
-    const ok = await act(() => TaskApi.move(props.taskId, columnKey), 'Стадия изменена');
+    const ok = await act(() => TaskApi.move(props.taskId, columnKey), t('mxboard_msg_stage_changed'));
     if (ok) reload();
 }
 
 async function addComment() {
     if (!comment.value.trim()) return;
-    const ok = await act(() => TaskApi.comment(props.taskId, comment.value.trim()), 'Комментарий добавлен');
+    const ok = await act(() => TaskApi.comment(props.taskId, comment.value.trim()), t('mxboard_msg_comment_added'));
     if (ok) reload();
 }
 
@@ -173,7 +169,7 @@ async function saveEdit() {
         deadline: form.value.deadline,
         assignee_id: form.value.assignee_id,
         fields: form.value.fields,
-    }), 'Сохранено');
+    }), t('mxboard_msg_saved'));
     if (ok) reload();
 }
 
@@ -184,12 +180,12 @@ function openDispute() {
 
 async function sendDispute() {
     if (!dispute.value.date) {
-        toast.add({ severity: 'warn', summary: 'Укажите предлагаемую дату', life: 4000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_proposed_date'), life: 4000 });
         return;
     }
     const ok = await act(
         () => TaskApi.disputeDeadline(props.taskId, dispute.value.date, dispute.value.reason),
-        'Дедлайн оспорен',
+        t('mxboard_msg_deadline_disputed'),
     );
     if (ok) reload();
 }
@@ -197,7 +193,7 @@ async function sendDispute() {
 async function resolve(accept) {
     const ok = await act(
         () => TaskApi.resolveDeadline(props.taskId, accept),
-        accept ? 'Новый дедлайн принят' : 'Оспаривание отклонено',
+        accept ? t('mxboard_msg_deadline_accepted') : t('mxboard_msg_deadline_rejected'),
     );
     if (ok) reload();
 }
@@ -205,14 +201,14 @@ async function resolve(accept) {
 function removeTask(event) {
     confirm.require({
         target: event.currentTarget,
-        message: 'Удалить задачу? Подзадачи будут откреплены, а не удалены.',
+        message: t('mxboard_msg_confirm_delete_task'),
         icon: 'pi pi-exclamation-triangle',
-        acceptLabel: 'Удалить',
-        rejectLabel: 'Отмена',
+        acceptLabel: t('mxboard_ui_delete'),
+        rejectLabel: t('mxboard_ui_cancel'),
         acceptProps: { severity: 'danger', size: 'small' },
         rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
         accept: async () => {
-            const ok = await act(() => TaskApi.remove(props.taskId), 'Задача удалена');
+            const ok = await act(() => TaskApi.remove(props.taskId), t('mxboard_msg_task_deleted'));
             if (ok) {
                 emit('changed');
                 emit('back');
@@ -225,11 +221,11 @@ function removeTask(event) {
 <template>
     <div class="mxb-taskpage">
         <div class="mxb-toolbar">
-            <Button label="На доску" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="emit('back')" />
+            <Button :label="t('mxboard_ui_to_board')" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="emit('back')" />
             <span class="mxb-toolbar-spacer" />
             <Button
                 v-if="canManage"
-                :label="editing ? 'Отменить правку' : 'Редактировать'"
+                :label="editing ? t('mxboard_ui_cancel_edit') : t('mxboard_ui_edit')"
                 :icon="editing ? 'pi pi-times' : 'pi pi-pencil'"
                 size="small"
                 severity="secondary"
@@ -238,7 +234,7 @@ function removeTask(event) {
             />
             <Button
                 v-if="canManage"
-                label="Удалить"
+                :label="t('mxboard_ui_delete')"
                 icon="pi pi-trash"
                 size="small"
                 severity="danger"
@@ -247,12 +243,12 @@ function removeTask(event) {
             />
         </div>
 
-        <div v-if="loading" class="mxb-empty">Загрузка…</div>
+        <div v-if="loading" class="mxb-empty">{{ t('mxboard_ui_loading') }}</div>
 
         <div v-else-if="task">
             <!-- Родитель -->
             <div v-if="detail.parent" class="mxb-parent-link" @click="emit('open-task', detail.parent.id)">
-                <i class="pi pi-arrow-up-right" /> Родитель: <strong>{{ detail.parent.title }}</strong>
+                <i class="pi pi-arrow-up-right" /> {{ t('mxboard_ui_parent') }}: <strong>{{ detail.parent.title }}</strong>
             </div>
 
             <h2 class="mxb-task-title">{{ task.title }}</h2>
@@ -260,29 +256,29 @@ function removeTask(event) {
             <div class="mxb-card-meta" style="margin-bottom: 14px">
                 <Tag :value="priority.label" :severity="priority.severity" />
                 <span v-if="task.type_key" class="mxb-chip">{{ task.type_key }}</span>
-                <span><i class="pi pi-user" />Автор: {{ userName(task, 'author') || '—' }}</span>
-                <span><i class="pi pi-wrench" />Исполнитель: {{ userName(task, 'assignee') || '—' }}</span>
+                <span><i class="pi pi-user" />{{ t('mxboard_ui_author_label') }}: {{ userName(task, 'author') || '—' }}</span>
+                <span><i class="pi pi-wrench" />{{ t('mxboard_ui_assignee_label') }}: {{ userName(task, 'assignee') || '—' }}</span>
                 <span v-if="task.column_key" class="mxb-chip">{{ task.column_key }}</span>
             </div>
 
             <!-- Дедлайн + оспаривание -->
             <div class="mxb-deadline" :class="{ 'mxb-overdue': overdue }">
                 <i class="pi pi-calendar" />
-                <span>Дедлайн: <strong>{{ fmtDay(task.deadlineon) || '—' }}</strong></span>
-                <span v-if="overdue" class="mxb-overdue-badge">просрочен</span>
+                <span>{{ t('mxboard_ui_deadline_label') }}: <strong>{{ fmtDay(task.deadlineon) || '—' }}</strong></span>
+                <span v-if="overdue" class="mxb-overdue-badge">{{ t('mxboard_ui_overdue') }}</span>
 
                 <template v-if="task.deadline_disputed">
                     <span class="mxb-disputed-badge">
-                        <i class="pi pi-flag-fill" /> оспорен → {{ fmtDay(task.deadline_proposed) }}
+                        <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ fmtDay(task.deadline_proposed) }}
                     </span>
                     <template v-if="canManage">
-                        <Button label="Принять" icon="pi pi-check" size="small" :loading="busy" @click="resolve(true)" />
-                        <Button label="Отклонить" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolve(false)" />
+                        <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolve(true)" />
+                        <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolve(false)" />
                     </template>
                 </template>
                 <Button
                     v-else-if="isAssignee"
-                    label="Оспорить"
+                    :label="t('mxboard_ui_dispute')"
                     icon="pi pi-flag"
                     size="small"
                     severity="secondary"
@@ -295,23 +291,23 @@ function removeTask(event) {
             <div v-if="disputeOpen" class="mxb-inline-form">
                 <div class="mxb-row">
                     <div class="mxb-field mxb-col">
-                        <label>Предлагаемая дата</label>
+                        <label>{{ t('mxboard_ui_proposed_date') }}</label>
                         <input v-model="dispute.date" type="date" class="mxb-input" />
                     </div>
                     <div class="mxb-field mxb-col mxb-col-2">
-                        <label>Причина</label>
-                        <InputText v-model="dispute.reason" fluid placeholder="Почему нужен перенос" />
+                        <label>{{ t('mxboard_ui_reason') }}</label>
+                        <InputText v-model="dispute.reason" fluid :placeholder="t('mxboard_ui_reason_placeholder')" />
                     </div>
                 </div>
                 <div class="mxb-dialog-actions">
-                    <Button label="Отмена" severity="secondary" outlined size="small" @click="disputeOpen = false" />
-                    <Button label="Отправить" icon="pi pi-send" size="small" :loading="busy" @click="sendDispute" />
+                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="disputeOpen = false" />
+                    <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :loading="busy" @click="sendDispute" />
                 </div>
             </div>
 
             <!-- Смена стадии (сервер проверит право перехода) -->
             <div v-if="columns.length" class="mxb-field" style="max-width: 320px">
-                <label>Стадия</label>
+                <label>{{ t('mxboard_ui_stage') }}</label>
                 <Select
                     :model-value="task.column_key"
                     :options="columns"
@@ -326,44 +322,44 @@ function removeTask(event) {
             <!-- РЕЖИМ ПРАВКИ -->
             <div v-if="editing" class="mxb-section">
                 <div class="mxb-field">
-                    <label>Заголовок</label>
+                    <label>{{ t('mxboard_ui_title') }}</label>
                     <InputText v-model="form.title" fluid />
                 </div>
                 <div class="mxb-row">
                     <div class="mxb-field mxb-col">
-                        <label>Дедлайн</label>
+                        <label>{{ t('mxboard_ui_deadline') }}</label>
                         <input v-model="form.deadline" type="date" class="mxb-input" />
                     </div>
                     <div class="mxb-field mxb-col">
-                        <label>Приоритет</label>
+                        <label>{{ t('mxboard_ui_priority') }}</label>
                         <Select v-model="form.priority" :options="PRIORITIES" option-label="label" option-value="value" fluid />
                     </div>
                 </div>
                 <div class="mxb-field">
-                    <label>Исполнитель</label>
+                    <label>{{ t('mxboard_ui_assignee') }}</label>
                     <Select v-model="form.assignee_id" :options="users" option-label="username" option-value="id" filter fluid />
                 </div>
                 <div class="mxb-field">
-                    <label>Постановка (ToR, markdown)</label>
+                    <label>{{ t('mxboard_ui_tor') }}</label>
                     <textarea v-model="form.tor" class="mxb-textarea" rows="12" />
                 </div>
                 <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" />
                 <div class="mxb-dialog-actions">
-                    <Button label="Отмена" severity="secondary" outlined size="small" @click="editing = false" />
-                    <Button label="Сохранить" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />
+                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
+                    <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />
                 </div>
             </div>
 
             <!-- ПРОСМОТР -->
             <div v-else>
                 <div class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-file" />Постановка</div>
+                    <div class="mxb-section-title"><i class="pi pi-file" />{{ t('mxboard_ui_tor_section') }}</div>
                     <div v-if="task.tor" class="mxb-md" v-html="torHtml" />
-                    <div v-else class="mxb-empty">Постановка не заполнена</div>
+                    <div v-else class="mxb-empty">{{ t('mxboard_ui_tor_empty') }}</div>
                 </div>
 
                 <div v-if="fieldRows.length" class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-list" />Поля типа</div>
+                    <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
                     <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">
                         <span class="mxb-fieldrow-label">{{ f.label }}</span>
                         <span class="mxb-fieldrow-value">{{ f.value }}</span>
@@ -373,10 +369,10 @@ function removeTask(event) {
                 <!-- Подзадачи -->
                 <div class="mxb-section">
                     <div class="mxb-section-title">
-                        <i class="pi pi-sitemap" />Подзадачи
+                        <i class="pi pi-sitemap" />{{ t('mxboard_ui_subtasks') }}
                         <span class="mxb-column-count">{{ detail.subtasks.length }}</span>
                         <span class="mxb-toolbar-spacer" />
-                        <Button label="Подзадача" icon="pi pi-plus" size="small" severity="secondary" outlined @click="subtaskOpen = true" />
+                        <Button :label="t('mxboard_ui_subtask')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="subtaskOpen = true" />
                     </div>
                     <div
                         v-for="s in detail.subtasks"
@@ -388,13 +384,13 @@ function removeTask(event) {
                         <span class="mxb-subtask-title">{{ s.title }}</span>
                         <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-wrench" />{{ s.assignee }}</span>
                     </div>
-                    <div v-if="!detail.subtasks.length" class="mxb-empty">Подзадач нет</div>
+                    <div v-if="!detail.subtasks.length" class="mxb-empty">{{ t('mxboard_ui_no_subtasks') }}</div>
                 </div>
 
                 <!-- Комментарии -->
                 <div class="mxb-section">
                     <div class="mxb-section-title">
-                        <i class="pi pi-comments" />Комментарии
+                        <i class="pi pi-comments" />{{ t('mxboard_ui_comments') }}
                         <span class="mxb-column-count">{{ detail.comments.length }}</span>
                     </div>
                     <div v-for="(c, i) in detail.comments" :key="i" class="mxb-comment">
@@ -404,31 +400,31 @@ function removeTask(event) {
                         </div>
                         <div class="mxb-md" v-html="renderMarkdown(c.content)" />
                     </div>
-                    <div v-if="!detail.comments.length" class="mxb-empty">Комментариев нет</div>
+                    <div v-if="!detail.comments.length" class="mxb-empty">{{ t('mxboard_ui_no_comments') }}</div>
 
                     <div class="mxb-field" style="margin-top: 8px">
-                        <textarea v-model="comment" class="mxb-textarea" rows="3" placeholder="Комментарий…" />
+                        <textarea v-model="comment" class="mxb-textarea" rows="3" :placeholder="t('mxboard_ui_comment_placeholder')" />
                     </div>
                     <div class="mxb-dialog-actions">
-                        <Button label="Отправить" icon="pi pi-send" size="small" :disabled="!comment.trim()" :loading="busy" @click="addComment" />
+                        <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :disabled="!comment.trim()" :loading="busy" @click="addComment" />
                     </div>
                 </div>
 
                 <!-- Журнал -->
                 <div class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-history" />Журнал</div>
+                    <div class="mxb-section-title"><i class="pi pi-history" />{{ t('mxboard_ui_log') }}</div>
                     <div v-for="(l, i) in detail.log" :key="i" class="mxb-log">
                         <span class="mxb-log-time">{{ fmtDate(l.createdon) }}</span>
                         <span><strong>{{ userName(l, 'user') || '—' }}</strong></span>
                         <span>
-                            {{ ACTIONS[l.action] || l.action }}
+                            {{ actionLabel(l.action) }}
                             <template v-if="l.from_column || l.to_column">
                                 ({{ l.from_column || '—' }} → {{ l.to_column || '—' }})
                             </template>
                             <template v-if="l.channel"> · {{ l.channel }}</template>
                         </span>
                     </div>
-                    <div v-if="!detail.log.length" class="mxb-empty">Записей нет</div>
+                    <div v-if="!detail.log.length" class="mxb-empty">{{ t('mxboard_ui_no_log') }}</div>
                 </div>
             </div>
         </div>

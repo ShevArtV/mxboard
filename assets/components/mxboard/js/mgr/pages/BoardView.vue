@@ -5,6 +5,7 @@ import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
 import { normalizeBoard, normalizeTask } from '../utils/format.js';
+import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 import TaskPage from './TaskPage.vue';
@@ -22,11 +23,11 @@ const columns = ref([]);
 const loading = ref(false);
 
 // Фильтр видимости на клиенте — «все» (менеджерский срез) / только свои роли.
-const FILTERS = [
-    { value: 'all', label: 'Все' },
-    { value: 'author', label: 'Я автор' },
-    { value: 'assignee', label: 'Я исполнитель' },
-];
+const FILTERS = computed(() => [
+    { value: 'all', label: t('mxboard_ui_filter_all') },
+    { value: 'author', label: t('mxboard_ui_filter_author') },
+    { value: 'assignee', label: t('mxboard_ui_filter_assignee') },
+]);
 const filter = ref('all');
 
 // Ручной switch «доска ↔ страница задачи» (без vue-router).
@@ -37,7 +38,6 @@ const dragFromKey = ref('');
 const dragOverKey = ref('');
 const createOpen = ref(false);
 
-const selectedProject = computed(() => projects.value.find((p) => p.key === projectKey.value) || null);
 // Проекты выбранного отдела (у проекта есть department_id).
 const projectsInDepartment = computed(
     () => projects.value.filter((p) => Number(p.department_id) === departmentId.value),
@@ -51,7 +51,7 @@ async function init() {
         departments.value = listOf(d);
         projects.value = listOf(p);
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Справочники не загружены', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
         return;
     }
     if (departments.value.length) {
@@ -87,7 +87,7 @@ async function load() {
         });
         columns.value = normalizeBoard(res).columns;
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Доска не загружена', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_board_load'), detail: errorMessage(e), life: 8000 });
     } finally {
         loading.value = false;
     }
@@ -133,13 +133,13 @@ async function onDrop(column) {
 
     const from = columns.value.find((c) => c.key === fromKey);
     if (!from) return;
-    const index = from.tasks.findIndex((t) => t.id === taskId);
+    const index = from.tasks.findIndex((task) => task.id === taskId);
     if (index === -1) return;
     const task = from.tasks[index];
 
     // Клиентская страховка: заведомо запрещённое закрытие не гоняем на сервер.
     if (column.is_final && !cfg.can_move_any && task.author_id !== userId) {
-        toast.add({ severity: 'warn', summary: 'Закрыть задачу может только её автор', life: 6000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_err_close_author_only'), life: 6000 });
         return;
     }
 
@@ -151,11 +151,11 @@ async function onDrop(column) {
         const res = await TaskApi.move(taskId, column.key);
         if (res.object) Object.assign(task, normalizeTask(res.object));
     } catch (e) {
-        const back = column.tasks.findIndex((t) => t.id === taskId);
+        const back = column.tasks.findIndex((x) => x.id === taskId);
         if (back !== -1) column.tasks.splice(back, 1);
         task.column_key = fromKey;
         from.tasks.splice(index, 0, task);
-        toast.add({ severity: 'error', summary: 'Перемещение отклонено', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_move_rejected'), detail: errorMessage(e), life: 8000 });
     }
 }
 </script>
@@ -181,7 +181,7 @@ async function onDrop(column) {
                 :options="departments"
                 option-label="name"
                 option-value="id"
-                placeholder="Отдел"
+                :placeholder="t('mxboard_ui_department')"
                 @change="onDepartmentChange"
             />
             <Select
@@ -189,7 +189,7 @@ async function onDrop(column) {
                 :options="projectsInDepartment"
                 option-label="name"
                 option-value="key"
-                placeholder="Проект"
+                :placeholder="t('mxboard_ui_project')"
                 @change="load"
             />
             <SelectButton
@@ -202,14 +202,14 @@ async function onDrop(column) {
             />
             <span class="mxb-toolbar-spacer" />
             <Button
-                label="Новая задача"
+                :label="t('mxboard_ui_new_task')"
                 icon="pi pi-plus"
                 size="small"
                 :disabled="!projectKey"
                 @click="createOpen = true"
             />
             <Button
-                label="Обновить"
+                :label="t('mxboard_ui_refresh')"
                 icon="pi pi-refresh"
                 size="small"
                 severity="secondary"
@@ -219,9 +219,7 @@ async function onDrop(column) {
             />
         </div>
 
-        <div v-if="!projectKey" class="mxb-empty">
-            Нет проектов в этом отделе. Создайте проект на вкладке «Структура».
-        </div>
+        <div v-if="!projectKey" class="mxb-empty">{{ t('mxboard_ui_no_projects') }}</div>
 
         <div v-else class="mxb-columns">
             <div
@@ -248,7 +246,7 @@ async function onDrop(column) {
                         @dragstart="onDragStart(task, column, $event)"
                         @dragend="onDragEnd"
                     />
-                    <div v-if="!column.tasks.length" class="mxb-empty">Пусто</div>
+                    <div v-if="!column.tasks.length" class="mxb-empty">{{ t('mxboard_ui_empty') }}</div>
                 </div>
             </div>
         </div>

@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { Toast, ConfirmPopup, Tabs, TabList, Tab, TabPanels, TabPanel } from 'primevue';
 import BoardView from './BoardView.vue';
 import TokensView from './TokensView.vue';
+import { t } from '../utils/i18n.js';
 
 const tab = ref('board');
 </script>
@@ -14,8 +15,8 @@ const tab = ref('board');
 
         <Tabs v-model:value="tab">
             <TabList>
-                <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> Доска</Tab>
-                <Tab value="tokens"><i class="pi pi-key mxb-tab-icon" /> Токены агентов</Tab>
+                <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
+                <Tab value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
             </TabList>
             <TabPanels>
                 <TabPanel value="board">

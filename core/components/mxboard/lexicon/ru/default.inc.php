@@ -99,3 +99,130 @@ $_lang['mxboard_deadline_disputed'] = 'Дедлайн оспорен';
 
 $_lang['mxboard_token'] = 'Токен';
 $_lang['mxboard_token_created'] = 'Токен создан. Скопируйте его сейчас — второй раз он не покажется.';
+
+// v2 (3b): интерфейс доски и страницы задачи (грузятся в window.MODx.lang контроллером CMP).
+$_lang['mxboard_ui_board'] = 'Доска';
+$_lang['mxboard_ui_tokens'] = 'Токены агентов';
+$_lang['mxboard_ui_structure'] = 'Структура';
+$_lang['mxboard_ui_refresh'] = 'Обновить';
+$_lang['mxboard_ui_cancel'] = 'Отмена';
+$_lang['mxboard_ui_create'] = 'Создать';
+$_lang['mxboard_ui_save'] = 'Сохранить';
+$_lang['mxboard_ui_delete'] = 'Удалить';
+$_lang['mxboard_ui_edit'] = 'Редактировать';
+$_lang['mxboard_ui_send'] = 'Отправить';
+$_lang['mxboard_ui_empty'] = 'Пусто';
+$_lang['mxboard_ui_loading'] = 'Загрузка…';
+
+$_lang['mxboard_ui_department'] = 'Отдел';
+$_lang['mxboard_ui_project'] = 'Проект';
+$_lang['mxboard_ui_filter_all'] = 'Все';
+$_lang['mxboard_ui_filter_author'] = 'Я автор';
+$_lang['mxboard_ui_filter_assignee'] = 'Я исполнитель';
+$_lang['mxboard_ui_new_task'] = 'Новая задача';
+$_lang['mxboard_ui_no_projects'] = 'Нет проектов в этом отделе. Создайте проект на вкладке «Структура».';
+
+$_lang['mxboard_ui_subtask'] = 'Подзадача';
+$_lang['mxboard_ui_deadline_disputed_hint'] = 'Дедлайн оспорен';
+
+$_lang['mxboard_ui_new_subtask'] = 'Новая подзадача';
+$_lang['mxboard_ui_subtask_for'] = 'Подзадача для';
+$_lang['mxboard_ui_task_type'] = 'Тип задачи';
+$_lang['mxboard_ui_select_type'] = 'Выберите тип';
+$_lang['mxboard_ui_no_types'] = 'В отделе нет типов задач — создайте их на вкладке «Структура».';
+$_lang['mxboard_ui_title'] = 'Заголовок';
+$_lang['mxboard_ui_deadline'] = 'Дедлайн';
+$_lang['mxboard_ui_priority'] = 'Приоритет';
+$_lang['mxboard_ui_assignee'] = 'Исполнитель';
+$_lang['mxboard_ui_assignee_placeholder'] = 'Из отдела проекта';
+$_lang['mxboard_ui_tor'] = 'Постановка (ToR, markdown)';
+$_lang['mxboard_ui_loading_fields'] = 'Загрузка полей типа…';
+
+$_lang['mxboard_ui_to_board'] = 'На доску';
+$_lang['mxboard_ui_cancel_edit'] = 'Отменить правку';
+$_lang['mxboard_ui_parent'] = 'Родитель';
+$_lang['mxboard_ui_author_label'] = 'Автор';
+$_lang['mxboard_ui_assignee_label'] = 'Исполнитель';
+$_lang['mxboard_ui_deadline_label'] = 'Дедлайн';
+$_lang['mxboard_ui_overdue'] = 'просрочен';
+$_lang['mxboard_ui_disputed_to'] = 'оспорен';
+$_lang['mxboard_ui_accept'] = 'Принять';
+$_lang['mxboard_ui_reject'] = 'Отклонить';
+$_lang['mxboard_ui_dispute'] = 'Оспорить';
+$_lang['mxboard_ui_proposed_date'] = 'Предлагаемая дата';
+$_lang['mxboard_ui_reason'] = 'Причина';
+$_lang['mxboard_ui_reason_placeholder'] = 'Почему нужен перенос';
+$_lang['mxboard_ui_stage'] = 'Стадия';
+$_lang['mxboard_ui_tor_section'] = 'Постановка';
+$_lang['mxboard_ui_tor_empty'] = 'Постановка не заполнена';
+$_lang['mxboard_ui_type_fields'] = 'Поля типа';
+$_lang['mxboard_ui_subtasks'] = 'Подзадачи';
+$_lang['mxboard_ui_no_subtasks'] = 'Подзадач нет';
+$_lang['mxboard_ui_comments'] = 'Комментарии';
+$_lang['mxboard_ui_comment_placeholder'] = 'Комментарий…';
+$_lang['mxboard_ui_no_comments'] = 'Комментариев нет';
+$_lang['mxboard_ui_log'] = 'Журнал';
+$_lang['mxboard_ui_no_log'] = 'Записей нет';
+
+// Действия журнала (человеческие названия).
+$_lang['mxboard_act_create'] = 'создана';
+$_lang['mxboard_act_move'] = 'перемещена';
+$_lang['mxboard_act_close'] = 'закрыта';
+$_lang['mxboard_act_comment'] = 'комментарий';
+$_lang['mxboard_act_update'] = 'изменена';
+$_lang['mxboard_act_subtask_add'] = 'добавлена подзадача';
+$_lang['mxboard_act_deadline_dispute'] = 'дедлайн оспорен';
+$_lang['mxboard_act_deadline_accepted'] = 'новый дедлайн принят';
+$_lang['mxboard_act_deadline_rejected'] = 'оспаривание отклонено';
+
+// Тосты и подтверждения.
+$_lang['mxboard_msg_refs_load'] = 'Справочники не загружены';
+$_lang['mxboard_msg_board_load'] = 'Доска не загружена';
+$_lang['mxboard_msg_move_rejected'] = 'Перемещение отклонено';
+$_lang['mxboard_msg_task_created'] = 'Задача создана';
+$_lang['mxboard_msg_task_not_created'] = 'Задача не создана';
+$_lang['mxboard_msg_schema_load'] = 'Схема типа не загружена';
+$_lang['mxboard_msg_warn_no_type'] = 'Не выбран тип задачи';
+$_lang['mxboard_msg_warn_no_title'] = 'Не указан заголовок';
+$_lang['mxboard_msg_warn_no_deadline'] = 'Не указан дедлайн';
+$_lang['mxboard_msg_warn_no_assignee'] = 'Не выбран исполнитель';
+$_lang['mxboard_msg_task_load'] = 'Задача не загружена';
+$_lang['mxboard_msg_rejected'] = 'Отказано';
+$_lang['mxboard_msg_stage_changed'] = 'Стадия изменена';
+$_lang['mxboard_msg_comment_added'] = 'Комментарий добавлен';
+$_lang['mxboard_msg_saved'] = 'Сохранено';
+$_lang['mxboard_msg_deadline_disputed'] = 'Дедлайн оспорен';
+$_lang['mxboard_msg_deadline_accepted'] = 'Новый дедлайн принят';
+$_lang['mxboard_msg_deadline_rejected'] = 'Оспаривание отклонено';
+$_lang['mxboard_msg_task_deleted'] = 'Задача удалена';
+$_lang['mxboard_msg_warn_proposed_date'] = 'Укажите предлагаемую дату';
+$_lang['mxboard_msg_confirm_delete_task'] = 'Удалить задачу? Подзадачи будут откреплены, а не удалены.';
+
+// Токены агентов (вкладка).
+$_lang['mxboard_ui_new_token'] = 'Новый токен';
+$_lang['mxboard_ui_new_token_agent'] = 'Новый токен агента';
+$_lang['mxboard_ui_token_created_banner'] = 'Токен создан.';
+$_lang['mxboard_ui_token_created_hint'] = 'Сохраните его сейчас — он показывается один раз и больше не будет доступен: в базе хранится только хэш.';
+$_lang['mxboard_ui_copy'] = 'Скопировать';
+$_lang['mxboard_ui_col_name'] = 'Название';
+$_lang['mxboard_ui_col_user'] = 'Пользователь';
+$_lang['mxboard_ui_col_status'] = 'Статус';
+$_lang['mxboard_ui_col_created'] = 'Создан';
+$_lang['mxboard_ui_col_used'] = 'Использован';
+$_lang['mxboard_ui_status_active'] = 'активен';
+$_lang['mxboard_ui_status_revoked'] = 'отозван';
+$_lang['mxboard_ui_no_tokens'] = 'Токенов нет';
+$_lang['mxboard_ui_token_name'] = 'Название';
+$_lang['mxboard_ui_token_user'] = 'ID пользователя MODX';
+$_lang['mxboard_ui_token_user_hint'] = 'Права агента — это права его пользователя MODX. По умолчанию подставлен ваш ID.';
+$_lang['mxboard_ui_token_name_placeholder'] = 'Например: jarvis-worker';
+$_lang['mxboard_msg_tokens_load'] = 'Токены не загружены';
+$_lang['mxboard_msg_token_name_required'] = 'Не указано название токена';
+$_lang['mxboard_msg_token_created'] = 'Токен создан';
+$_lang['mxboard_msg_token_not_created'] = 'Токен не создан';
+$_lang['mxboard_msg_token_no_value'] = 'Сервер не вернул значение токена — проверьте процессор Token\\Create.';
+$_lang['mxboard_msg_token_copied'] = 'Токен скопирован';
+$_lang['mxboard_msg_token_copy_manual'] = 'Скопируйте вручную';
+$_lang['mxboard_msg_token_revoke_fail'] = 'Не удалось отозвать';
+$_lang['mxboard_msg_token_revoked'] = 'Токен отозван';
+$_lang['mxboard_msg_confirm_revoke'] = 'Отозвать токен «[[+name]]»? Агент с ним перестанет работать.';

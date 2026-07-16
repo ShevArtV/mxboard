@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import { Dialog, Button, InputText, Select, useToast } from 'primevue';
 import { TaskApi, TypeApi, DepartmentApi, errorMessage, listOf } from '../api/connector.js';
 import { PRIORITIES } from '../utils/format.js';
+import { t } from '../utils/i18n.js';
 import TypeFields from './TypeFields.vue';
 
 const props = defineProps({
@@ -34,14 +35,14 @@ watch(() => props.visible, async (open) => {
     users.value = [];
     if (!props.departmentId) return;
     try {
-        const [t, u] = await Promise.all([
+        const [ty, u] = await Promise.all([
             TypeApi.getList(props.departmentId),
             DepartmentApi.users(props.departmentId),
         ]);
-        types.value = listOf(t);
+        types.value = listOf(ty);
         users.value = listOf(u);
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Справочники не загружены', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
     }
 });
 
@@ -55,7 +56,7 @@ watch(() => form.value.type, async (typeKey) => {
         const res = await TypeApi.schema({ project: props.projectKey, type: typeKey });
         schema.value = res.object ?? null;
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Схема типа не загружена', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_schema_load'), detail: errorMessage(e), life: 8000 });
     } finally {
         loadingType.value = false;
     }
@@ -63,19 +64,19 @@ watch(() => form.value.type, async (typeKey) => {
 
 async function save() {
     if (!form.value.type) {
-        toast.add({ severity: 'warn', summary: 'Не выбран тип задачи', life: 4000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_no_type'), life: 4000 });
         return;
     }
     if (!form.value.title.trim()) {
-        toast.add({ severity: 'warn', summary: 'Не указан заголовок', life: 4000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_no_title'), life: 4000 });
         return;
     }
     if (!form.value.deadline) {
-        toast.add({ severity: 'warn', summary: 'Не указан дедлайн', life: 4000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_no_deadline'), life: 4000 });
         return;
     }
     if (!form.value.assignee_id) {
-        toast.add({ severity: 'warn', summary: 'Не выбран исполнитель', life: 4000 });
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_no_assignee'), life: 4000 });
         return;
     }
 
@@ -92,11 +93,11 @@ async function save() {
             assignee_id: form.value.assignee_id,
             fields: form.value.fields,
         });
-        toast.add({ severity: 'success', summary: 'Задача создана', life: 3000 });
+        toast.add({ severity: 'success', summary: t('mxboard_msg_task_created'), life: 3000 });
         emit('update:visible', false);
         emit('created');
     } catch (e) {
-        toast.add({ severity: 'error', summary: 'Задача не создана', detail: errorMessage(e), life: 8000 });
+        toast.add({ severity: 'error', summary: t('mxboard_msg_task_not_created'), detail: errorMessage(e), life: 8000 });
     } finally {
         saving.value = false;
     }
@@ -107,63 +108,63 @@ async function save() {
     <Dialog
         :visible="visible"
         modal
-        :header="parentId ? 'Новая подзадача' : 'Новая задача'"
+        :header="parentId ? t('mxboard_ui_new_subtask') : t('mxboard_ui_new_task')"
         :style="{ width: '680px' }"
         @update:visible="emit('update:visible', $event)"
     >
         <div v-if="parentId" class="mxb-parent-note">
-            <i class="pi pi-sitemap" /> Подзадача для: <strong>{{ parentTitle }}</strong>
+            <i class="pi pi-sitemap" /> {{ t('mxboard_ui_subtask_for') }}: <strong>{{ parentTitle }}</strong>
         </div>
 
         <div class="mxb-field">
-            <label>Тип задачи</label>
+            <label>{{ t('mxboard_ui_task_type') }}</label>
             <Select
                 v-model="form.type"
                 :options="types"
                 option-label="name"
                 option-value="key"
-                placeholder="Выберите тип"
+                :placeholder="t('mxboard_ui_select_type')"
                 fluid
             />
-            <div v-if="!types.length" class="mxb-hint">В отделе нет типов задач — создайте их на вкладке «Структура».</div>
+            <div v-if="!types.length" class="mxb-hint">{{ t('mxboard_ui_no_types') }}</div>
         </div>
 
         <div class="mxb-field">
-            <label>Заголовок</label>
+            <label>{{ t('mxboard_ui_title') }}</label>
             <InputText v-model="form.title" fluid autofocus />
         </div>
 
         <div class="mxb-row">
             <div class="mxb-field mxb-col">
-                <label>Дедлайн</label>
+                <label>{{ t('mxboard_ui_deadline') }}</label>
                 <input v-model="form.deadline" type="date" class="mxb-input" />
             </div>
             <div class="mxb-field mxb-col">
-                <label>Приоритет</label>
+                <label>{{ t('mxboard_ui_priority') }}</label>
                 <Select v-model="form.priority" :options="PRIORITIES" option-label="label" option-value="value" fluid />
             </div>
         </div>
 
         <div class="mxb-field">
-            <label>Исполнитель</label>
+            <label>{{ t('mxboard_ui_assignee') }}</label>
             <Select
                 v-model="form.assignee_id"
                 :options="users"
                 option-label="username"
                 option-value="id"
-                placeholder="Из отдела проекта"
+                :placeholder="t('mxboard_ui_assignee_placeholder')"
                 filter
                 fluid
             />
         </div>
 
         <div class="mxb-field">
-            <label>Постановка (ToR, markdown)</label>
+            <label>{{ t('mxboard_ui_tor') }}</label>
             <textarea v-model="form.tor" class="mxb-textarea" rows="8" />
         </div>
 
         <!-- Динамические поля выбранного типа. -->
-        <div v-if="loadingType" class="mxb-empty">Загрузка полей типа…</div>
+        <div v-if="loadingType" class="mxb-empty">{{ t('mxboard_ui_loading_fields') }}</div>
         <TypeFields
             v-else-if="schema"
             v-model="form.fields"
@@ -173,8 +174,8 @@ async function save() {
 
         <template #footer>
             <div class="mxb-dialog-actions">
-                <Button label="Отмена" severity="secondary" outlined @click="emit('update:visible', false)" />
-                <Button label="Создать" icon="pi pi-check" :loading="saving" @click="save" />
+                <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="emit('update:visible', false)" />
+                <Button :label="t('mxboard_ui_create')" icon="pi pi-check" :loading="saving" @click="save" />
             </div>
         </template>
     </Dialog>

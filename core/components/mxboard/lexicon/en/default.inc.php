@@ -99,3 +99,130 @@ $_lang['mxboard_deadline_disputed'] = 'Deadline disputed';
 
 $_lang['mxboard_token'] = 'Token';
 $_lang['mxboard_token_created'] = 'Token created. Copy it now — it will not be shown again.';
+
+// v2 (3b): board and task-page UI (loaded into window.MODx.lang by the CMP controller).
+$_lang['mxboard_ui_board'] = 'Board';
+$_lang['mxboard_ui_tokens'] = 'Agent tokens';
+$_lang['mxboard_ui_structure'] = 'Structure';
+$_lang['mxboard_ui_refresh'] = 'Refresh';
+$_lang['mxboard_ui_cancel'] = 'Cancel';
+$_lang['mxboard_ui_create'] = 'Create';
+$_lang['mxboard_ui_save'] = 'Save';
+$_lang['mxboard_ui_delete'] = 'Delete';
+$_lang['mxboard_ui_edit'] = 'Edit';
+$_lang['mxboard_ui_send'] = 'Send';
+$_lang['mxboard_ui_empty'] = 'Empty';
+$_lang['mxboard_ui_loading'] = 'Loading…';
+
+$_lang['mxboard_ui_department'] = 'Department';
+$_lang['mxboard_ui_project'] = 'Project';
+$_lang['mxboard_ui_filter_all'] = 'All';
+$_lang['mxboard_ui_filter_author'] = 'I am author';
+$_lang['mxboard_ui_filter_assignee'] = 'I am assignee';
+$_lang['mxboard_ui_new_task'] = 'New task';
+$_lang['mxboard_ui_no_projects'] = 'No projects in this department. Create one on the “Structure” tab.';
+
+$_lang['mxboard_ui_subtask'] = 'Subtask';
+$_lang['mxboard_ui_deadline_disputed_hint'] = 'Deadline disputed';
+
+$_lang['mxboard_ui_new_subtask'] = 'New subtask';
+$_lang['mxboard_ui_subtask_for'] = 'Subtask of';
+$_lang['mxboard_ui_task_type'] = 'Task type';
+$_lang['mxboard_ui_select_type'] = 'Choose a type';
+$_lang['mxboard_ui_no_types'] = 'The department has no task types — create them on the “Structure” tab.';
+$_lang['mxboard_ui_title'] = 'Title';
+$_lang['mxboard_ui_deadline'] = 'Deadline';
+$_lang['mxboard_ui_priority'] = 'Priority';
+$_lang['mxboard_ui_assignee'] = 'Assignee';
+$_lang['mxboard_ui_assignee_placeholder'] = 'From the project department';
+$_lang['mxboard_ui_tor'] = 'Statement (ToR, markdown)';
+$_lang['mxboard_ui_loading_fields'] = 'Loading type fields…';
+
+$_lang['mxboard_ui_to_board'] = 'To board';
+$_lang['mxboard_ui_cancel_edit'] = 'Cancel edit';
+$_lang['mxboard_ui_parent'] = 'Parent';
+$_lang['mxboard_ui_author_label'] = 'Author';
+$_lang['mxboard_ui_assignee_label'] = 'Assignee';
+$_lang['mxboard_ui_deadline_label'] = 'Deadline';
+$_lang['mxboard_ui_overdue'] = 'overdue';
+$_lang['mxboard_ui_disputed_to'] = 'disputed';
+$_lang['mxboard_ui_accept'] = 'Accept';
+$_lang['mxboard_ui_reject'] = 'Reject';
+$_lang['mxboard_ui_dispute'] = 'Dispute';
+$_lang['mxboard_ui_proposed_date'] = 'Proposed date';
+$_lang['mxboard_ui_reason'] = 'Reason';
+$_lang['mxboard_ui_reason_placeholder'] = 'Why a reschedule is needed';
+$_lang['mxboard_ui_stage'] = 'Stage';
+$_lang['mxboard_ui_tor_section'] = 'Statement';
+$_lang['mxboard_ui_tor_empty'] = 'Statement is empty';
+$_lang['mxboard_ui_type_fields'] = 'Type fields';
+$_lang['mxboard_ui_subtasks'] = 'Subtasks';
+$_lang['mxboard_ui_no_subtasks'] = 'No subtasks';
+$_lang['mxboard_ui_comments'] = 'Comments';
+$_lang['mxboard_ui_comment_placeholder'] = 'Comment…';
+$_lang['mxboard_ui_no_comments'] = 'No comments';
+$_lang['mxboard_ui_log'] = 'Log';
+$_lang['mxboard_ui_no_log'] = 'No records';
+
+// Log actions (human-readable).
+$_lang['mxboard_act_create'] = 'created';
+$_lang['mxboard_act_move'] = 'moved';
+$_lang['mxboard_act_close'] = 'closed';
+$_lang['mxboard_act_comment'] = 'comment';
+$_lang['mxboard_act_update'] = 'updated';
+$_lang['mxboard_act_subtask_add'] = 'subtask added';
+$_lang['mxboard_act_deadline_dispute'] = 'deadline disputed';
+$_lang['mxboard_act_deadline_accepted'] = 'new deadline accepted';
+$_lang['mxboard_act_deadline_rejected'] = 'dispute rejected';
+
+// Toasts and confirmations.
+$_lang['mxboard_msg_refs_load'] = 'Reference data not loaded';
+$_lang['mxboard_msg_board_load'] = 'Board not loaded';
+$_lang['mxboard_msg_move_rejected'] = 'Move rejected';
+$_lang['mxboard_msg_task_created'] = 'Task created';
+$_lang['mxboard_msg_task_not_created'] = 'Task not created';
+$_lang['mxboard_msg_schema_load'] = 'Type schema not loaded';
+$_lang['mxboard_msg_warn_no_type'] = 'No task type selected';
+$_lang['mxboard_msg_warn_no_title'] = 'Title is required';
+$_lang['mxboard_msg_warn_no_deadline'] = 'Deadline is required';
+$_lang['mxboard_msg_warn_no_assignee'] = 'No assignee selected';
+$_lang['mxboard_msg_task_load'] = 'Task not loaded';
+$_lang['mxboard_msg_rejected'] = 'Denied';
+$_lang['mxboard_msg_stage_changed'] = 'Stage changed';
+$_lang['mxboard_msg_comment_added'] = 'Comment added';
+$_lang['mxboard_msg_saved'] = 'Saved';
+$_lang['mxboard_msg_deadline_disputed'] = 'Deadline disputed';
+$_lang['mxboard_msg_deadline_accepted'] = 'New deadline accepted';
+$_lang['mxboard_msg_deadline_rejected'] = 'Dispute rejected';
+$_lang['mxboard_msg_task_deleted'] = 'Task deleted';
+$_lang['mxboard_msg_warn_proposed_date'] = 'Specify the proposed date';
+$_lang['mxboard_msg_confirm_delete_task'] = 'Delete the task? Subtasks will be detached, not deleted.';
+
+// Agent tokens (tab).
+$_lang['mxboard_ui_new_token'] = 'New token';
+$_lang['mxboard_ui_new_token_agent'] = 'New agent token';
+$_lang['mxboard_ui_token_created_banner'] = 'Token created.';
+$_lang['mxboard_ui_token_created_hint'] = 'Save it now — it is shown once and will not be available again: only a hash is stored in the database.';
+$_lang['mxboard_ui_copy'] = 'Copy';
+$_lang['mxboard_ui_col_name'] = 'Name';
+$_lang['mxboard_ui_col_user'] = 'User';
+$_lang['mxboard_ui_col_status'] = 'Status';
+$_lang['mxboard_ui_col_created'] = 'Created';
+$_lang['mxboard_ui_col_used'] = 'Used';
+$_lang['mxboard_ui_status_active'] = 'active';
+$_lang['mxboard_ui_status_revoked'] = 'revoked';
+$_lang['mxboard_ui_no_tokens'] = 'No tokens';
+$_lang['mxboard_ui_token_name'] = 'Name';
+$_lang['mxboard_ui_token_user'] = 'MODX user ID';
+$_lang['mxboard_ui_token_user_hint'] = 'The agent has the permissions of its MODX user. Your ID is prefilled by default.';
+$_lang['mxboard_ui_token_name_placeholder'] = 'e.g. jarvis-worker';
+$_lang['mxboard_msg_tokens_load'] = 'Tokens not loaded';
+$_lang['mxboard_msg_token_name_required'] = 'Token name is required';
+$_lang['mxboard_msg_token_created'] = 'Token created';
+$_lang['mxboard_msg_token_not_created'] = 'Token not created';
+$_lang['mxboard_msg_token_no_value'] = 'The server did not return the token value — check the Token\\Create processor.';
+$_lang['mxboard_msg_token_copied'] = 'Token copied';
+$_lang['mxboard_msg_token_copy_manual'] = 'Copy manually';
+$_lang['mxboard_msg_token_revoke_fail'] = 'Failed to revoke';
+$_lang['mxboard_msg_token_revoked'] = 'Token revoked';
+$_lang['mxboard_msg_confirm_revoke'] = 'Revoke token “[[+name]]”? The agent using it will stop working.';

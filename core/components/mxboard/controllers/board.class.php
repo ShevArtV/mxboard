@@ -52,6 +52,18 @@ class MxboardboardManagerController extends modExtraManagerController
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->modx->regClientStartupHTMLBlock("<script>window.MxBoardConfig = {$json};</script>");
 
+        // Лексикон в JS: строки интерфейса не хардкодятся во Vue, а берутся через
+        // @vuetools/useLexicon из window.MODx.lang. Прокидываем ВСЕ загруженные записи
+        // mxboard_* явно, не полагаясь на то, как менеджер экспонирует топики.
+        $this->modx->lexicon->load('mxboard:default');
+        $lang = $this->modx->lexicon->fetch('mxboard');
+        if (!empty($lang)) {
+            $langJson = json_encode($lang, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $this->modx->regClientStartupHTMLBlock(
+                "<script>window.MODx=window.MODx||{};MODx.lang=Object.assign(MODx.lang||{}, {$langJson});</script>"
+            );
+        }
+
         // Cache-bust по mtime бандла — каждая пересборка автоматически сбрасывает кэш.
         $distPath = MODX_ASSETS_PATH . 'components/mxboard/js/mgr/vue-dist/';
         $distUrl = $assetsUrl . 'js/mgr/vue-dist/';
