@@ -21,6 +21,18 @@ function api() {
 const OPTS = { headers: { 'X-Requested-With': 'XMLHttpRequest' } };
 const post = (action, params = {}) => api().post(action, params, OPTS);
 
+// useApi кладёт МАССИВ в FormData поэлементно (fields[0]=[object Object]) — для
+// массива объектов это ломается. Такие поля (список полей типа, колонки проекта)
+// сериализуем в JSON-строку: процессор их всё равно json_decode-ит. Плоский объект
+// {key:value} useApi сериализует в JSON сам — его не трогаем.
+function withJson(params, keys) {
+    const out = { ...params };
+    for (const k of keys) {
+        if (Array.isArray(out[k])) out[k] = JSON.stringify(out[k]);
+    }
+    return out;
+}
+
 const P = 'MxBoard\\Processors\\Mgr\\';
 const B = P + 'Board\\';
 const T = P + 'Task\\';
@@ -61,20 +73,40 @@ export const BoardApi = {
 export const DepartmentApi = {
     getList: () => post(D + 'GetList'),
     users: (departmentId) => post(D + 'Users', { department_id: departmentId }),
+    groups: () => post(D + 'Groups'),
+    register: (data) => post(D + 'Register', data),
+    update: (id, data) => post(D + 'Update', { id, ...data }),
+    remove: (id) => post(D + 'Remove', { id }),
 };
 
 export const ProjectApi = {
     getList: () => post(PR + 'GetList'),
+    create: (data) => post(PR + 'Create', withJson(data, ['columns'])),
+    update: (id, data) => post(PR + 'Update', { id, ...data }),
+    remove: (id) => post(PR + 'Remove', { id }),
 };
 
 export const TypeApi = {
     getList: (departmentId) => post(TY + 'GetList', { department_id: departmentId }),
     // Схема типа (builtin + поля) под конкретный проект — по ней строится форма задачи.
     schema: (params) => post(TY + 'Schema', params),
+    create: (data) => post(TY + 'Create', withJson(data, ['fields'])),
+    update: (id, data) => post(TY + 'Update', { id, ...data }),
+    remove: (id) => post(TY + 'Remove', { id }),
+};
+
+export const FieldApi = {
+    getList: (taskTypeId) => post(P + 'Field\\GetList', { task_type_id: taskTypeId }),
+    create: (data) => post(P + 'Field\\Create', data),
+    update: (id, data) => post(P + 'Field\\Update', { id, ...data }),
+    remove: (id) => post(P + 'Field\\Remove', { id }),
 };
 
 export const ColumnApi = {
     getList: (projectId) => post(C + 'GetList', { project_id: projectId }),
+    create: (data) => post(C + 'Create', data),
+    update: (id, data) => post(C + 'Update', { id, ...data }),
+    remove: (id) => post(C + 'Remove', { id }),
 };
 
 // Задача. Модель v2: исполнитель назначается при создании (пула/захвата нет),

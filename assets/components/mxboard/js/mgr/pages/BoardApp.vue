@@ -3,8 +3,12 @@ import { ref } from 'vue';
 import { Toast, ConfirmPopup, Tabs, TabList, Tab, TabPanels, TabPanel } from 'primevue';
 import BoardView from './BoardView.vue';
 import TokensView from './TokensView.vue';
+import StructureView from './StructureView.vue';
 import { t } from '../utils/i18n.js';
 
+// Вкладка «Структура» — только менеджеру (sudo/супер отдела); финальную проверку
+// всё равно делают процессоры, гейт лишь прячет UI.
+const isManager = !!(window.MxBoardConfig || {}).is_manager;
 const tab = ref('board');
 </script>
 
@@ -16,11 +20,15 @@ const tab = ref('board');
         <Tabs v-model:value="tab">
             <TabList>
                 <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
+                <Tab v-if="isManager" value="structure"><i class="pi pi-sitemap mxb-tab-icon" /> {{ t('mxboard_ui_structure') }}</Tab>
                 <Tab value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
             </TabList>
             <TabPanels>
                 <TabPanel value="board">
                     <BoardView />
+                </TabPanel>
+                <TabPanel v-if="isManager" value="structure">
+                    <StructureView />
                 </TabPanel>
                 <TabPanel value="tokens">
                     <TokensView />
@@ -492,5 +500,47 @@ const tab = ref('board');
 
 .mxb-done {
     color: var(--p-green-500, #10b981);
+}
+
+/* --- 3c: экран «Структура» --- */
+.mxb-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mxb-check label {
+    margin: 0;
+    font-weight: 400;
+}
+
+.mxb-fields-panel {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    background: var(--p-content-background, #f6f7f9);
+}
+
+/* Строка редактора полей типа: ключ · метка · тип · required · удалить. */
+.mxb-field-editrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr 130px auto auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.mxb-field-editrow .mxb-check {
+    white-space: nowrap;
+}
+
+.mxb-fieldrow code {
+    background: var(--p-surface-100, #f1f3f5);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    margin-left: 6px;
+    opacity: 0.8;
 }
 </style>

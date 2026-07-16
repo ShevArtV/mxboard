@@ -34,6 +34,16 @@ class MxboardboardManagerController extends modExtraManagerController
 
         $user = $this->modx->user;
 
+        // Признак «менеджер» для гейта вкладки «Структура»: sudo или супер хотя бы
+        // одного отдела (authority роли). Считает Transitions — тем же правилом, что и
+        // сервер; UI лишь прячет вкладку, финальную проверку делают процессоры.
+        $isManager = false;
+        $autoload = MODX_CORE_PATH . 'components/mxboard/vendor/autoload.php';
+        if ($user && is_file($autoload)) {
+            require_once $autoload;
+            $isManager = \MxBoard\Helpers\Transitions::isAnyDepartmentManager($this->modx, $user);
+        }
+
         $config = [
             'connector_url' => $assetsUrl . 'connector.php',
             'token' => $user
@@ -48,6 +58,8 @@ class MxboardboardManagerController extends modExtraManagerController
             // UI не пугает запретом закрытия чужой задачи того, кому сервер это всё равно разрешит.
             'can_move_any' => $user
                 && ((bool) $user->get('sudo') || $this->modx->hasPermission('mxboard_move_any')),
+            // Гейт вкладки «Структура»: менеджер отдела (authority) или sudo.
+            'is_manager' => $isManager,
         ];
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->modx->regClientStartupHTMLBlock("<script>window.MxBoardConfig = {$json};</script>");

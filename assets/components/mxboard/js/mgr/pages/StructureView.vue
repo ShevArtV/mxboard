@@ -1,0 +1,30 @@
+<script setup>
+import { ref } from 'vue';
+import { Tabs, TabList, Tab, TabPanels, TabPanel } from 'primevue';
+import { t } from '../utils/i18n.js';
+import DepartmentsTab from '../components/structure/DepartmentsTab.vue';
+import TypesTab from '../components/structure/TypesTab.vue';
+import ProjectsTab from '../components/structure/ProjectsTab.vue';
+import ColumnsTab from '../components/structure/ColumnsTab.vue';
+
+// Экран «Структура» — только менеджеру (гейт по cfg.is_manager в BoardApp).
+// Внутренние вкладки: отделы · типы+поля · проекты · колонки/стадии.
+const sub = ref('departments');
+</script>
+
+<template>
+    <Tabs v-model:value="sub">
+        <TabList>
+            <Tab value="departments">{{ t('mxboard_ui_struct_departments') }}</Tab>
+            <Tab value="types">{{ t('mxboard_ui_struct_types') }}</Tab>
+            <Tab value="projects">{{ t('mxboard_ui_struct_projects') }}</Tab>
+            <Tab value="columns">{{ t('mxboard_ui_struct_columns') }}</Tab>
+        </TabList>
+        <TabPanels>
+            <TabPanel value="departments"><DepartmentsTab /></TabPanel>
+            <TabPanel value="types"><TypesTab /></TabPanel>
+            <TabPanel value="projects"><ProjectsTab /></TabPanel>
+            <TabPanel value="columns"><ColumnsTab /></TabPanel>
+        </TabPanels>
+    </Tabs>
+</template>

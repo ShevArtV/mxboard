@@ -226,3 +226,59 @@ $_lang['mxboard_msg_token_copy_manual'] = 'Copy manually';
 $_lang['mxboard_msg_token_revoke_fail'] = 'Failed to revoke';
 $_lang['mxboard_msg_token_revoked'] = 'Token revoked';
 $_lang['mxboard_msg_confirm_revoke'] = 'Revoke token “[[+name]]”? The agent using it will stop working.';
+
+// v2 (3c): Structure screen (managers only).
+$_lang['mxboard_ui_struct_departments'] = 'Departments';
+$_lang['mxboard_ui_struct_types'] = 'Task types';
+$_lang['mxboard_ui_struct_projects'] = 'Projects';
+$_lang['mxboard_ui_struct_columns'] = 'Columns/stages';
+
+$_lang['mxboard_ui_struct_name'] = 'Name';
+$_lang['mxboard_ui_struct_key'] = 'Key';
+$_lang['mxboard_ui_struct_description'] = 'Description';
+$_lang['mxboard_ui_struct_active'] = 'Active';
+$_lang['mxboard_ui_struct_position'] = 'Position';
+$_lang['mxboard_ui_struct_actions'] = 'Actions';
+$_lang['mxboard_ui_struct_add'] = 'Add';
+$_lang['mxboard_ui_struct_edit'] = 'Edit';
+$_lang['mxboard_ui_struct_saved'] = 'Saved';
+$_lang['mxboard_ui_struct_removed'] = 'Removed';
+$_lang['mxboard_ui_struct_created'] = 'Created';
+$_lang['mxboard_ui_struct_empty'] = 'Empty';
+
+// Departments.
+$_lang['mxboard_ui_struct_register_dept'] = 'Register department';
+$_lang['mxboard_ui_struct_usergroup'] = 'MODX user group';
+$_lang['mxboard_ui_struct_usergroup_hint'] = 'A department is a MODX group. Membership and roles come from MODX; this is only a marker.';
+$_lang['mxboard_ui_struct_already_dept'] = 'already a department';
+$_lang['mxboard_ui_struct_confirm_remove_dept'] = 'Unmark “[[+name]]” as a department? Only if it has no projects or types.';
+
+// Task types.
+$_lang['mxboard_ui_struct_new_type'] = 'New task type';
+$_lang['mxboard_ui_struct_type_fields'] = 'Type fields';
+$_lang['mxboard_ui_struct_add_field'] = 'Add field';
+$_lang['mxboard_ui_struct_field_key'] = 'Field key';
+$_lang['mxboard_ui_struct_field_label'] = 'Label';
+$_lang['mxboard_ui_struct_field_type'] = 'Field type';
+$_lang['mxboard_ui_struct_field_required'] = 'Required';
+$_lang['mxboard_ui_struct_field_min'] = 'A type must keep at least one field.';
+$_lang['mxboard_ui_struct_confirm_remove_type'] = 'Delete type “[[+name]]”? Only if it has no tasks.';
+$_lang['mxboard_ui_struct_confirm_remove_field'] = 'Delete field “[[+name]]”?';
+$_lang['mxboard_ui_struct_pick_department'] = 'Choose a department';
+
+// Projects.
+$_lang['mxboard_ui_struct_new_project'] = 'New project';
+$_lang['mxboard_ui_struct_confirm_remove_project'] = 'Delete project “[[+name]]”? Only if it has no tasks.';
+$_lang['mxboard_ui_struct_columns_from_template'] = 'Columns will be created from the template (project_id=0).';
+
+// Columns/stages.
+$_lang['mxboard_ui_struct_pick_project'] = 'Choose a project';
+$_lang['mxboard_ui_struct_template'] = 'New-project template';
+$_lang['mxboard_ui_struct_new_column'] = 'New column';
+$_lang['mxboard_ui_struct_move_roles'] = 'Transition roles (CSV)';
+$_lang['mxboard_ui_struct_move_roles_hint'] = 'author, assignee, any or group:Name — who may move a card INTO this column.';
+$_lang['mxboard_ui_struct_stage_key'] = 'Stage key';
+$_lang['mxboard_ui_struct_is_initial'] = 'Initial';
+$_lang['mxboard_ui_struct_is_final'] = 'Final';
+$_lang['mxboard_ui_struct_flag_transfer'] = 'The initial/final flag is moved from the previous column — there is always exactly one of each.';
+$_lang['mxboard_ui_struct_confirm_remove_column'] = 'Delete column “[[+name]]”? Not allowed for initial/final or a non-empty column.';

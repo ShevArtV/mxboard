@@ -226,3 +226,59 @@ $_lang['mxboard_msg_token_copy_manual'] = 'Скопируйте вручную';
 $_lang['mxboard_msg_token_revoke_fail'] = 'Не удалось отозвать';
 $_lang['mxboard_msg_token_revoked'] = 'Токен отозван';
 $_lang['mxboard_msg_confirm_revoke'] = 'Отозвать токен «[[+name]]»? Агент с ним перестанет работать.';
+
+// v2 (3c): экран «Структура» (только менеджер).
+$_lang['mxboard_ui_struct_departments'] = 'Отделы';
+$_lang['mxboard_ui_struct_types'] = 'Типы задач';
+$_lang['mxboard_ui_struct_projects'] = 'Проекты';
+$_lang['mxboard_ui_struct_columns'] = 'Колонки/стадии';
+
+$_lang['mxboard_ui_struct_name'] = 'Название';
+$_lang['mxboard_ui_struct_key'] = 'Ключ';
+$_lang['mxboard_ui_struct_description'] = 'Описание';
+$_lang['mxboard_ui_struct_active'] = 'Активен';
+$_lang['mxboard_ui_struct_position'] = 'Позиция';
+$_lang['mxboard_ui_struct_actions'] = 'Действия';
+$_lang['mxboard_ui_struct_add'] = 'Добавить';
+$_lang['mxboard_ui_struct_edit'] = 'Изменить';
+$_lang['mxboard_ui_struct_saved'] = 'Сохранено';
+$_lang['mxboard_ui_struct_removed'] = 'Удалено';
+$_lang['mxboard_ui_struct_created'] = 'Создано';
+$_lang['mxboard_ui_struct_empty'] = 'Пусто';
+
+// Отделы.
+$_lang['mxboard_ui_struct_register_dept'] = 'Зарегистрировать отдел';
+$_lang['mxboard_ui_struct_usergroup'] = 'Группа пользователей MODX';
+$_lang['mxboard_ui_struct_usergroup_hint'] = 'Отдел = группа MODX. Членство и роли берутся из MODX, здесь только пометка.';
+$_lang['mxboard_ui_struct_already_dept'] = 'уже отдел';
+$_lang['mxboard_ui_struct_confirm_remove_dept'] = 'Снять пометку «отдел» с «[[+name]]»? Только если в нём нет проектов и типов.';
+
+// Типы задач.
+$_lang['mxboard_ui_struct_new_type'] = 'Новый тип задачи';
+$_lang['mxboard_ui_struct_type_fields'] = 'Поля типа';
+$_lang['mxboard_ui_struct_add_field'] = 'Добавить поле';
+$_lang['mxboard_ui_struct_field_key'] = 'Ключ поля';
+$_lang['mxboard_ui_struct_field_label'] = 'Метка';
+$_lang['mxboard_ui_struct_field_type'] = 'Тип поля';
+$_lang['mxboard_ui_struct_field_required'] = 'Обязательное';
+$_lang['mxboard_ui_struct_field_min'] = 'У типа должно остаться хотя бы одно поле.';
+$_lang['mxboard_ui_struct_confirm_remove_type'] = 'Удалить тип «[[+name]]»? Только если по нему нет задач.';
+$_lang['mxboard_ui_struct_confirm_remove_field'] = 'Удалить поле «[[+name]]»?';
+$_lang['mxboard_ui_struct_pick_department'] = 'Выберите отдел';
+
+// Проекты.
+$_lang['mxboard_ui_struct_new_project'] = 'Новый проект';
+$_lang['mxboard_ui_struct_confirm_remove_project'] = 'Удалить проект «[[+name]]»? Только если в нём нет задач.';
+$_lang['mxboard_ui_struct_columns_from_template'] = 'Колонки будут созданы из шаблона (project_id=0).';
+
+// Колонки/стадии.
+$_lang['mxboard_ui_struct_pick_project'] = 'Выберите проект';
+$_lang['mxboard_ui_struct_template'] = 'Шаблон новых проектов';
+$_lang['mxboard_ui_struct_new_column'] = 'Новая колонка';
+$_lang['mxboard_ui_struct_move_roles'] = 'Роли перехода (CSV)';
+$_lang['mxboard_ui_struct_move_roles_hint'] = 'author, assignee, any или group:Имя — кто вправе перевести карточку В эту колонку.';
+$_lang['mxboard_ui_struct_stage_key'] = 'Ключ стадии';
+$_lang['mxboard_ui_struct_is_initial'] = 'Стартовая';
+$_lang['mxboard_ui_struct_is_final'] = 'Финальная';
+$_lang['mxboard_ui_struct_flag_transfer'] = 'Отметка «стартовая»/«финальная» переносится с прежней колонки — их всегда ровно по одной.';
+$_lang['mxboard_ui_struct_confirm_remove_column'] = 'Удалить колонку «[[+name]]»? Нельзя для стартовой/финальной и непустой.';
