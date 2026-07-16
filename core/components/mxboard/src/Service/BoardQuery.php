@@ -12,6 +12,7 @@ use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
 use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
+use MxBoard\Model\MxBoardLog;
 use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardTask;
 use MxBoard\Model\MxBoardTaskType;
@@ -282,6 +283,39 @@ class BoardQuery
         $out['comments'] = $comments;
 
         return $out;
+    }
+
+    /**
+     * Журнал переходов задачи по возрастанию времени.
+     *
+     * Права здесь НЕ проверяются: вызывающий обязан сперва пройти taskDetail/canView.
+     * Журнал показываем видящему задачу целиком — по нему видно, кто что реально делал.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function taskLog(int $taskId): array
+    {
+        $c = $this->modx->newQuery(MxBoardLog::class);
+        $c->leftJoin(modUser::class, 'User');
+        $c->where(['MxBoardLog.task_id' => $taskId]);
+        $c->select([
+            'MxBoardLog.action',
+            'MxBoardLog.from_column',
+            'MxBoardLog.to_column',
+            'MxBoardLog.note',
+            'MxBoardLog.channel',
+            'MxBoardLog.createdon',
+            'user' => 'User.username',
+        ]);
+        $c->sortby('MxBoardLog.createdon', 'ASC');
+        $c->sortby('MxBoardLog.id', 'ASC');
+
+        $c->prepare();
+        if (!$c->stmt || !$c->stmt->execute()) {
+            return [];
+        }
+
+        return (array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
     /**

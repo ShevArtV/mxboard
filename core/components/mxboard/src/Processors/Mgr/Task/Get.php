@@ -5,121 +5,38 @@ declare(strict_types=1);
 namespace MxBoard\Processors\Mgr\Task;
 
 use MODX\Revolution\modUser;
-use MODX\Revolution\Processors\Model\GetProcessor;
-use MxBoard\Model\MxBoardColumn;
-use MxBoard\Model\MxBoardComment;
-use MxBoard\Model\MxBoardLog;
 use MxBoard\Model\MxBoardTask;
-use PDO;
+use MxBoard\Processors\Mgr\ServiceProcessor;
+use MxBoard\Service\BoardQuery;
 
 /**
- * Карточка целиком: поля + ToR + комментарии + журнал переходов.
- * Журнал показываем всегда — по нему видно, кто что реально делал, в отличие
- * от текущего статуса, который агент может себе выставить сам.
+ * Страница задачи: карточка + родитель + подзадачи + комментарии + журнал.
+ *
+ * Доступ — canView (внутри taskDetail): автор/исполнитель/соисполнитель
+ * подзадачи/менеджер. Журнал показываем всегда — по нему видно, кто что реально
+ * делал, в отличие от статуса, который участник выставляет сам.
  */
-class Get extends GetProcessor
+class Get extends ServiceProcessor
 {
-    public $classKey = MxBoardTask::class;
-    public $languageTopics = ['mxboard:default'];
-    public $objectType = 'mxboard.task';
-    public $checkViewPermission = false;
-
-    public function cleanup()
+    protected function handle(modUser $user)
     {
-        $array = $this->object->toArray();
-        $taskId = (int) $this->object->get('id');
+        $id = (int) $this->getProperty('id', 0);
 
-        $array['createdon_formatted'] = $array['createdon'] ? date('Y-m-d H:i:s', (int) $array['createdon']) : '';
-        $array['updatedon_formatted'] = $array['updatedon'] ? date('Y-m-d H:i:s', (int) $array['updatedon']) : '';
-        $array['startedon_formatted'] = $array['startedon'] ? date('Y-m-d H:i:s', (int) $array['startedon']) : '';
-        $array['closedon_formatted'] = $array['closedon'] ? date('Y-m-d H:i:s', (int) $array['closedon']) : '';
-
-        $array['author'] = $this->username((int) $this->object->get('author_id'));
-        $assignee = $this->username((int) $this->object->get('assignee_id'));
-        $array['assignee'] = $assignee !== '' ? $assignee : null;
-
-        $array['column_key'] = '';
-        $array['column_name'] = '';
-        $column = $this->modx->getObject(MxBoardColumn::class, (int) $this->object->get('column_id'));
-        if ($column) {
-            $array['column_key'] = (string) $column->get('key');
-            $array['column_name'] = (string) $column->get('name');
+        /** @var MxBoardTask|null $task */
+        $task = $id > 0 ? $this->modx->getObject(MxBoardTask::class, $id) : null;
+        if (!$task) {
+            return $this->failure($this->modx->lexicon('mxboard_err_task_not_found'));
         }
 
-        $array['comments'] = $this->comments($taskId);
-        $array['log'] = $this->log($taskId);
+        $query = new BoardQuery($this->modx);
 
-        return $this->success('', $array);
-    }
-
-    /**
-     * Комментарии по возрастанию времени — читаются как тред.
-     *
-     * @return list<array<string, mixed>>
-     */
-    protected function comments(int $taskId): array
-    {
-        $c = $this->modx->newQuery(MxBoardComment::class);
-        $c->leftJoin(modUser::class, 'User');
-        $c->where(['MxBoardComment.task_id' => $taskId]);
-        $c->select($this->modx->getSelectColumns(MxBoardComment::class, 'MxBoardComment'));
-        $c->select(['User.username AS username']);
-        $c->sortby('MxBoardComment.createdon', 'ASC');
-        $c->sortby('MxBoardComment.id', 'ASC');
-
-        $rows = $this->fetch($c);
-        foreach ($rows as &$row) {
-            $row['username'] = (string) ($row['username'] ?? '');
-            $row['createdon_formatted'] = $row['createdon'] ? date('Y-m-d H:i:s', (int) $row['createdon']) : '';
+        $detail = $query->taskDetail($user, $task);
+        if ($detail === null) {
+            return $this->failure($this->modx->lexicon('mxboard_err_view_denied'));
         }
 
-        return $rows;
-    }
+        $detail['log'] = $query->taskLog($id);
 
-    /**
-     * Журнал переходов по возрастанию времени.
-     *
-     * @return list<array<string, mixed>>
-     */
-    protected function log(int $taskId): array
-    {
-        $c = $this->modx->newQuery(MxBoardLog::class);
-        $c->leftJoin(modUser::class, 'User');
-        $c->where(['MxBoardLog.task_id' => $taskId]);
-        $c->select($this->modx->getSelectColumns(MxBoardLog::class, 'MxBoardLog'));
-        $c->select(['User.username AS username']);
-        $c->sortby('MxBoardLog.createdon', 'ASC');
-        $c->sortby('MxBoardLog.id', 'ASC');
-
-        $rows = $this->fetch($c);
-        foreach ($rows as &$row) {
-            $row['username'] = (string) ($row['username'] ?? '');
-            $row['createdon_formatted'] = $row['createdon'] ? date('Y-m-d H:i:s', (int) $row['createdon']) : '';
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    protected function fetch(\xPDO\Om\xPDOQuery $c): array
-    {
-        if (!$c->prepare() || !$c->stmt->execute()) {
-            return [];
-        }
-
-        return $c->stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    }
-
-    protected function username(int $userId): string
-    {
-        if ($userId <= 0) {
-            return '';
-        }
-
-        $user = $this->modx->getObject(modUser::class, $userId);
-
-        return $user ? (string) $user->get('username') : '';
+        return $this->success('', $detail);
     }
 }

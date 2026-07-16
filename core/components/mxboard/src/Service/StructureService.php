@@ -12,6 +12,7 @@ use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardProject;
+use MxBoard\Model\MxBoardTask;
 use MxBoard\Model\MxBoardTaskType;
 
 /**
@@ -249,6 +250,538 @@ class StructureService
         $out['columns'] = $columns;
 
         return $this->ok($out);
+    }
+
+    /**
+     * Правка отдела: name, active, position. usergroup_id не меняется — это была бы
+     * подмена отдела под чужой группой, а не правка.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateDepartment(modUser $user, int $id, array $data): array
+    {
+        /** @var MxBoardDepartment|null $department */
+        $department = $this->modx->getObject(MxBoardDepartment::class, $id);
+        if (!$department) {
+            return $this->fail('mxboard_err_department_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, $id)) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        // name = '' допустим: по схеме пустое имя означает «брать имя группы MODX».
+        if (array_key_exists('name', $data)) {
+            $department->set('name', trim((string) $data['name']));
+        }
+        if (array_key_exists('active', $data)) {
+            $department->set('active', !empty($data['active']));
+        }
+        if (array_key_exists('position', $data)) {
+            $department->set('position', (int) $data['position']);
+        }
+
+        if (!$department->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($department->toArray());
+    }
+
+    /**
+     * Снять пометку «отдел» с группы. Только с пустого отдела: проекты и типы — живые
+     * данные, каскадное удаление снесло бы задачи всего отдела одной кнопкой.
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function removeDepartment(modUser $user, int $id): array
+    {
+        /** @var MxBoardDepartment|null $department */
+        $department = $this->modx->getObject(MxBoardDepartment::class, $id);
+        if (!$department) {
+            return $this->fail('mxboard_err_department_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, $id)) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        $hasProjects = (int) $this->modx->getCount(MxBoardProject::class, ['department_id' => $id]) > 0;
+        $hasTypes = (int) $this->modx->getCount(MxBoardTaskType::class, ['department_id' => $id]) > 0;
+        if ($hasProjects || $hasTypes) {
+            return $this->fail('mxboard_err_department_not_empty');
+        }
+
+        if (!$department->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Правка типа: name, description, active, position. `key` после создания не меняется —
+     * по нему адресуются задачи и журнал.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateType(modUser $user, int $id, array $data): array
+    {
+        /** @var MxBoardTaskType|null $type */
+        $type = $this->modx->getObject(MxBoardTaskType::class, $id);
+        if (!$type) {
+            return $this->fail('mxboard_err_type_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $type->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        if (array_key_exists('name', $data)) {
+            $name = trim((string) $data['name']);
+            if ($name === '') {
+                return $this->fail('mxboard_err_type_key_name_required');
+            }
+            $type->set('name', $name);
+        }
+        if (array_key_exists('description', $data)) {
+            $type->set('description', (string) $data['description']);
+        }
+        if (array_key_exists('active', $data)) {
+            $type->set('active', !empty($data['active']));
+        }
+        if (array_key_exists('position', $data)) {
+            $type->set('position', (int) $data['position']);
+        }
+
+        if (!$type->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($type->toArray());
+    }
+
+    /**
+     * Удалить тип вместе с полями (composite). Только если по типу нет задач —
+     * иначе карточки остались бы с битым type_id и нечитаемыми fields.
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function removeType(modUser $user, int $id): array
+    {
+        /** @var MxBoardTaskType|null $type */
+        $type = $this->modx->getObject(MxBoardTaskType::class, $id);
+        if (!$type) {
+            return $this->fail('mxboard_err_type_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $type->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        if ((int) $this->modx->getCount(MxBoardTask::class, ['type_id' => $id]) > 0) {
+            return $this->fail('mxboard_err_type_has_tasks');
+        }
+
+        if (!$type->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Добавить поле к существующему типу.
+     *
+     * @param array<string, mixed> $data task_type_id + key/label/type/required/options/position
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function createField(modUser $user, array $data): array
+    {
+        $typeId = (int) ($data['task_type_id'] ?? 0);
+        /** @var MxBoardTaskType|null $type */
+        $type = $typeId > 0 ? $this->modx->getObject(MxBoardTaskType::class, $typeId) : null;
+        if (!$type) {
+            return $this->fail('mxboard_err_type_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $type->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        [$fields, $fieldError] = $this->normalizeFields([$data]);
+        if ($fieldError !== null) {
+            return $this->fail($fieldError);
+        }
+        $field = $fields[0];
+
+        if ($this->modx->getObject(MxBoardField::class, ['task_type_id' => $typeId, 'key' => $field['key']])) {
+            return $this->fail('mxboard_err_field_exists');
+        }
+
+        $position = array_key_exists('position', $data)
+            ? (int) $data['position']
+            : (int) $this->modx->getCount(MxBoardField::class, ['task_type_id' => $typeId]);
+
+        /** @var MxBoardField $f */
+        $f = $this->modx->newObject(MxBoardField::class);
+        $f->fromArray([
+            'task_type_id' => $typeId,
+            'key' => $field['key'],
+            'label' => $field['label'],
+            'type' => $field['type'],
+            'required' => $field['required'],
+            'position' => $position,
+            'options' => $field['options'],
+            'createdon' => time(),
+        ]);
+
+        if (!$f->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($f->toArray());
+    }
+
+    /**
+     * Правка поля: label, type, required, position, options. `key` не меняется —
+     * значения в task.fields адресуются по нему.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateField(modUser $user, int $id, array $data): array
+    {
+        /** @var MxBoardField|null $field */
+        $field = $this->modx->getObject(MxBoardField::class, $id);
+        if (!$field) {
+            return $this->fail('mxboard_err_field_not_found');
+        }
+        $error = $this->fieldGate($user, $field);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        if (array_key_exists('label', $data)) {
+            $label = trim((string) $data['label']);
+            if ($label === '') {
+                return $this->fail('mxboard_err_field_invalid');
+            }
+            $field->set('label', $label);
+        }
+        if (array_key_exists('type', $data)) {
+            $type = (string) $data['type'];
+            if (!in_array($type, self::FIELD_TYPES, true)) {
+                return $this->fail('mxboard_err_field_type_invalid');
+            }
+            $field->set('type', $type);
+        }
+        if (array_key_exists('required', $data)) {
+            $field->set('required', !empty($data['required']));
+        }
+        if (array_key_exists('position', $data)) {
+            $field->set('position', (int) $data['position']);
+        }
+        if (array_key_exists('options', $data)) {
+            $field->set('options', is_array($data['options']) ? $data['options'] : null);
+        }
+
+        if (!$field->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($field->toArray());
+    }
+
+    /**
+     * Удалить поле типа. Последнее поле не удаляется: тип без полей — нерабочий
+     * (тот же инвариант, что при создании типа).
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function removeField(modUser $user, int $id): array
+    {
+        /** @var MxBoardField|null $field */
+        $field = $this->modx->getObject(MxBoardField::class, $id);
+        if (!$field) {
+            return $this->fail('mxboard_err_field_not_found');
+        }
+        $error = $this->fieldGate($user, $field);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        $siblings = (int) $this->modx->getCount(MxBoardField::class, [
+            'task_type_id' => (int) $field->get('task_type_id'),
+        ]);
+        if ($siblings <= 1) {
+            return $this->fail('mxboard_err_field_last');
+        }
+
+        if (!$field->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Правка проекта: name, description, active, position. `key` не меняется.
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateProject(modUser $user, int $id, array $data): array
+    {
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, $id);
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $project->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        if (array_key_exists('name', $data)) {
+            $name = trim((string) $data['name']);
+            if ($name === '') {
+                return $this->fail('mxboard_err_project_key_name_required');
+            }
+            $project->set('name', $name);
+        }
+        if (array_key_exists('description', $data)) {
+            $project->set('description', (string) $data['description']);
+        }
+        if (array_key_exists('active', $data)) {
+            $project->set('active', !empty($data['active']));
+        }
+        if (array_key_exists('position', $data)) {
+            $project->set('position', (int) $data['position']);
+        }
+        $project->set('updatedon', time());
+
+        if (!$project->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($project->toArray());
+    }
+
+    /**
+     * Удалить проект с колонками (composite). Только пустой: задачи — живые данные.
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function removeProject(modUser $user, int $id): array
+    {
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, $id);
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $project->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        if ((int) $this->modx->getCount(MxBoardTask::class, ['project_id' => $id]) > 0) {
+            return $this->fail('mxboard_err_project_has_tasks');
+        }
+
+        if (!$project->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Добавить колонку в проект (или в глобальный шаблон при project_id = 0).
+     *
+     * Флаги is_initial/is_final здесь игнорируются: у проекта они уже стоят на других
+     * колонках (инвариант «ровно одна»), перенос — через updateColumn.
+     *
+     * @param array<string, mixed> $data project_id + key/name/move_roles/stage_key/position
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function createColumn(modUser $user, array $data): array
+    {
+        $projectId = (int) ($data['project_id'] ?? 0);
+        $error = $this->columnScopeGate($user, $projectId);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        $key = trim((string) ($data['key'] ?? ''));
+        $name = trim((string) ($data['name'] ?? ''));
+        if ($key === '' || $name === '') {
+            return $this->fail('mxboard_err_column_invalid');
+        }
+
+        if ($this->modx->getObject(MxBoardColumn::class, ['project_id' => $projectId, 'key' => $key])) {
+            return $this->fail('mxboard_err_column_exists');
+        }
+
+        $position = array_key_exists('position', $data)
+            ? (int) $data['position']
+            : (int) $this->modx->getCount(MxBoardColumn::class, ['project_id' => $projectId]);
+
+        /** @var MxBoardColumn $column */
+        $column = $this->modx->newObject(MxBoardColumn::class);
+        $column->fromArray([
+            'project_id' => $projectId,
+            'key' => $key,
+            'name' => $name,
+            'position' => $position,
+            'move_roles' => trim((string) ($data['move_roles'] ?? '')),
+            'stage_key' => trim((string) ($data['stage_key'] ?? '')),
+            'is_initial' => false,
+            'is_final' => false,
+            'createdon' => time(),
+        ]);
+
+        if (!$column->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($column->toArray());
+    }
+
+    /**
+     * Правка колонки: name, move_roles, stage_key, position; `key` не меняется
+     * (он в журнале переходов). is_initial/is_final = 1 ПЕРЕНОСИТ флаг с прежней
+     * колонки-носителя — инвариант «ровно одна» сохраняется сам собой; снять флаг
+     * в 0 напрямую нельзя (falsy-значения игнорируются).
+     *
+     * @param array<string, mixed> $data
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateColumn(modUser $user, int $id, array $data): array
+    {
+        /** @var MxBoardColumn|null $column */
+        $column = $this->modx->getObject(MxBoardColumn::class, $id);
+        if (!$column) {
+            return $this->fail('mxboard_err_column_not_found');
+        }
+        $error = $this->columnScopeGate($user, (int) $column->get('project_id'));
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        if (array_key_exists('name', $data)) {
+            $name = trim((string) $data['name']);
+            if ($name === '') {
+                return $this->fail('mxboard_err_column_invalid');
+            }
+            $column->set('name', $name);
+        }
+        if (array_key_exists('move_roles', $data)) {
+            $column->set('move_roles', trim((string) $data['move_roles']));
+        }
+        if (array_key_exists('stage_key', $data)) {
+            $column->set('stage_key', trim((string) $data['stage_key']));
+        }
+        if (array_key_exists('position', $data)) {
+            $column->set('position', (int) $data['position']);
+        }
+
+        foreach (['is_initial', 'is_final'] as $flag) {
+            if (!empty($data[$flag]) && !(bool) $column->get($flag)) {
+                $this->transferFlag($flag, $column);
+            }
+        }
+
+        if (!$column->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return $this->ok($column->toArray());
+    }
+
+    /**
+     * Удалить колонку. Носитель is_initial/is_final не удаляется (сначала перенос
+     * флага), непустая — тоже: карточкам стало бы негде жить.
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function removeColumn(modUser $user, int $id): array
+    {
+        /** @var MxBoardColumn|null $column */
+        $column = $this->modx->getObject(MxBoardColumn::class, $id);
+        if (!$column) {
+            return $this->fail('mxboard_err_column_not_found');
+        }
+        $error = $this->columnScopeGate($user, (int) $column->get('project_id'));
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        if ((bool) $column->get('is_initial') || (bool) $column->get('is_final')) {
+            return $this->fail('mxboard_err_column_protected');
+        }
+        if ((int) $this->modx->getCount(MxBoardTask::class, ['column_id' => $id]) > 0) {
+            return $this->fail('mxboard_err_column_has_tasks');
+        }
+
+        if (!$column->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Право на колонки области: project_id = 0 — глобальный шаблон, его правит только
+     * глобальный супер; иначе — менеджер отдела проекта.
+     *
+     * @return string|null ключ ошибки или null, если можно
+     */
+    private function columnScopeGate(modUser $user, int $projectId): ?string
+    {
+        if ($projectId === 0) {
+            return Transitions::isSuperuser($this->modx, $user) ? null : 'mxboard_err_structure_denied';
+        }
+
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, $projectId);
+        if (!$project) {
+            return 'mxboard_err_project_not_found';
+        }
+
+        return Transitions::isDepartmentManager($this->modx, $user, (int) $project->get('department_id'))
+            ? null
+            : 'mxboard_err_structure_denied';
+    }
+
+    /** Право на поле — через его тип: менеджер отдела типа. */
+    private function fieldGate(modUser $user, MxBoardField $field): ?string
+    {
+        /** @var MxBoardTaskType|null $type */
+        $type = $this->modx->getObject(MxBoardTaskType::class, (int) $field->get('task_type_id'));
+        if (!$type) {
+            return 'mxboard_err_type_not_found';
+        }
+
+        return Transitions::isDepartmentManager($this->modx, $user, (int) $type->get('department_id'))
+            ? null
+            : 'mxboard_err_structure_denied';
+    }
+
+    /** Перенести is_initial/is_final на $column: снять с прежних носителей в том же проекте. */
+    private function transferFlag(string $flag, MxBoardColumn $column): void
+    {
+        $holders = $this->modx->getCollection(MxBoardColumn::class, [
+            'project_id' => (int) $column->get('project_id'),
+            $flag => true,
+        ]);
+        foreach ($holders as $holder) {
+            $holder->set($flag, false);
+            $holder->save();
+        }
+        $column->set($flag, true);
     }
 
     /**

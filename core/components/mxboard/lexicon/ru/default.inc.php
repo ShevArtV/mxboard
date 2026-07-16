@@ -76,6 +76,17 @@ $_lang['mxboard_err_column_duplicate'] = 'Повторяющийся ключ к
 $_lang['mxboard_err_column_invariant'] = 'Нужна ровно одна стартовая и ровно одна финальная колонка.';
 $_lang['mxboard_err_no_template_columns'] = 'Нет шаблона колонок (project_id=0).';
 $_lang['mxboard_err_route_not_found'] = 'Маршрут не найден.';
+
+// v2 (3a): структурный CRUD из менеджера.
+$_lang['mxboard_err_department_not_empty'] = 'Нельзя удалить отдел: в нём есть проекты или типы задач.';
+$_lang['mxboard_err_type_has_tasks'] = 'Нельзя удалить тип: по нему есть задачи.';
+$_lang['mxboard_err_field_not_found'] = 'Поле типа не найдено.';
+$_lang['mxboard_err_field_exists'] = 'Поле с таким ключом уже есть у типа.';
+$_lang['mxboard_err_field_last'] = 'Нельзя удалить последнее поле типа — тип станет нерабочим.';
+$_lang['mxboard_err_project_has_tasks'] = 'Нельзя удалить проект: в нём есть задачи.';
+$_lang['mxboard_err_column_exists'] = 'Колонка с таким ключом уже есть в проекте.';
+$_lang['mxboard_err_column_protected'] = 'Нельзя удалить стартовую или финальную колонку — сначала перенесите флаг на другую.';
+$_lang['mxboard_err_column_has_tasks'] = 'Нельзя удалить колонку: в ней есть задачи.';
 $_lang['mxboard_err_api_disabled'] = 'REST-API отключён системной настройкой mxboard.api_enabled.';
 
 $_lang['mxboard_department'] = 'Отдел';

@@ -5,38 +5,33 @@ declare(strict_types=1);
 namespace MxBoard\Processors\Mgr\Task;
 
 use MODX\Revolution\modUser;
-use MODX\Revolution\Processors\Processor;
+use MxBoard\Processors\Mgr\ServiceProcessor;
 use MxBoard\Service\TaskService;
 
 /**
- * Создание карточки из менеджера. Вся логика — в TaskService: правила и журнал
- * не должны зависеть от канала запроса.
+ * Создание карточки из менеджера (v2: тип, дедлайн, исполнитель обязательны;
+ * parent_id — подзадача). Вся валидация и журнал — в TaskService: правила не
+ * должны зависеть от канала запроса.
  */
-class Create extends Processor
+class Create extends ServiceProcessor
 {
-    public $languageTopics = ['mxboard:default'];
-
-    public function process()
+    protected function handle(modUser $user)
     {
-        $this->modx->lexicon->load('mxboard:default');
+        $data = $this->presentProperties([
+            'project', 'project_id', 'parent_id',
+            'type', 'type_id', 'title', 'tor', 'priority',
+            'deadline', 'assignee', 'assignee_id',
+        ]);
 
-        $user = $this->modx->user;
-        if (!$user instanceof modUser) {
-            return $this->failure($this->modx->lexicon('mxboard_err_unauthenticated'));
+        // JSON-поля: объект из JSON-тела или строка из form-data — сервис примет обе,
+        // но нормализуем здесь, чтобы не слать заведомо битую строку.
+        foreach (['fields', 'meta'] as $key) {
+            $value = $this->jsonProperty($key);
+            if ($value !== null) {
+                $data[$key] = $value;
+            }
         }
 
-        $result = (new TaskService($this->modx))->create($user, [
-            'board' => $this->getProperty('board'),
-            'title' => $this->getProperty('title'),
-            'tor' => $this->getProperty('tor'),
-            'priority' => $this->getProperty('priority'),
-            'meta' => $this->getProperty('meta'),
-        ], 'mgr');
-
-        if (!$result['success']) {
-            return $this->failure($result['message']);
-        }
-
-        return $this->success($result['message'], $result['object']);
+        return $this->fromResult((new TaskService($this->modx))->create($user, $data, 'mgr'));
     }
 }

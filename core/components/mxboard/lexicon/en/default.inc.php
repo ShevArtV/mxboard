@@ -76,6 +76,17 @@ $_lang['mxboard_err_column_duplicate'] = 'Duplicate column key.';
 $_lang['mxboard_err_column_invariant'] = 'Exactly one initial and exactly one final column are required.';
 $_lang['mxboard_err_no_template_columns'] = 'No column template (project_id=0).';
 $_lang['mxboard_err_route_not_found'] = 'Route not found.';
+
+// v2 (3a): structure CRUD from the manager.
+$_lang['mxboard_err_department_not_empty'] = 'Cannot remove the department: it still has projects or task types.';
+$_lang['mxboard_err_type_has_tasks'] = 'Cannot remove the type: there are tasks of this type.';
+$_lang['mxboard_err_field_not_found'] = 'Type field not found.';
+$_lang['mxboard_err_field_exists'] = 'A field with this key already exists on the type.';
+$_lang['mxboard_err_field_last'] = 'Cannot remove the last field of the type — the type would become unusable.';
+$_lang['mxboard_err_project_has_tasks'] = 'Cannot remove the project: it still has tasks.';
+$_lang['mxboard_err_column_exists'] = 'A column with this key already exists in the project.';
+$_lang['mxboard_err_column_protected'] = 'Cannot remove the initial or final column — move the flag to another column first.';
+$_lang['mxboard_err_column_has_tasks'] = 'Cannot remove the column: it still has tasks.';
 $_lang['mxboard_err_api_disabled'] = 'REST API is disabled by the mxboard.api_enabled system setting.';
 
 $_lang['mxboard_department'] = 'Department';

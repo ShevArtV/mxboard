@@ -5,91 +5,33 @@ declare(strict_types=1);
 namespace MxBoard\Processors\Mgr\Task;
 
 use MODX\Revolution\modUser;
-use MODX\Revolution\Processors\Processor;
-use MxBoard\Helpers\Transitions;
-use MxBoard\Model\MxBoardTask;
+use MxBoard\Processors\Mgr\ServiceProcessor;
+use MxBoard\Service\TaskService;
 
 /**
- * Правка карточки: title, tor, priority, meta.
- *
- * column_id и assignee_id здесь НЕ меняются сознательно: движение карточки —
- * только через Move/Take/Release, где работают правила переходов и пишется журнал.
- * Разреши правку этих полей здесь — и любой агент обойдёт правила обычным Update.
+ * Правка карточки (автор/менеджер): title, tor, priority, deadline, тип, поля,
+ * переназначение исполнителя. column_id здесь НЕ меняется сознательно: движение —
+ * только через Move, где работают правила переходов и пишется журнал.
  */
-class Update extends Processor
+class Update extends ServiceProcessor
 {
-    public $languageTopics = ['mxboard:default'];
-
-    public function process()
+    protected function handle(modUser $user)
     {
-        $this->modx->lexicon->load('mxboard:default');
+        $data = $this->presentProperties([
+            'title', 'tor', 'priority',
+            'deadline', 'assignee', 'assignee_id',
+            'type', 'type_id',
+        ]);
 
-        $user = $this->modx->user;
-        if (!$user instanceof modUser) {
-            return $this->failure($this->modx->lexicon('mxboard_err_unauthenticated'));
+        if ($this->getProperty('fields') !== null) {
+            $data['fields'] = $this->jsonProperty('fields');
         }
 
-        $id = (int) $this->getProperty('id', 0);
-
-        /** @var MxBoardTask|null $task */
-        $task = $id > 0 ? $this->modx->getObject(MxBoardTask::class, $id) : null;
-        if (!$task) {
-            return $this->failure($this->modx->lexicon('mxboard_err_task_not_found'));
-        }
-
-        $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
-        $isSuperuser = Transitions::isSuperuser($this->modx, $user);
-        if (!$isAuthor && !$isSuperuser) {
-            return $this->failure($this->modx->lexicon('mxboard_err_edit_denied'));
-        }
-
-        if ($this->getProperty('title') !== null) {
-            $title = trim((string) $this->getProperty('title'));
-            if ($title === '') {
-                return $this->failure($this->modx->lexicon('mxboard_err_title_required'));
-            }
-            $task->set('title', $title);
-        }
-
-        if ($this->getProperty('tor') !== null) {
-            $task->set('tor', (string) $this->getProperty('tor'));
-        }
-
-        if ($this->getProperty('priority') !== null) {
-            $task->set('priority', (int) $this->getProperty('priority'));
-        }
-
-        $meta = $this->getProperty('meta');
-        if ($meta !== null) {
-            $task->set('meta', $this->decodeMeta($meta));
-        }
-
-        $task->set('updatedon', time());
-
-        if (!$task->save()) {
-            return $this->failure($this->modx->lexicon('mxboard_err_save'));
-        }
-
-        return $this->success('', $task->toArray());
-    }
-
-    /**
-     * meta приходит и объектом (JSON-тело), и строкой (form-data) — нормализуем.
-     *
-     * @return array<string, mixed>|null
-     */
-    protected function decodeMeta(mixed $meta): ?array
-    {
-        if (is_array($meta)) {
-            return $meta;
-        }
-
-        if (is_string($meta) && trim($meta) !== '') {
-            $decoded = json_decode($meta, true);
-
-            return is_array($decoded) ? $decoded : null;
-        }
-
-        return null;
+        return $this->fromResult((new TaskService($this->modx))->update(
+            $user,
+            (int) $this->getProperty('id', 0),
+            $data,
+            'mgr'
+        ));
     }
 }
