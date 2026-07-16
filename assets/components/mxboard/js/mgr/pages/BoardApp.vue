@@ -302,4 +302,194 @@ const tab = ref('board');
     padding: 8px;
     border-radius: 4px;
 }
+
+/* --- v2: типизация, дедлайны, подзадачи, страница задачи --- */
+
+/* Нативный <input> под стиль PrimeVue (date/text вне компонентов). */
+.mxb-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--p-inputtext-border-color, #d1d5db);
+    border-radius: 6px;
+    font: inherit;
+    background: var(--p-inputtext-background, #fff);
+    color: inherit;
+    box-sizing: border-box;
+}
+
+.mxb-input:focus {
+    outline: none;
+    border-color: var(--p-primary-color, #10b981);
+}
+
+.mxb-row {
+    display: flex;
+    gap: 12px;
+}
+
+.mxb-col {
+    flex: 1;
+}
+
+.mxb-col-2 {
+    flex: 2;
+}
+
+.mxb-req {
+    color: var(--p-red-500, #ef4444);
+}
+
+/* Метка типа/стадии на карточке и в шапке. */
+.mxb-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: var(--p-surface-100, #f1f3f5);
+    font-size: 11px;
+    opacity: 0.85;
+}
+
+.mxb-sub-icon {
+    margin-right: 4px;
+    opacity: 0.6;
+    font-size: 12px;
+}
+
+.mxb-overdue {
+    color: var(--p-red-500, #ef4444);
+}
+
+.mxb-disputed {
+    color: var(--p-orange-500, #f59e0b);
+}
+
+.mxb-flag {
+    margin-left: 2px;
+    font-size: 11px;
+}
+
+/* Страница задачи */
+.mxb-taskpage {
+    max-width: 900px;
+}
+
+.mxb-task-title {
+    margin: 4px 0 4px;
+    font-size: 20px;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.mxb-parent-link,
+.mxb-parent-note {
+    font-size: 13px;
+    margin-bottom: 8px;
+    opacity: 0.85;
+}
+
+.mxb-parent-link {
+    cursor: pointer;
+    color: var(--p-primary-color, #10b981);
+}
+
+.mxb-parent-link:hover {
+    text-decoration: underline;
+}
+
+.mxb-parent-note {
+    padding: 8px 10px;
+    background: var(--p-surface-100, #f1f3f5);
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.mxb-deadline {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.mxb-overdue-badge,
+.mxb-disputed-badge {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.mxb-overdue-badge {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--p-red-500, #ef4444);
+}
+
+.mxb-disputed-badge {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--p-orange-500, #f59e0b);
+}
+
+.mxb-inline-form {
+    padding: 12px;
+    border: 1px dashed var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.mxb-fieldrow {
+    display: flex;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--p-content-border-color, #e2e5e9);
+    font-size: 13px;
+}
+
+.mxb-fieldrow-label {
+    flex: 0 0 200px;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.mxb-fieldrow-value {
+    flex: 1;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.mxb-subtask {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+
+.mxb-subtask:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mxb-subtask-title {
+    flex: 1;
+    word-break: break-word;
+}
+
+.mxb-subtask-assignee {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+.mxb-subtask-assignee i,
+.mxb-fieldrow i {
+    margin-right: 3px;
+}
+
+.mxb-done {
+    color: var(--p-green-500, #10b981);
+}
 </style>

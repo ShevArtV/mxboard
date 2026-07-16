@@ -11,20 +11,48 @@ export function priorityMeta(value) {
     return PRIORITIES.find((p) => p.value === v) || { value: v, label: `P${v}`, severity: 'contrast' };
 }
 
-/** Даты в БД — unix timestamp; процессор мог отдать и строку. */
+/** Дата-время в БД — unix timestamp; процессор мог отдать и строку. */
 export function fmtDate(value) {
-    if (!value) return '';
-    const num = Number(value);
-    const d = Number.isFinite(num) && num > 0
-        ? new Date(num * 1000)
-        : new Date(String(value).replace(' ', 'T'));
-    if (Number.isNaN(d.getTime())) return String(value);
+    const d = toDate(value);
+    if (!d) return '';
     const p = (n) => String(n).padStart(2, '0');
     return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/** Только дата (для дедлайна — время в нём не значимо). */
+export function fmtDay(value) {
+    const d = toDate(value);
+    if (!d) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
+}
+
+/** unix-секунды → 'YYYY-MM-DD' для <input type="date">. */
+export function toDateInput(value) {
+    const d = toDate(value);
+    if (!d) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** Дедлайн просрочен (и задача не закрыта) — для подсветки. */
+export function isOverdue(task) {
+    const dl = Number(task?.deadlineon) || 0;
+    const closed = Number(task?.closedon) || 0;
+    return dl > 0 && !closed && dl * 1000 < Date.now();
+}
+
+function toDate(value) {
+    if (!value) return null;
+    const num = Number(value);
+    const d = Number.isFinite(num) && num > 0
+        ? new Date(num * 1000)
+        : new Date(String(value).replace(' ', 'T'));
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /**
- * Имя пользователя из карточки. Процессор может отдать его по-разному
+ * Имя пользователя из строки. Процессор может отдать его по-разному
  * (author, author_username, Author.username) — берём первое доступное.
  */
 export function userName(row, prefix) {
@@ -38,45 +66,27 @@ export function userName(row, prefix) {
     return id ? `#${id}` : '';
 }
 
-export function commentsCount(task) {
-    const v = task.comments_count ?? task.comment_count ?? task.comments ?? 0;
-    return Array.isArray(v) ? v.length : (Number(v) || 0);
-}
-
 /**
- * Доска приходит от процессора Board\Get. Форма ответа зависит от него, поэтому
- * приводим к единому виду: колонки с вложенным массивом задач.
+ * Доска приходит от BoardQuery::board: {project, columns:[{key,name,is_initial,
+ * is_final,stage_key,tasks:[...]}]}. Колонки адресуются КЛЮЧОМ (id у них нет —
+ * перетаскивание оперирует column.key, не id).
  */
 export function normalizeBoard(res) {
     const root = res?.object ?? res ?? {};
     let columns = root.columns || root.results || res?.results || [];
     if (!Array.isArray(columns)) columns = [];
 
-    const flatTasks = Array.isArray(root.tasks) ? root.tasks : [];
-
-    const normalized = columns.map((c) => {
-        const tasks = Array.isArray(c.tasks)
-            ? c.tasks.slice()
-            : flatTasks.filter((t) => (
-                String(t.column_id ?? '') === String(c.id ?? '')
-                || String(t.column ?? t.column_key ?? '') === String(c.key ?? '')
-            ));
-        return {
-            id: Number(c.id) || 0,
-            key: String(c.key ?? ''),
-            name: String(c.name ?? c.key ?? ''),
-            position: Number(c.position) || 0,
-            is_initial: !!Number(c.is_initial),
-            is_ready: !!Number(c.is_ready),
-            is_final: !!Number(c.is_final),
-            tasks: tasks.map(normalizeTask),
-        };
-    });
-
-    normalized.sort((a, b) => a.position - b.position);
+    const normalized = columns.map((c) => ({
+        key: String(c.key ?? ''),
+        name: String(c.name ?? c.key ?? ''),
+        stage_key: String(c.stage_key ?? ''),
+        is_initial: !!Number(c.is_initial),
+        is_final: !!Number(c.is_final),
+        tasks: (Array.isArray(c.tasks) ? c.tasks : []).map(normalizeTask),
+    }));
 
     return {
-        board: root.board || root.object || null,
+        project: root.project || null,
         columns: normalized,
     };
 }
@@ -88,6 +98,11 @@ export function normalizeTask(t) {
         priority: Number(t.priority) || 0,
         author_id: Number(t.author_id) || 0,
         assignee_id: Number(t.assignee_id) || 0,
-        column_id: Number(t.column_id) || 0,
+        parent_id: Number(t.parent_id) || 0,
+        deadlineon: Number(t.deadlineon) || 0,
+        deadline_disputed: !!Number(t.deadline_disputed),
+        deadline_proposed: Number(t.deadline_proposed) || 0,
+        closedon: Number(t.closedon) || 0,
+        column_key: String(t.column_key ?? t.column ?? ''),
     };
 }

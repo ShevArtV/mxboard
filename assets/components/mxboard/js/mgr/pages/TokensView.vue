@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { DataTable, Column, Button, InputText, Dialog, Tag, useToast, useConfirm } from 'primevue';
-import { TokenApi, errorMessage, boardConfig } from '../api/connector.js';
+import { TokenApi, errorMessage, listOf, boardConfig } from '../api/connector.js';
 import { fmtDate, userName } from '../utils/format.js';
 
 const toast = useToast();
@@ -21,14 +21,13 @@ const copied = ref(false);
 
 async function load() {
     loading.value = true;
-    const res = await TokenApi.getList({ limit: 0 });
-    loading.value = false;
-
-    if (!res || res.success === false) {
-        toast.add({ severity: 'error', summary: 'Токены не загружены', detail: errorMessage(res), life: 8000 });
-        return;
+    try {
+        rows.value = listOf(await TokenApi.getList({ limit: 0 }));
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Токены не загружены', detail: errorMessage(e), life: 8000 });
+    } finally {
+        loading.value = false;
     }
-    rows.value = res.results || res.object || [];
 }
 
 function openCreate() {
@@ -43,12 +42,14 @@ async function create() {
     }
 
     saving.value = true;
-    const res = await TokenApi.create(Number(form.value.user_id) || 0, form.value.name.trim());
-    saving.value = false;
-
-    if (!res || res.success === false) {
-        toast.add({ severity: 'error', summary: 'Токен не создан', detail: errorMessage(res), life: 8000 });
+    let res;
+    try {
+        res = await TokenApi.create(Number(form.value.user_id) || 0, form.value.name.trim());
+    } catch (e) {
+        toast.add({ severity: 'error', summary: 'Токен не создан', detail: errorMessage(e), life: 8000 });
         return;
+    } finally {
+        saving.value = false;
     }
 
     const obj = res.object || {};
@@ -108,13 +109,13 @@ function removeToken(event, row) {
         acceptProps: { severity: 'danger', size: 'small' },
         rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
         accept: async () => {
-            const res = await TokenApi.remove(row.id);
-            if (!res || res.success === false) {
-                toast.add({ severity: 'error', summary: 'Не удалось отозвать', detail: errorMessage(res), life: 8000 });
-                return;
+            try {
+                await TokenApi.remove(row.id);
+                toast.add({ severity: 'success', summary: 'Токен отозван', life: 3000 });
+                load();
+            } catch (e) {
+                toast.add({ severity: 'error', summary: 'Не удалось отозвать', detail: errorMessage(e), life: 8000 });
             }
-            toast.add({ severity: 'success', summary: 'Токен отозван', life: 3000 });
-            load();
         },
     });
 }
