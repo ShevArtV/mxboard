@@ -53,6 +53,34 @@ $classes = [
 
 $manager = $modx->getManager();
 
+// Миграции: ALTER TABLE ДО createObjectContainer (иначе xPDO падает на новом поле).
+$migrations = [
+    'mxboard_column' => [
+        'ADD COLUMN `color` VARCHAR(7) NOT NULL DEFAULT \'#6c757d\' AFTER `stage_key`',
+    ],
+    'mxboard_comment' => [
+        'ADD COLUMN `updatedon` INT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER `createdon`',
+    ],
+];
+
+foreach ($migrations as $table => $sqls) {
+    $fullTable = $modx->getTableName('MxBoard\\Model\\MxBoard' . ucfirst(str_replace('mxboard_', '', $table)));
+    if (!$fullTable) {
+        continue;
+    }
+    foreach ($sqls as $sql) {
+        try {
+            $modx->exec("ALTER TABLE {$fullTable} {$sql}");
+            $modx->log(modX::LOG_LEVEL_INFO, "[mxBoard] Миграция {$table}: OK");
+        } catch (\Throwable $e) {
+            if (str_contains($e->getMessage(), 'Duplicate column')) {
+                continue;
+            }
+            $modx->log(modX::LOG_LEVEL_WARN, "[mxBoard] Миграция {$table}: " . $e->getMessage());
+        }
+    }
+}
+
 foreach ($classes as $class) {
     $manager->createObjectContainer($class);
 
@@ -76,33 +104,5 @@ foreach ($classes as $class) {
 }
 
 $modx->log(modX::LOG_LEVEL_INFO, '[mxBoard] Таблицы проверены/созданы.');
-
-// Миграции: ALTER TABLE для новых полей (xPDO не добавляет колонки в существующие таблицы).
-$migrations = [
-    'mxboard_column' => [
-        "ADD COLUMN IF NOT EXISTS `color` VARCHAR(7) NOT NULL DEFAULT '#6c757d' AFTER `stage_key`",
-    ],
-    'mxboard_comment' => [
-        "ADD COLUMN IF NOT EXISTS `updatedon` INT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER `createdon`",
-    ],
-];
-
-foreach ($migrations as $table => $sqls) {
-    $fullTable = $modx->getTableName('MxBoard\\Model\\MxBoard' . ucfirst(str_replace('mxboard_', '', $table)));
-    if (!$fullTable) {
-        continue;
-    }
-    foreach ($sqls as $sql) {
-        try {
-            $modx->exec("ALTER TABLE {$fullTable} {$sql}");
-        } catch (\Throwable $e) {
-            // Column may already exist — ignore "Duplicate column" errors.
-            if (str_contains($e->getMessage(), 'Duplicate column')) {
-                continue;
-            }
-            $modx->log(modX::LOG_LEVEL_WARN, "[mxBoard] Миграция {$table}: " . $e->getMessage());
-        }
-    }
-}
 
 return true;
