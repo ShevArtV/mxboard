@@ -35,6 +35,8 @@ const columns = ref([]);
 const users = ref([]);
 
 const comment = ref('');
+const editingCommentId = ref(0);
+const editingCommentText = ref('');
 const editing = ref(false);
 const form = ref({ title: '', tor: '', priority: 0, deadline: '', assignee_id: 0, fields: {} });
 
@@ -145,6 +147,41 @@ async function addComment() {
     if (!comment.value.trim()) return;
     const ok = await act(() => TaskApi.comment(props.taskId, comment.value.trim()), t('mxboard_msg_comment_added'));
     if (ok) reload();
+}
+
+function startEditComment(c) {
+    editingCommentId.value = c.id || 0;
+    editingCommentText.value = c.content || '';
+}
+
+function cancelEditComment() {
+    editingCommentId.value = 0;
+    editingCommentText.value = '';
+}
+
+async function saveEditComment() {
+    if (!editingCommentText.value.trim()) return;
+    const ok = await act(
+        () => TaskApi.updateComment(props.taskId, editingCommentId.value, editingCommentText.value.trim()),
+        t('mxboard_msg_comment_updated'),
+    );
+    if (ok) reload();
+}
+
+function removeComment(event, c) {
+    confirm.require({
+        target: event.currentTarget,
+        message: t('mxboard_msg_confirm_delete_comment'),
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: t('mxboard_ui_delete'),
+        rejectLabel: t('mxboard_ui_cancel'),
+        acceptProps: { severity: 'danger', size: 'small' },
+        rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
+        accept: async () => {
+            const ok = await act(() => TaskApi.deleteComment(props.taskId, c.id), t('mxboard_msg_comment_deleted'));
+            if (ok) reload();
+        },
+    });
 }
 
 async function startEdit() {
@@ -406,12 +443,25 @@ function removeTask(event) {
                         <i class="pi pi-comments" />{{ t('mxboard_ui_comments') }}
                         <span class="mxb-column-count">{{ detail.comments.length }}</span>
                     </div>
-                    <div v-for="(c, i) in detail.comments" :key="i" class="mxb-comment">
+                    <div v-for="(c, i) in detail.comments" :key="c.id || i" class="mxb-comment">
                         <div class="mxb-comment-head">
                             <strong>{{ userName(c, 'user') || '—' }}</strong>
                             <span>{{ fmtDate(c.createdon) }}</span>
+                            <span v-if="c.updatedon" class="mxb-comment-edited">({{ t('mxboard_ui_comment_edited') }})</span>
+                            <span class="mxb-toolbar-spacer" />
+                            <template v-if="c.user_id === userId">
+                                <Button v-if="editingCommentId !== c.id" icon="pi pi-pencil" size="small" severity="secondary" text @click="startEditComment(c)" />
+                                <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeComment($event, c)" />
+                            </template>
                         </div>
-                        <div class="mxb-md" v-html="renderMarkdown(c.content)" />
+                        <div v-if="editingCommentId === c.id" class="mxb-comment-edit">
+                            <textarea v-model="editingCommentText" class="mxb-textarea" rows="3" />
+                            <div class="mxb-dialog-actions">
+                                <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="cancelEditComment" />
+                                <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEditComment" />
+                            </div>
+                        </div>
+                        <div v-else class="mxb-md" v-html="renderMarkdown(c.content)" />
                     </div>
                     <div v-if="!detail.comments.length" class="mxb-empty">{{ t('mxboard_ui_no_comments') }}</div>
 

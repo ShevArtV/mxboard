@@ -163,6 +163,7 @@ $_lang['mxboard_ui_subtasks'] = 'Подзадачи';
 $_lang['mxboard_ui_no_subtasks'] = 'Подзадач нет';
 $_lang['mxboard_ui_comments'] = 'Комментарии';
 $_lang['mxboard_ui_comment_placeholder'] = 'Комментарий…';
+$_lang['mxboard_ui_comment_edited'] = 'редактировано';
 $_lang['mxboard_ui_no_comments'] = 'Комментариев нет';
 $_lang['mxboard_ui_log'] = 'Журнал';
 $_lang['mxboard_ui_no_log'] = 'Записей нет';

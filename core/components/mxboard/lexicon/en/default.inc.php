@@ -163,6 +163,7 @@ $_lang['mxboard_ui_subtasks'] = 'Subtasks';
 $_lang['mxboard_ui_no_subtasks'] = 'No subtasks';
 $_lang['mxboard_ui_comments'] = 'Comments';
 $_lang['mxboard_ui_comment_placeholder'] = 'Comment…';
+$_lang['mxboard_ui_comment_edited'] = 'edited';
 $_lang['mxboard_ui_no_comments'] = 'No comments';
 $_lang['mxboard_ui_log'] = 'Log';
 $_lang['mxboard_ui_no_log'] = 'No records';
