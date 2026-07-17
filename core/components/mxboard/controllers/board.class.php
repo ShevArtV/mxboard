@@ -34,13 +34,16 @@ class MxboardboardManagerController extends modExtraManagerController
 
         $user = $this->modx->user;
 
-        // Признак «менеджер» для гейта вкладки «Структура»: sudo или супер хотя бы
-        // одного отдела (authority роли). Считает Transitions — тем же правилом, что и
-        // сервер; UI лишь прячет вкладку, финальную проверку делают процессоры.
-        $isManager = false;
-        $autoload = MODX_CORE_PATH . 'components/mxboard/vendor/autoload.php';
-        if ($user && is_file($autoload)) {
-            require_once $autoload;
+        // Гейты вкладок. sudo — прямой признак (не зависит ни от чего). «Менеджер» для
+        // «Структуры» = sudo ИЛИ супер хотя бы одного отдела (authority роли).
+        //
+        // Класс Transitions резолвится MODX-автолоадером (namespace-map пакета), а НЕ
+        // composer-autoload'ом: у собранного пакета vendor/autoload.php нет. Поэтому
+        // проверяем class_exists и зовём напрямую — прежняя завязка на is_file(vendor/
+        // autoload) молча оставляла is_manager=false даже суперадмину.
+        $isSudo = $user && (bool) $user->get('sudo');
+        $isManager = (bool) $isSudo;
+        if ($user && !$isManager && class_exists(\MxBoard\Helpers\Transitions::class)) {
             $isManager = \MxBoard\Helpers\Transitions::isAnyDepartmentManager($this->modx, $user);
         }
 
@@ -60,6 +63,8 @@ class MxboardboardManagerController extends modExtraManagerController
                 && ((bool) $user->get('sudo') || $this->modx->hasPermission('mxboard_move_any')),
             // Гейт вкладки «Структура»: менеджер отдела (authority) или sudo.
             'is_manager' => $isManager,
+            // Гейт вкладки «Токены агентов»: только суперадмин.
+            'is_sudo' => (bool) $isSudo,
         ];
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->modx->regClientStartupHTMLBlock("<script>window.MxBoardConfig = {$json};</script>");

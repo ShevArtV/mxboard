@@ -6,9 +6,11 @@ import TokensView from './TokensView.vue';
 import StructureView from './StructureView.vue';
 import { t } from '../utils/i18n.js';
 
-// Вкладка «Структура» — только менеджеру (sudo/супер отдела); финальную проверку
-// всё равно делают процессоры, гейт лишь прячет UI.
-const isManager = !!(window.MxBoardConfig || {}).is_manager;
+// Гейты вкладок (UI лишь прячет; финальную проверку делают процессоры/плагин):
+// «Структура» — менеджеру (sudo/супер отдела); «Токены агентов» — только sudo.
+const cfg = window.MxBoardConfig || {};
+const isManager = !!cfg.is_manager;
+const isSudo = !!cfg.is_sudo;
 const tab = ref('board');
 </script>
 
@@ -21,7 +23,7 @@ const tab = ref('board');
             <TabList>
                 <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
                 <Tab v-if="isManager" value="structure"><i class="pi pi-sitemap mxb-tab-icon" /> {{ t('mxboard_ui_structure') }}</Tab>
-                <Tab value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
+                <Tab v-if="isSudo" value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
             </TabList>
             <TabPanels>
                 <TabPanel value="board">
@@ -30,7 +32,7 @@ const tab = ref('board');
                 <TabPanel v-if="isManager" value="structure">
                     <StructureView />
                 </TabPanel>
-                <TabPanel value="tokens">
+                <TabPanel v-if="isSudo" value="tokens">
                     <TokensView />
                 </TabPanel>
             </TabPanels>
