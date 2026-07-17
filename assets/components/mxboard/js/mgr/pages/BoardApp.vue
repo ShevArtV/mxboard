@@ -408,6 +408,8 @@ const tab = ref('board');
 /* Страница задачи */
 .mxb-taskpage {
     max-width: 900px;
+    overflow-y: auto;
+    max-height: calc(100vh - 60px);
 }
 
 .mxb-task-title {
