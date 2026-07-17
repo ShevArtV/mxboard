@@ -53,7 +53,9 @@ const tab = ref('board');
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
 }
 
 .mxb-toolbar-spacer {
@@ -70,11 +72,11 @@ const tab = ref('board');
 }
 
 .mxb-column {
-    flex: 0 0 280px;
-    width: 280px;
+    flex: 0 0 290px;
+    width: 290px;
     background: var(--p-content-background, #f6f7f9);
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     min-height: 160px;
@@ -102,7 +104,7 @@ const tab = ref('board');
 }
 
 .mxb-column-body {
-    padding: 8px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -120,14 +122,16 @@ const tab = ref('board');
 .mxb-card {
     background: var(--p-surface-0, #fff);
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 6px;
-    padding: 10px;
+    border-radius: 8px;
+    padding: 12px;
     cursor: pointer;
     transition: box-shadow 0.15s, transform 0.15s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .mxb-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
 
 .mxb-card--dragging {
@@ -210,30 +214,47 @@ const tab = ref('board');
 }
 
 .mxb-section {
-    margin-top: 18px;
+    margin-top: 20px;
+    padding: 14px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    background: var(--p-content-background, #f6f7f9);
 }
 
 .mxb-section-title {
     font-weight: 600;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 14px;
 }
 
 .mxb-comment {
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 6px;
-    padding: 8px 10px;
+    border-radius: 8px;
+    padding: 10px 12px;
     margin-bottom: 8px;
+    background: var(--p-surface-50, #fafbfc);
 }
 
 .mxb-comment-head {
     font-size: 12px;
     opacity: 0.7;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
     display: flex;
+    align-items: center;
     gap: 8px;
+}
+
+.mxb-comment-edited {
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.6;
+}
+
+.mxb-comment-edit {
+    margin-top: 6px;
 }
 
 .mxb-log {
@@ -276,7 +297,10 @@ const tab = ref('board');
     display: block;
     margin-bottom: 4px;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
+    color: var(--p-text-color-secondary, #6c757d);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .mxb-hint {
@@ -387,10 +411,11 @@ const tab = ref('board');
 }
 
 .mxb-task-title {
-    margin: 4px 0 4px;
-    font-size: 20px;
+    margin: 4px 0 8px;
+    font-size: 22px;
     line-height: 1.3;
     word-break: break-word;
+    font-weight: 700;
 }
 
 .mxb-parent-link,
@@ -425,13 +450,15 @@ const tab = ref('board');
     border: 1px solid var(--p-content-border-color, #e2e5e9);
     border-radius: 8px;
     margin-bottom: 12px;
+    background: var(--p-content-background, #f6f7f9);
 }
 
 .mxb-overdue-badge,
 .mxb-disputed-badge {
-    font-size: 12px;
+    font-size: 11px;
     padding: 2px 8px;
     border-radius: 10px;
+    font-weight: 600;
 }
 
 .mxb-overdue-badge {
@@ -454,15 +481,22 @@ const tab = ref('board');
 .mxb-fieldrow {
     display: flex;
     gap: 10px;
-    padding: 5px 0;
-    border-bottom: 1px dashed var(--p-content-border-color, #e2e5e9);
+    padding: 6px 0;
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
     font-size: 13px;
+}
+
+.mxb-fieldrow:last-child {
+    border-bottom: none;
 }
 
 .mxb-fieldrow-label {
     flex: 0 0 200px;
     font-weight: 600;
-    opacity: 0.8;
+    color: var(--p-text-color-secondary, #6c757d);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .mxb-fieldrow-value {
@@ -471,15 +505,26 @@ const tab = ref('board');
     white-space: pre-wrap;
 }
 
+.mxb-fieldrow-link {
+    color: var(--p-primary-color, #10b981);
+    text-decoration: none;
+}
+
+.mxb-fieldrow-link:hover {
+    text-decoration: underline;
+}
+
 .mxb-subtask {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 10px;
+    padding: 8px 10px;
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 6px;
+    border-radius: 8px;
     margin-bottom: 6px;
     cursor: pointer;
+    background: var(--p-surface-0, #fff);
+    transition: box-shadow 0.15s;
 }
 
 .mxb-subtask:hover {
