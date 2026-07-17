@@ -46,7 +46,7 @@ const K = P + 'Token\\';
  * Текст ошибки из проваленного вызова useApi. Тело ответа MODX — в err.data:
  * message (общая ошибка) или errors[] (валидация полей). Иначе err.message.
  */
-export function errorMessage(err, fallback = 'Не удалось выполнить операцию') {
+export function errorMessage(err, fallback = '') {
     if (!err) return fallback;
     const body = err.data ?? err;
     if (body.message) return String(body.message);

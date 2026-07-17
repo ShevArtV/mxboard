@@ -552,7 +552,7 @@ final class Server
             'project' => $this->str($args['project'] ?? null) ?: null,
             'type' => $this->str($args['type'] ?? null),
             'title' => $this->str($args['title'] ?? null),
-            'deadline' => $this->deadline($args['deadline'] ?? null),
+            'deadline' => $args['deadline'] ?? null,
             'assignee' => $args['assignee'] ?? null,
             'fields' => isset($args['fields']) && is_array($args['fields']) ? $args['fields'] : null,
             'tor' => $this->str($args['tor'] ?? null),
@@ -651,10 +651,13 @@ final class Server
             return $this->content($this->lex('mxboard_err_task_id_required'), true);
         }
 
+        $proposed = $args['proposed_date'] ?? null;
+        $proposedInt = is_numeric($proposed) ? (int) $proposed : (int) (strtotime((string) $proposed) ?: 0);
+
         $result = $this->tasks->disputeDeadline(
             $this->user,
             $taskId,
-            $this->deadline($args['proposed_date'] ?? null),
+            $proposedInt,
             $this->str($args['reason'] ?? null),
             self::CHANNEL
         );
@@ -772,19 +775,6 @@ final class Server
     private function resolveProject(string $key): ?MxBoardProject
     {
         return $this->tasks->resolveProject($key !== '' ? ['project' => $key] : []);
-    }
-
-    /** Дедлайн: unix-число как есть, строку — через strtotime. */
-    private function deadline(mixed $value): int
-    {
-        if (is_numeric($value)) {
-            return (int) $value;
-        }
-        if (is_string($value) && trim($value) !== '') {
-            return (int) (strtotime(trim($value)) ?: 0);
-        }
-
-        return 0;
     }
 
     /**

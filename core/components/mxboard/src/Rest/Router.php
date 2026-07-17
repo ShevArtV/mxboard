@@ -176,7 +176,7 @@ final class Router
                 'dispute-deadline' => $this->result($this->tasks->disputeDeadline(
                     $this->user,
                     $taskId,
-                    $this->deadline($body['proposed_date'] ?? null),
+                    $this->normalizeDeadline($body['proposed_date'] ?? null),
                     (string) ($body['reason'] ?? ''),
                     self::CHANNEL
                 )),
@@ -193,8 +193,7 @@ final class Router
         return $this->tasks->resolveProject($key !== '' ? ['project' => $key] : []);
     }
 
-    /** Дедлайн: unix-число как есть, строку — через strtotime. */
-    private function deadline(mixed $value): int
+    private function normalizeDeadline(mixed $value): int
     {
         if (is_numeric($value)) {
             return (int) $value;

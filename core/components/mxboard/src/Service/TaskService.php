@@ -653,8 +653,10 @@ class TaskService
     {
         $c = $this->modx->newQuery(MxBoardTask::class);
         $c->where(['column_id' => $columnId]);
+        $c->select('MAX(position)');
+        $max = (int) $this->modx->getValue($c);
 
-        return (int) $this->modx->getCount(MxBoardTask::class, $c);
+        return $max + 1;
     }
 
     /**
@@ -717,7 +719,9 @@ class TaskService
             'channel' => $channel,
             'createdon' => time(),
         ]);
-        $log->save();
+        if (!$log->save()) {
+            $this->modx->log(modX::LOG_LEVEL_ERROR, '[mxBoard] Не удалось записать лог: task#' . (int) $task->get('id') . ' action=' . $action);
+        }
     }
 
     /**

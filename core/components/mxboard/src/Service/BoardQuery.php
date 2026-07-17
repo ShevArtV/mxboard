@@ -29,6 +29,9 @@ class BoardQuery
     /** Потолки выдачи: обзор доски, а не дамп базы в контекст агента. */
     private const MAX_TASKS = 300;
 
+    /** @var array<int, string> кеш username по userId — предотвращает N+1 в taskDetail. */
+    private array $usernameCache = [];
+
     public function __construct(private modX $modx)
     {
     }
@@ -453,9 +456,14 @@ class BoardQuery
         if ($userId <= 0) {
             return '';
         }
+        if (isset($this->usernameCache[$userId])) {
+            return $this->usernameCache[$userId];
+        }
         /** @var modUser|null $user */
         $user = $this->modx->getObject(modUser::class, $userId);
+        $name = $user ? (string) $user->get('username') : ('#' . $userId);
+        $this->usernameCache[$userId] = $name;
 
-        return $user ? (string) $user->get('username') : ('#' . $userId);
+        return $name;
     }
 }

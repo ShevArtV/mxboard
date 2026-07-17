@@ -130,6 +130,8 @@ class StructureService
 
         $now = time();
 
+        $this->modx->beginTransaction();
+
         /** @var MxBoardTaskType $type */
         $type = $this->modx->newObject(MxBoardTaskType::class);
         $type->fromArray([
@@ -142,6 +144,7 @@ class StructureService
             'createdon' => $now,
         ]);
         if (!$type->save()) {
+            $this->modx->rollback();
             return $this->fail('mxboard_err_save');
         }
 
@@ -158,8 +161,13 @@ class StructureService
                 'options' => $field['options'],
                 'createdon' => $now,
             ]);
-            $f->save();
+            if (!$f->save()) {
+                $this->modx->rollback();
+                return $this->fail('mxboard_err_save');
+            }
         }
+
+        $this->modx->commit();
 
         $out = $type->toArray();
         $out['fields'] = $fields;
@@ -212,6 +220,8 @@ class StructureService
 
         $now = time();
 
+        $this->modx->beginTransaction();
+
         /** @var MxBoardProject $project */
         $project = $this->modx->newObject(MxBoardProject::class);
         $project->fromArray([
@@ -225,6 +235,7 @@ class StructureService
             'updatedon' => $now,
         ]);
         if (!$project->save()) {
+            $this->modx->rollback();
             return $this->fail('mxboard_err_save');
         }
 
@@ -243,8 +254,13 @@ class StructureService
                 'is_final' => $col['is_final'],
                 'createdon' => $now,
             ]);
-            $column->save();
+            if (!$column->save()) {
+                $this->modx->rollback();
+                return $this->fail('mxboard_err_save');
+            }
         }
+
+        $this->modx->commit();
 
         $out = $project->toArray();
         $out['columns'] = $columns;
@@ -773,14 +789,8 @@ class StructureService
     /** Перенести is_initial/is_final на $column: снять с прежних носителей в том же проекте. */
     private function transferFlag(string $flag, MxBoardColumn $column): void
     {
-        $holders = $this->modx->getCollection(MxBoardColumn::class, [
-            'project_id' => (int) $column->get('project_id'),
-            $flag => true,
-        ]);
-        foreach ($holders as $holder) {
-            $holder->set($flag, false);
-            $holder->save();
-        }
+        $table = $this->modx->getTableName(MxBoardColumn::class);
+        $this->modx->exec("UPDATE {$table} SET {$flag} = 0 WHERE project_id = " . (int) $column->get('project_id') . " AND {$flag} = 1");
         $column->set($flag, true);
     }
 
