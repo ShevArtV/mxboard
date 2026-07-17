@@ -28,7 +28,7 @@ use MxBoard\Model\MxBoardTaskType;
 class StructureService
 {
     /** Допустимые типы полей. */
-    private const FIELD_TYPES = ['text', 'textarea', 'url', 'number', 'date', 'select', 'user', 'file'];
+    private const FIELD_TYPES = ['textarea', 'url', 'number', 'date', 'user', 'file'];
 
     public function __construct(private modX $modx)
     {
@@ -653,6 +653,7 @@ class StructureService
             'position' => $position,
             'move_roles' => trim((string) ($data['move_roles'] ?? '')),
             'stage_key' => trim((string) ($data['stage_key'] ?? '')),
+            'color' => trim((string) ($data['color'] ?? '#6c757d')),
             'is_initial' => false,
             'is_final' => false,
             'createdon' => time(),
@@ -699,6 +700,9 @@ class StructureService
         }
         if (array_key_exists('stage_key', $data)) {
             $column->set('stage_key', trim((string) $data['stage_key']));
+        }
+        if (array_key_exists('color', $data)) {
+            $column->set('color', trim((string) $data['color']) ?: '#6c757d');
         }
         if (array_key_exists('position', $data)) {
             $column->set('position', (int) $data['position']);
@@ -878,6 +882,7 @@ class StructureService
                 'name' => $name,
                 'move_roles' => trim((string) ($raw['move_roles'] ?? '')),
                 'stage_key' => trim((string) ($raw['stage_key'] ?? '')),
+                'color' => trim((string) ($raw['color'] ?? '#6c757d')),
                 'is_initial' => $isInitial,
                 'is_final' => $isFinal,
             ];
@@ -909,6 +914,7 @@ class StructureService
                 'name' => (string) $column->get('name'),
                 'move_roles' => (string) $column->get('move_roles'),
                 'stage_key' => (string) $column->get('stage_key'),
+                'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
             ];

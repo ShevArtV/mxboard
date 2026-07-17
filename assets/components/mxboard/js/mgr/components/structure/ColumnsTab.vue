@@ -18,9 +18,9 @@ const loading = ref(false);
 const saving = ref(false);
 
 const createOpen = ref(false);
-const createForm = ref({ key: '', name: '', move_roles: '', stage_key: '' });
+const createForm = ref({ key: '', name: '', move_roles: '', stage_key: '', color: '#6c757d' });
 const editOpen = ref(false);
-const editForm = ref({ id: 0, name: '', move_roles: '', stage_key: '', position: 0, is_initial: false, is_final: false });
+const editForm = ref({ id: 0, name: '', move_roles: '', stage_key: '', color: '#6c757d', position: 0, is_initial: false, is_final: false });
 
 // Опции селектора: «шаблон новых проектов» (project_id=0) + реальные проекты.
 const projectOptions = computed(() => [
@@ -52,7 +52,7 @@ async function load() {
 }
 
 function openCreate() {
-    createForm.value = { key: '', name: '', move_roles: '', stage_key: '' };
+    createForm.value = { key: '', name: '', move_roles: '', stage_key: '', color: '#6c757d' };
     createOpen.value = true;
 }
 async function create() {
@@ -65,6 +65,7 @@ async function create() {
             name: createForm.value.name.trim(),
             move_roles: createForm.value.move_roles,
             stage_key: createForm.value.stage_key,
+            color: createForm.value.color,
         });
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_created'), life: 3000 });
         createOpen.value = false;
@@ -79,6 +80,7 @@ async function create() {
 function openEdit(col) {
     editForm.value = {
         id: col.id, name: col.name || '', move_roles: col.move_roles || '', stage_key: col.stage_key || '',
+        color: col.color || '#6c757d',
         position: Number(col.position) || 0,
         is_initial: col.is_initial === true || col.is_initial === 1,
         is_final: col.is_final === true || col.is_final === 1,
@@ -93,6 +95,7 @@ async function saveEdit() {
             name: editForm.value.name,
             move_roles: editForm.value.move_roles,
             stage_key: editForm.value.stage_key,
+            color: editForm.value.color,
             position: editForm.value.position,
         };
         if (editForm.value.is_initial) data.is_initial = 1;
@@ -144,6 +147,11 @@ function removeColumn(event, col) {
             <Column field="key" :header="t('mxboard_ui_struct_key')" style="width: 150px" />
             <Column field="name" :header="t('mxboard_ui_struct_name')" />
             <Column field="move_roles" :header="t('mxboard_ui_struct_move_roles')" style="width: 180px" />
+            <Column field="color" :header="t('mxboard_ui_struct_color')" style="width: 80px">
+                <template #body="{ data }">
+                    <span :style="{ display: 'inline-block', width: '24px', height: '24px', borderRadius: '4px', backgroundColor: data.color || '#6c757d', verticalAlign: 'middle' }" />
+                </template>
+            </Column>
             <Column style="width: 130px">
                 <template #body="{ data }">
                     <Tag v-if="data.is_initial" :value="t('mxboard_ui_struct_is_initial')" severity="info" />
@@ -180,6 +188,13 @@ function removeColumn(event, col) {
                 <label>{{ t('mxboard_ui_struct_stage_key') }}</label>
                 <InputText v-model="createForm.stage_key" fluid />
             </div>
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_color') }}</label>
+                <div style="display: flex; align-items: center; gap: 8px">
+                    <input type="color" v-model="createForm.color" style="width: 40px; height: 32px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer" />
+                    <InputText v-model="createForm.color" fluid style="flex: 1" />
+                </div>
+            </div>
             <template #footer>
                 <div class="mxb-dialog-actions">
                     <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="createOpen = false" />
@@ -207,6 +222,13 @@ function removeColumn(event, col) {
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_position') }}</label>
                 <InputText v-model="editForm.position" fluid />
+            </div>
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_color') }}</label>
+                <div style="display: flex; align-items: center; gap: 8px">
+                    <input type="color" v-model="editForm.color" style="width: 40px; height: 32px; border: 1px solid #ccc; border-radius: 4px; cursor: pointer" />
+                    <InputText v-model="editForm.color" fluid style="flex: 1" />
+                </div>
             </div>
             <div class="mxb-field mxb-check">
                 <Checkbox v-model="editForm.is_initial" :binary="true" input-id="col-initial" />

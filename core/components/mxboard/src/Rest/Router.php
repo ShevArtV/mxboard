@@ -152,6 +152,21 @@ final class Router
             return $this->ok($detail);
         }
 
+        // PATCH /tasks/{id}/comments/{cid}
+        if ($method === 'PATCH' && $action === 'comments' && isset($seg[3])) {
+            return $this->result($this->tasks->updateComment(
+                $this->user,
+                (int) $seg[3],
+                (string) ($body['content'] ?? ''),
+                self::CHANNEL
+            ));
+        }
+
+        // DELETE /tasks/{id}/comments/{cid}
+        if ($method === 'DELETE' && $action === 'comments' && isset($seg[3])) {
+            return $this->result($this->tasks->deleteComment($this->user, (int) $seg[3], self::CHANNEL));
+        }
+
         // PATCH /tasks/{id}
         if ($method === 'PATCH' && $action === '') {
             return $this->result($this->tasks->update($this->user, $taskId, $body, self::CHANNEL));

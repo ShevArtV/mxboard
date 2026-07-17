@@ -21,13 +21,6 @@ const model = computed(() => props.modelValue || {});
 function set(key, value) {
     emit('update:modelValue', { ...model.value, [key]: value });
 }
-
-// Варианты для select: массив строк или [{value,label}] — приводим к общему виду.
-function selectOptions(field) {
-    const opts = field.options;
-    if (!Array.isArray(opts)) return [];
-    return opts.map((o) => (typeof o === 'object' ? o : { value: o, label: String(o) }));
-}
 </script>
 
 <template>
@@ -38,22 +31,11 @@ function selectOptions(field) {
         </label>
 
         <textarea
-            v-if="field.type === 'textarea'"
+            v-if="field.type === 'textarea' || field.type === 'text'"
             :value="model[field.key] || ''"
             class="mxb-textarea"
             rows="4"
             @input="set(field.key, $event.target.value)"
-        />
-
-        <Select
-            v-else-if="field.type === 'select'"
-            :model-value="model[field.key] ?? null"
-            :options="selectOptions(field)"
-            option-label="label"
-            option-value="value"
-            placeholder="—"
-            fluid
-            @update:model-value="set(field.key, $event)"
         />
 
         <Select

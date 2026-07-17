@@ -21,6 +21,7 @@ class MxBoardComment extends \MxBoard\Model\MxBoardComment
             'user_id' => 0,
             'content' => NULL,
             'createdon' => 0,
+            'updatedon' => 0,
         ),
         'fieldMeta' => 
         array (
@@ -50,7 +51,7 @@ class MxBoardComment extends \MxBoard\Model\MxBoardComment
                 'phptype' => 'string',
                 'null' => true,
             ),
-            'createdon' => 
+            'createdon' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',
@@ -59,6 +60,15 @@ class MxBoardComment extends \MxBoard\Model\MxBoardComment
                 'null' => false,
                 'default' => 0,
                 'index' => 'index',
+            ),
+            'updatedon' =>
+            array (
+                'dbtype' => 'integer',
+                'precision' => '20',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
             ),
         ),
         'indexes' => 

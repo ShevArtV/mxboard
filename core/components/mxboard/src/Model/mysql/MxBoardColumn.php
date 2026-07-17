@@ -23,6 +23,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'position' => 0,
             'move_roles' => '',
             'stage_key' => '',
+            'color' => '#6c757d',
             'is_initial' => 0,
             'is_final' => 0,
             'createdon' => 0,
@@ -74,7 +75,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => false,
                 'default' => '',
             ),
-            'stage_key' => 
+            'stage_key' =>
             array (
                 'dbtype' => 'varchar',
                 'precision' => '100',
@@ -82,6 +83,14 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => true,
                 'default' => '',
                 'index' => 'index',
+            ),
+            'color' =>
+            array (
+                'dbtype' => 'varchar',
+                'precision' => '7',
+                'phptype' => 'string',
+                'null' => false,
+                'default' => '#6c757d',
             ),
             'is_initial' => 
             array (

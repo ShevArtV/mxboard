@@ -132,6 +132,7 @@ class BoardQuery
                 'position' => (int) $column->get('position'),
                 'move_roles' => (string) $column->get('move_roles'),
                 'stage_key' => (string) $column->get('stage_key'),
+                'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
             ];
@@ -210,6 +211,7 @@ class BoardQuery
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
                 'stage_key' => (string) $column->get('stage_key'),
+                'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'tasks' => $byColumn[$key] ?? [],
             ];
         }

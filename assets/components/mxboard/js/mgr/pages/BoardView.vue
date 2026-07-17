@@ -4,7 +4,7 @@ import { Button, Select, SelectButton, useToast } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
-import { normalizeBoard, normalizeTask } from '../utils/format.js';
+import { normalizeBoard, normalizeTask, PRIORITIES } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
@@ -29,6 +29,19 @@ const FILTERS = computed(() => [
     { value: 'assignee', label: t('mxboard_ui_filter_assignee') },
 ]);
 const filter = ref('all');
+
+// Фильтр по приоритету: -1 = все, 0-3 = конкретный.
+const PRIORITY_FILTERS = [{ value: -1, label: t('mxboard_ui_filter_all_priorities') }, ...PRIORITIES];
+const priorityFilter = ref(-1);
+
+// Колонки с учётом фильтра по приоритету (клиентская фильтрация).
+const filteredColumns = computed(() => {
+    if (priorityFilter.value === -1) return columns.value;
+    return columns.value.map((col) => ({
+        ...col,
+        tasks: col.tasks.filter((t) => Number(t.priority) === priorityFilter.value),
+    }));
+});
 
 // Ручной switch «доска ↔ страница задачи» (без vue-router).
 const openTaskId = ref(0);
@@ -200,6 +213,14 @@ async function onDrop(column) {
                 :allow-empty="false"
                 @change="load"
             />
+            <Select
+                v-model="priorityFilter"
+                :options="PRIORITY_FILTERS"
+                option-label="label"
+                option-value="value"
+                :placeholder="t('mxboard_ui_priority')"
+                style="max-width: 160px"
+            />
             <span class="mxb-toolbar-spacer" />
             <Button
                 :label="t('mxboard_ui_new_task')"
@@ -223,7 +244,7 @@ async function onDrop(column) {
 
         <div v-else class="mxb-columns">
             <div
-                v-for="column in columns"
+                v-for="column in filteredColumns"
                 :key="column.key"
                 class="mxb-column"
                 :class="{ 'mxb-column--over': dragOverKey === column.key }"
@@ -231,7 +252,7 @@ async function onDrop(column) {
                 @dragleave="dragOverKey = dragOverKey === column.key ? '' : dragOverKey"
                 @drop.prevent="onDrop(column)"
             >
-                <div class="mxb-column-head">
+                <div class="mxb-column-head" :style="{ borderTopColor: column.color || '#6c757d' }">
                     <i v-if="column.is_final" class="pi pi-check-circle" />
                     <span>{{ column.name }}</span>
                     <span class="mxb-column-count">{{ column.tasks.length }}</span>

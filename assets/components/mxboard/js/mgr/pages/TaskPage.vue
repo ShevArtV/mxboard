@@ -49,13 +49,13 @@ const priority = computed(() => priorityMeta(task.value?.priority));
 const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
 
-// fields задачи, размеченные лейблами из схемы типа (для читаемого показа).
+// fields задачи, размеченные лейблами и типами из схемы типа.
 const fieldRows = computed(() => {
     const values = task.value?.fields || {};
     const defs = schema.value?.fields || [];
     return defs
         .filter((f) => values[f.key] !== undefined && values[f.key] !== '' && values[f.key] !== null)
-        .map((f) => ({ key: f.key, label: f.label, value: values[f.key] }));
+        .map((f) => ({ key: f.key, label: f.label, type: f.type || 'textarea', value: values[f.key] }));
 });
 
 // Человеческое название действия журнала (ключ mxboard_act_<action>), иначе — как есть.
@@ -361,8 +361,21 @@ function removeTask(event) {
                 <div v-if="fieldRows.length" class="mxb-section">
                     <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
                     <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">
-                        <span class="mxb-fieldrow-label">{{ f.label }}</span>
-                        <span class="mxb-fieldrow-value">{{ f.value }}</span>
+                        <!-- URL: подпись + ссылка -->
+                        <template v-if="f.type === 'url'">
+                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                            <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
+                        </template>
+                        <!-- Date/number/user: inline через двоеточие -->
+                        <template v-else-if="f.type === 'date' || f.type === 'number' || f.type === 'user'">
+                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                            <span class="mxb-fieldrow-value">{{ f.value }}</span>
+                        </template>
+                        <!-- Textarea/text: подпись над блоком markdown -->
+                        <template v-else>
+                            <div class="mxb-fieldrow-label">{{ f.label }}</div>
+                            <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
+                        </template>
                     </div>
                 </div>
 

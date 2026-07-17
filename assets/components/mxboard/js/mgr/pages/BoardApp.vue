@@ -91,6 +91,7 @@ const tab = ref('board');
     gap: 8px;
     padding: 10px 12px;
     font-weight: 600;
+    border-top: 3px solid var(--col-color, #6c757d);
     border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
 }
 

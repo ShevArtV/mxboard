@@ -174,6 +174,15 @@ final class Server
                 'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
                 'content' => ['type' => 'string', 'description' => 'Текст (markdown).'],
             ], ['task_id', 'content']),
+            $this->tool('task_comment_edit', 'Редактировать свой комментарий.', [
+                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
+                'content' => ['type' => 'string', 'description' => 'Новый текст (markdown).'],
+            ], ['task_id', 'comment_id', 'content']),
+            $this->tool('task_comment_delete', 'Удалить свой комментарий.', [
+                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
+            ], ['task_id', 'comment_id']),
             $this->tool('task_dispute_deadline', 'Оспорить дедлайн (исполнитель): предложить новую дату с причиной. Меняет её автор.', [
                 'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
@@ -213,7 +222,7 @@ final class Server
                 'description' => ['type' => 'string'],
                 'fields' => [
                     'type' => 'array',
-                    'description' => 'Поля: [{key, label, type(text|textarea|url|number|date|select|user|file), required(bool), options?}]. Минимум одно.',
+                    'description' => 'Поля: [{key, label, type(textarea|url|number|date|user|file), required(bool), options?}]. Минимум одно.',
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name', 'fields']),
@@ -269,6 +278,8 @@ final class Server
             'task_create' => $this->taskCreate($args),
             'task_move' => $this->taskMove($args),
             'task_comment' => $this->taskComment($args),
+            'task_comment_edit' => $this->taskCommentEdit($args),
+            'task_comment_delete' => $this->taskCommentDelete($args),
             'task_dispute_deadline' => $this->taskDispute($args),
             'task_update' => $this->taskUpdate($args),
             'task_resolve_dispute' => $this->taskResolve($args),
@@ -637,6 +648,51 @@ final class Server
         }
 
         return $this->content('Комментарий к карточке #' . $taskId . ' добавлен.');
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function taskCommentEdit(array $args): array
+    {
+        $commentId = $this->int($args['comment_id'] ?? null);
+        if ($commentId <= 0) {
+            return $this->content($this->lex('mxboard_err_comment_not_found'), true);
+        }
+
+        $result = $this->tasks->updateComment(
+            $this->user,
+            $commentId,
+            $this->str($args['content'] ?? null),
+            self::CHANNEL
+        );
+        if (!$result['success']) {
+            return $this->content($result['message'], true);
+        }
+
+        return $this->content('Комментарий #' . $commentId . ' обновлён.');
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function taskCommentDelete(array $args): array
+    {
+        $commentId = $this->int($args['comment_id'] ?? null);
+        if ($commentId <= 0) {
+            return $this->content($this->lex('mxboard_err_comment_not_found'), true);
+        }
+
+        $result = $this->tasks->deleteComment($this->user, $commentId, self::CHANNEL);
+        if (!$result['success']) {
+            return $this->content($result['message'], true);
+        }
+
+        return $this->content('Комментарий #' . $commentId . ' удалён.');
     }
 
     /**

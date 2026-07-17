@@ -272,6 +272,66 @@ class TaskService
     }
 
     /**
+     * Редактировать комментарий. Только автор.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function updateComment(modUser $user, int $commentId, string $content, string $channel = 'mgr'): array
+    {
+        $content = trim($content);
+        if ($content === '') {
+            return $this->fail('mxboard_err_comment_empty');
+        }
+
+        /** @var MxBoardComment|null $comment */
+        $comment = $this->modx->getObject(MxBoardComment::class, $commentId);
+        if (!$comment) {
+            return $this->fail('mxboard_err_comment_not_found');
+        }
+
+        if ((int) $user->get('id') !== (int) $comment->get('user_id')) {
+            return $this->fail('mxboard_err_comment_author_only');
+        }
+
+        $comment->set('content', $content);
+        $comment->set('updatedon', time());
+
+        if (!$comment->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return [
+            'success' => true,
+            'message' => '',
+            'object' => $comment->toArray(),
+        ];
+    }
+
+    /**
+     * Удалить комментарий. Только автор.
+     *
+     * @return array{success: bool, message: string, object: null}
+     */
+    public function deleteComment(modUser $user, int $commentId, string $channel = 'mgr'): array
+    {
+        /** @var MxBoardComment|null $comment */
+        $comment = $this->modx->getObject(MxBoardComment::class, $commentId);
+        if (!$comment) {
+            return $this->fail('mxboard_err_comment_not_found');
+        }
+
+        if ((int) $user->get('id') !== (int) $comment->get('user_id')) {
+            return $this->fail('mxboard_err_comment_author_only');
+        }
+
+        if (!$comment->remove()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
      * Оспорить дедлайн: исполнитель предлагает новую дату с причиной. Меняет дедлайн
      * не он — только автор через resolveDeadline.
      *

@@ -10,6 +10,7 @@ use xPDO\xPDO;
  * @property integer $user_id
  * @property string $content
  * @property integer $createdon
+ * @property integer $updatedon
  *
  * @package MxBoard\Model
  */
