@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Dialog, Button, InputText, Select, useToast } from 'primevue';
 import { TaskApi, TypeApi, DepartmentApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
 import { PRIORITIES, fmtSize } from '../utils/format.js';
@@ -33,6 +33,8 @@ const aiCanOverride = ref(false);
 const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} });
 // Файлы, приложенные ДО создания задачи: копятся в памяти, грузятся после успешного create.
 const pendingFiles = ref([]);
+// Файловая зона показывается, только если у выбранного типа есть поле `files` (лейбл = его заголовок).
+const filesField = computed(() => (schema.value?.fields || []).find((f) => f.type === 'files') || null);
 
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
@@ -219,9 +221,9 @@ function removeStaged(idx) {
             :users="users"
         />
 
-        <!-- Файлы задачи: копятся до создания, грузятся после успешного сохранения. -->
-        <div class="mxb-field">
-            <label>{{ t('mxboard_ui_task_files') }}</label>
+        <!-- Файловая зона типа `files`: копится до создания, грузится после сохранения. -->
+        <div v-if="filesField" class="mxb-field">
+            <label>{{ filesField.label || t('mxboard_ui_task_files') }}</label>
             <div v-if="pendingFiles.length" class="mxb-composer-files mxb-staged-files">
                 <span v-for="(f, i) in pendingFiles" :key="i" class="mxb-composer-file">
                     <i class="pi pi-file" />

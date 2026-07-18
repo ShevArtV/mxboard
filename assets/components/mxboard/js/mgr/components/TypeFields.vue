@@ -24,6 +24,8 @@ const emit = defineEmits(['update:modelValue']);
 const toast = useToast();
 const model = computed(() => props.modelValue || {});
 const uploadingKey = ref('');
+// Поля типа `files` в общей форме не рендерим — их зону рисуют TaskPage/NewTaskDialog.
+const renderable = computed(() => (props.fields || []).filter((f) => f.type !== 'files'));
 
 function set(key, value) {
     emit('update:modelValue', { ...model.value, [key]: value });
@@ -54,7 +56,7 @@ async function onFieldFile(key, event) {
 </script>
 
 <template>
-    <div v-for="field in fields" :key="field.key" class="mxb-field">
+    <div v-for="field in renderable" :key="field.key" class="mxb-field">
         <label>
             {{ field.label }}
             <span v-if="field.required" class="mxb-req">*</span>

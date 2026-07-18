@@ -295,6 +295,16 @@ $_lang['mxboard_ui_struct_removed'] = 'Removed';
 $_lang['mxboard_ui_struct_created'] = 'Created';
 $_lang['mxboard_ui_struct_empty'] = 'Empty';
 
+// Field type labels (in the type editor). DB key stays English.
+$_lang['mxboard_ft_text'] = 'Text';
+$_lang['mxboard_ft_textarea'] = 'Textarea';
+$_lang['mxboard_ft_url'] = 'URL';
+$_lang['mxboard_ft_number'] = 'Number';
+$_lang['mxboard_ft_date'] = 'Date';
+$_lang['mxboard_ft_select'] = 'Select';
+$_lang['mxboard_ft_user'] = 'User';
+$_lang['mxboard_ft_files'] = 'Files';
+
 // Departments.
 $_lang['mxboard_ui_struct_register_dept'] = 'Register department';
 $_lang['mxboard_ui_struct_usergroup'] = 'MODX user group';

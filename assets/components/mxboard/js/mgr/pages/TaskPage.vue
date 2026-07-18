@@ -59,6 +59,9 @@ const overdue = computed(() => isOverdue(task.value));
 
 // Вложения уровня задачи (comment_id=0) — приходят в task.attachments из taskDetail.
 const taskAttachments = computed(() => task.value?.attachments || []);
+// Поле типа `files` в схеме типа: если есть — показываем файловую зону задачи (её
+// заголовок = лейбл поля). Нет поля — нет файловой зоны (файлы задачи только через него).
+const filesField = computed(() => (schema.value?.fields || []).find((f) => f.type === 'files') || null);
 // Композер можно отправить, если есть текст ИЛИ выбраны файлы.
 const canSend = computed(() => !!comment.value.trim() || pendingFiles.value.length > 0);
 
@@ -531,6 +534,23 @@ function removeTask(event) {
                     </div>
                 </div>
 
+                <!-- Файлы задачи — только если у типа есть поле `files` (его лейбл = заголовок).
+                     Видно и в просмотре, и в правке; файлы = вложения задачи (comment_id=0). -->
+                <div v-if="filesField" class="mxb-section">
+                    <div class="mxb-section-title">
+                        <i class="pi pi-paperclip" />{{ filesField.label || t('mxboard_ui_task_files') }}
+                        <span class="mxb-column-count">{{ taskAttachments.length }}</span>
+                    </div>
+                    <Attachments
+                        :items="taskAttachments"
+                        :user-id="userId"
+                        :can-manage="canManage"
+                        @remove="removeAttachment"
+                    />
+                    <div v-if="!taskAttachments.length" class="mxb-empty">{{ t('mxboard_ui_no_files') }}</div>
+                    <FileDrop :busy="busy" @files="uploadTaskFiles" />
+                </div>
+
                 <!-- РЕЖИМ ПРАВКИ -->
                 <div v-if="editing" class="mxb-section">
                     <div class="mxb-field">
@@ -611,22 +631,6 @@ function removeTask(event) {
                                 <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
                             </template>
                         </div>
-                    </div>
-
-                    <!-- Файлы задачи (уровня задачи, comment_id=0) -->
-                    <div class="mxb-section">
-                        <div class="mxb-section-title">
-                            <i class="pi pi-paperclip" />{{ t('mxboard_ui_task_files') }}
-                            <span class="mxb-column-count">{{ taskAttachments.length }}</span>
-                        </div>
-                        <Attachments
-                            :items="taskAttachments"
-                            :user-id="userId"
-                            :can-manage="canManage"
-                            @remove="removeAttachment"
-                        />
-                        <div v-if="!taskAttachments.length" class="mxb-empty">{{ t('mxboard_ui_no_files') }}</div>
-                        <FileDrop :busy="busy" @files="uploadTaskFiles" />
                     </div>
 
                     <!-- Подзадачи -->

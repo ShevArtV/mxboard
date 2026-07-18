@@ -295,6 +295,16 @@ $_lang['mxboard_ui_struct_removed'] = 'Удалено';
 $_lang['mxboard_ui_struct_created'] = 'Создано';
 $_lang['mxboard_ui_struct_empty'] = 'Пусто';
 
+// Названия типов полей (в редакторе типа). Ключ в БД остаётся английским.
+$_lang['mxboard_ft_text'] = 'Строка';
+$_lang['mxboard_ft_textarea'] = 'Текст';
+$_lang['mxboard_ft_url'] = 'Ссылка';
+$_lang['mxboard_ft_number'] = 'Число';
+$_lang['mxboard_ft_date'] = 'Дата';
+$_lang['mxboard_ft_select'] = 'Список';
+$_lang['mxboard_ft_user'] = 'Пользователь';
+$_lang['mxboard_ft_files'] = 'Файлы';
+
 // Отделы.
 $_lang['mxboard_ui_struct_register_dept'] = 'Зарегистрировать отдел';
 $_lang['mxboard_ui_struct_usergroup'] = 'Группа пользователей MODX';

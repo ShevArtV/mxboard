@@ -11,7 +11,10 @@ import { t } from '../../utils/i18n.js';
 const toast = useToast();
 const confirm = useConfirm();
 
-const FIELD_TYPES = ['text', 'textarea', 'url', 'number', 'date', 'select', 'user', 'file'];
+// Тип `files` — файловая зона задачи (drag-n-drop вложения в левой колонке).
+const FIELD_TYPES = ['text', 'textarea', 'url', 'number', 'date', 'select', 'user', 'files'];
+// Человеческие названия типов для выпадашки (ключ в БД остаётся из FIELD_TYPES).
+const FIELD_TYPE_OPTIONS = FIELD_TYPES.map((key) => ({ value: key, label: t(`mxboard_ft_${key}`) }));
 
 const departments = ref([]);
 const departmentId = ref(0);
@@ -292,7 +295,7 @@ function removeField(event, field) {
             <div v-for="(f, i) in createForm.fields" :key="i" class="mxb-field-editrow">
                 <InputText v-model="f.key" :placeholder="t('mxboard_ui_struct_field_key')" />
                 <InputText v-model="f.label" :placeholder="t('mxboard_ui_struct_field_label')" />
-                <Select v-model="f.type" :options="FIELD_TYPES" />
+                <Select v-model="f.type" :options="FIELD_TYPE_OPTIONS" option-label="label" option-value="value" />
                 <label class="mxb-check"><Checkbox v-model="f.required" :binary="true" /> {{ t('mxboard_ui_struct_field_required') }}</label>
                 <Button icon="pi pi-times" size="small" severity="danger" text @click="removeCreateField(i)" />
             </div>
@@ -347,7 +350,7 @@ function removeField(event, field) {
             </div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_field_type') }}</label>
-                <Select v-model="fieldForm.type" :options="FIELD_TYPES" fluid />
+                <Select v-model="fieldForm.type" :options="FIELD_TYPE_OPTIONS" option-label="label" option-value="value" fluid />
             </div>
             <div class="mxb-field mxb-check">
                 <Checkbox v-model="fieldForm.required" :binary="true" input-id="field-required" />

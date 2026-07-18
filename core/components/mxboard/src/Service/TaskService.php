@@ -713,6 +713,13 @@ class TaskService
         $fields = $this->modx->getCollection(MxBoardField::class, $c);
 
         foreach ($fields as $field) {
+            // Тип `files` — файловая зона задачи: файлы живут вложениями (comment_id=0),
+            // а не в task.fields. В fields ничего не пишем и required по нему не проверяем
+            // (файлы грузятся после создания задачи, когда уже есть task_id).
+            if ((string) $field->get('type') === 'files') {
+                continue;
+            }
+
             $key = (string) $field->get('key');
             $value = $input[$key] ?? null;
             $filled = $value !== null && (!is_string($value) || trim($value) !== '');

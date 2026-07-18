@@ -27,8 +27,8 @@ use MxBoard\Model\MxBoardTaskType;
  */
 class StructureService
 {
-    /** Допустимые типы полей. */
-    private const FIELD_TYPES = ['textarea', 'url', 'number', 'date', 'user', 'file'];
+    /** Допустимые типы полей. Тип `files` — файловая зона задачи (вложения, не хранится в fields). */
+    private const FIELD_TYPES = ['textarea', 'url', 'number', 'date', 'user', 'files'];
 
     public function __construct(private modX $modx)
     {
