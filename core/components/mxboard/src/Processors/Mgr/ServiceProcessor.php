@@ -43,7 +43,9 @@ abstract class ServiceProcessor extends Processor
     protected function fromResult(array $result)
     {
         if (!$result['success']) {
-            return $this->failure((string) $result['message']);
+            // object прокидываем и при отказе: напр. ИИ-проверка кладёт туда вердикт
+            // (чего не хватает + можно ли создать в обход) для показа во фронте.
+            return $this->failure((string) $result['message'], $result['object'] ?? null);
         }
 
         return $this->success((string) $result['message'], $result['object']);

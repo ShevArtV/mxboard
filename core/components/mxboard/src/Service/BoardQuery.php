@@ -105,6 +105,8 @@ class BoardQuery
                 'key' => (string) $type->get('key'),
                 'name' => (string) $type->get('name'),
                 'description' => (string) $type->get('description'),
+                'ai_check' => (bool) $type->get('ai_check'),
+                'ai_prompt' => (string) $type->get('ai_prompt'),
             ];
         }
 
@@ -357,7 +359,11 @@ class BoardQuery
         }
 
         return [
-            'type' => ['key' => (string) $type->get('key'), 'name' => (string) $type->get('name')],
+            'type' => [
+                'key' => (string) $type->get('key'),
+                'name' => (string) $type->get('name'),
+                'ai_check' => (bool) $type->get('ai_check'),
+            ],
             // Встроенные поля есть у любой задачи и в mxboard_field не описываются.
             'builtin' => [
                 ['key' => 'title', 'label' => 'Заголовок', 'type' => 'text', 'required' => true],

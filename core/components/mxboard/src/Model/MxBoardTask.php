@@ -21,6 +21,7 @@ use xPDO\xPDO;
  * @property integer $deadline_proposed
  * @property array $fields
  * @property array $meta
+ * @property array $ai_verdict
  * @property integer $createdon
  * @property integer $updatedon
  * @property integer $startedon

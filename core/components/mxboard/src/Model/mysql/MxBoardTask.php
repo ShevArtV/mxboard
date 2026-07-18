@@ -32,6 +32,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'deadline_proposed' => 0,
             'fields' => NULL,
             'meta' => NULL,
+            'ai_verdict' => NULL,
             'createdon' => 0,
             'updatedon' => 0,
             'startedon' => 0,
@@ -166,13 +167,19 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'phptype' => 'json',
                 'null' => true,
             ),
-            'meta' => 
+            'meta' =>
             array (
                 'dbtype' => 'mediumtext',
                 'phptype' => 'json',
                 'null' => true,
             ),
-            'createdon' => 
+            'ai_verdict' =>
+            array (
+                'dbtype' => 'mediumtext',
+                'phptype' => 'json',
+                'null' => true,
+            ),
+            'createdon' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',

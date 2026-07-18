@@ -4,3 +4,5 @@
 /assets/components/mxboard/js/mgr/node_modules/
 /.idea/
 .DS_Store
+/config/
+/refs/

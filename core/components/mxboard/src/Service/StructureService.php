@@ -140,6 +140,8 @@ class StructureService
             'name' => $name,
             'description' => (string) ($data['description'] ?? ''),
             'active' => true,
+            'ai_check' => !empty($data['ai_check']),
+            'ai_prompt' => trim((string) ($data['ai_prompt'] ?? '')) ?: null,
             'position' => (int) ($data['position'] ?? 0),
             'createdon' => $now,
         ]);
@@ -366,6 +368,12 @@ class StructureService
         }
         if (array_key_exists('active', $data)) {
             $type->set('active', !empty($data['active']));
+        }
+        if (array_key_exists('ai_check', $data)) {
+            $type->set('ai_check', !empty($data['ai_check']));
+        }
+        if (array_key_exists('ai_prompt', $data)) {
+            $type->set('ai_prompt', trim((string) $data['ai_prompt']) ?: null);
         }
         if (array_key_exists('position', $data)) {
             $type->set('position', (int) $data['position']);

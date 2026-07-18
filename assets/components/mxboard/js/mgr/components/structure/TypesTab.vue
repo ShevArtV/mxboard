@@ -24,10 +24,10 @@ const expandedType = ref(0);
 const fields = ref([]);
 
 const createOpen = ref(false);
-const createForm = ref({ key: '', name: '', description: '', fields: [] });
+const createForm = ref({ key: '', name: '', description: '', ai_check: false, ai_prompt: '', fields: [] });
 
 const editOpen = ref(false);
-const editForm = ref({ id: 0, name: '', description: '', active: true });
+const editForm = ref({ id: 0, name: '', description: '', active: true, ai_check: false, ai_prompt: '' });
 
 const fieldOpen = ref(false);
 const fieldForm = ref({ id: 0, task_type_id: 0, key: '', label: '', type: 'text', required: false });
@@ -71,7 +71,10 @@ async function toggleFields(type) {
 
 // --- Тип ---
 function openCreate() {
-    createForm.value = { key: '', name: '', description: '', fields: [{ key: '', label: '', type: 'text', required: true }] };
+    createForm.value = {
+        key: '', name: '', description: '', ai_check: false, ai_prompt: '',
+        fields: [{ key: '', label: '', type: 'text', required: true }],
+    };
     createOpen.value = true;
 }
 function addCreateField() {
@@ -90,6 +93,8 @@ async function create() {
             key: createForm.value.key.trim(),
             name: createForm.value.name.trim(),
             description: createForm.value.description,
+            ai_check: createForm.value.ai_check ? 1 : 0,
+            ai_prompt: createForm.value.ai_prompt,
             fields: createForm.value.fields,
         });
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_created'), life: 3000 });
@@ -106,6 +111,8 @@ function openEdit(type) {
     editForm.value = {
         id: type.id, name: type.name || '', description: type.description || '',
         active: type.active !== false && type.active !== 0,
+        ai_check: type.ai_check === true || type.ai_check === 1,
+        ai_prompt: type.ai_prompt || '',
     };
     editOpen.value = true;
 }
@@ -116,6 +123,8 @@ async function saveEdit() {
             name: editForm.value.name,
             description: editForm.value.description,
             active: editForm.value.active ? 1 : 0,
+            ai_check: editForm.value.ai_check ? 1 : 0,
+            ai_prompt: editForm.value.ai_prompt,
         });
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
         editOpen.value = false;
@@ -266,6 +275,14 @@ function removeField(event, field) {
                 <label>{{ t('mxboard_ui_struct_description') }}</label>
                 <InputText v-model="createForm.description" fluid />
             </div>
+            <div class="mxb-field mxb-check">
+                <Checkbox v-model="createForm.ai_check" :binary="true" input-id="create-ai-check" />
+                <label for="create-ai-check">{{ t('mxboard_ui_struct_ai_check') }}</label>
+            </div>
+            <div v-if="createForm.ai_check" class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_ai_prompt') }}</label>
+                <textarea v-model="createForm.ai_prompt" class="mxb-textarea" rows="4" :placeholder="t('mxboard_ui_struct_ai_prompt_hint')" />
+            </div>
 
             <div class="mxb-section-title">
                 <i class="pi pi-list" />{{ t('mxboard_ui_struct_type_fields') }}
@@ -301,6 +318,14 @@ function removeField(event, field) {
             <div class="mxb-field mxb-check">
                 <Checkbox v-model="editForm.active" :binary="true" input-id="type-active" />
                 <label for="type-active">{{ t('mxboard_ui_struct_active') }}</label>
+            </div>
+            <div class="mxb-field mxb-check">
+                <Checkbox v-model="editForm.ai_check" :binary="true" input-id="type-ai-check" />
+                <label for="type-ai-check">{{ t('mxboard_ui_struct_ai_check') }}</label>
+            </div>
+            <div v-if="editForm.ai_check" class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_ai_prompt') }}</label>
+                <textarea v-model="editForm.ai_prompt" class="mxb-textarea" rows="4" :placeholder="t('mxboard_ui_struct_ai_prompt_hint')" />
             </div>
             <template #footer>
                 <div class="mxb-dialog-actions">

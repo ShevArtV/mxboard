@@ -24,12 +24,19 @@ const schema = ref(null);
 const loadingType = ref(false);
 const saving = ref(false);
 
+// Вердикт ИИ-проверки полноты (когда сервер отклонил постановку). В soft-режиме
+// показываем кнопку «всё равно создать» (canOverride), в strict — только чего не хватает.
+const aiVerdict = ref(null);
+const aiCanOverride = ref(false);
+
 const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} });
 
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
     if (!open) return;
     form.value = { type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} };
+    aiVerdict.value = null;
+    aiCanOverride.value = false;
     schema.value = null;
     types.value = [];
     users.value = [];
@@ -62,7 +69,8 @@ watch(() => form.value.type, async (typeKey) => {
     }
 });
 
-async function save() {
+// override=true — повтор после «неполной» оценки в soft-режиме (создать в обход ИИ).
+async function save(override = false) {
     if (!form.value.type) {
         toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_no_type'), life: 4000 });
         return;
@@ -80,6 +88,11 @@ async function save() {
         return;
     }
 
+    if (!override) {
+        aiVerdict.value = null;
+        aiCanOverride.value = false;
+    }
+
     saving.value = true;
     try {
         await TaskApi.create({
@@ -92,12 +105,20 @@ async function save() {
             deadline: form.value.deadline,
             assignee_id: form.value.assignee_id,
             fields: form.value.fields,
+            ai_override: override ? 1 : 0,
         });
         toast.add({ severity: 'success', summary: t('mxboard_msg_task_created'), life: 3000 });
         emit('update:visible', false);
         emit('created');
     } catch (e) {
-        toast.add({ severity: 'error', summary: t('mxboard_msg_task_not_created'), detail: errorMessage(e), life: 8000 });
+        // ИИ-проверка отклонила постановку: показываем чего не хватает прямо в форме.
+        const info = e?.data?.object;
+        if (info && info.ai_incomplete) {
+            aiVerdict.value = info.verdict || null;
+            aiCanOverride.value = !!info.can_override;
+        } else {
+            toast.add({ severity: 'error', summary: t('mxboard_msg_task_not_created'), detail: errorMessage(e), life: 8000 });
+        }
     } finally {
         saving.value = false;
     }
@@ -172,10 +193,31 @@ async function save() {
             :users="users"
         />
 
+        <!-- Вердикт ИИ-проверки полноты постановки -->
+        <div v-if="aiVerdict" class="mxb-ai-verdict">
+            <div class="mxb-ai-verdict-head">
+                <i class="pi pi-sparkles" /> {{ t('mxboard_ui_ai_incomplete') }}
+                <span v-if="typeof aiVerdict.score === 'number'" class="mxb-chip">{{ aiVerdict.score }}/100</span>
+            </div>
+            <div v-if="aiVerdict.summary" class="mxb-ai-verdict-summary">{{ aiVerdict.summary }}</div>
+            <ul v-if="aiVerdict.missing && aiVerdict.missing.length" class="mxb-ai-verdict-missing">
+                <li v-for="(m, i) in aiVerdict.missing" :key="i">{{ m }}</li>
+            </ul>
+        </div>
+
         <template #footer>
             <div class="mxb-dialog-actions">
                 <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="emit('update:visible', false)" />
-                <Button :label="t('mxboard_ui_create')" icon="pi pi-check" :loading="saving" @click="save" />
+                <Button
+                    v-if="aiVerdict && aiCanOverride"
+                    :label="t('mxboard_ui_ai_create_anyway')"
+                    icon="pi pi-exclamation-triangle"
+                    severity="warn"
+                    outlined
+                    :loading="saving"
+                    @click="save(true)"
+                />
+                <Button :label="t('mxboard_ui_create')" icon="pi pi-check" :loading="saving" @click="save(false)" />
             </div>
         </template>
     </Dialog>

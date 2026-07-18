@@ -59,6 +59,7 @@ $_lang['mxboard_err_view_denied'] = 'You have no access to this task.';
 $_lang['mxboard_err_dispute_assignee_only'] = 'Only the assignee can dispute the deadline.';
 $_lang['mxboard_err_no_dispute'] = 'There is no active deadline dispute on this task.';
 $_lang['mxboard_err_author_only'] = 'This action is available only to the task author or a manager.';
+$_lang['mxboard_err_ai_incomplete'] = 'AI check: the task statement lacks the data needed to work on it.';
 
 // v2: structure (MCP/REST) and routing.
 $_lang['mxboard_err_group_required'] = 'User group is required.';
@@ -159,6 +160,12 @@ $_lang['mxboard_ui_stage'] = 'Stage';
 $_lang['mxboard_ui_tor_section'] = 'Statement';
 $_lang['mxboard_ui_tor_empty'] = 'Statement is empty';
 $_lang['mxboard_ui_type_fields'] = 'Type fields';
+$_lang['mxboard_ui_ai_verdict'] = 'AI completeness check';
+$_lang['mxboard_ui_ai_ok'] = 'complete';
+$_lang['mxboard_ui_ai_incomplete_short'] = 'incomplete';
+$_lang['mxboard_ui_ai_overridden'] = 'created despite';
+$_lang['mxboard_ui_ai_incomplete'] = 'AI check: the statement is incomplete — data is missing to start work';
+$_lang['mxboard_ui_ai_create_anyway'] = 'Create anyway';
 $_lang['mxboard_ui_subtasks'] = 'Subtasks';
 $_lang['mxboard_ui_no_subtasks'] = 'No subtasks';
 $_lang['mxboard_ui_comments'] = 'Comments';
@@ -178,6 +185,7 @@ $_lang['mxboard_act_subtask_add'] = 'subtask added';
 $_lang['mxboard_act_deadline_dispute'] = 'deadline disputed';
 $_lang['mxboard_act_deadline_accepted'] = 'new deadline accepted';
 $_lang['mxboard_act_deadline_rejected'] = 'dispute rejected';
+$_lang['mxboard_act_ai_check'] = 'AI check';
 
 // Toasts and confirmations.
 $_lang['mxboard_msg_refs_load'] = 'Reference data not loaded';
@@ -270,6 +278,9 @@ $_lang['mxboard_ui_struct_field_type'] = 'Field type';
 $_lang['mxboard_ui_struct_field_required'] = 'Required';
 $_lang['mxboard_ui_struct_field_min'] = 'A type must keep at least one field.';
 $_lang['mxboard_ui_struct_confirm_remove_type'] = 'Delete type “[[+name]]”? Only if it has no tasks.';
+$_lang['mxboard_ui_struct_ai_check'] = 'AI completeness check';
+$_lang['mxboard_ui_struct_ai_prompt'] = 'AI check prompt (optional)';
+$_lang['mxboard_ui_struct_ai_prompt_hint'] = 'Empty — the global prompt from system setting mxboard.ai_check_prompt is used.';
 $_lang['mxboard_ui_struct_confirm_remove_field'] = 'Delete field “[[+name]]”?';
 $_lang['mxboard_ui_struct_pick_department'] = 'Choose a department';
 

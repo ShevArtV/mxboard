@@ -114,6 +114,10 @@
         <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
         <field key="description" dbtype="text" phptype="string" null="true"/>
         <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <!-- Включает ИИ-проверку полноты постановки при создании задачи этого типа. -->
+        <field key="ai_check" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <!-- Необязательный промпт-переопределение для ИИ-проверки; пусто → глобальный mxboard.ai_check_prompt. -->
+        <field key="ai_prompt" dbtype="text" phptype="string" null="true"/>
         <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
 
@@ -188,6 +192,8 @@
         <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).
              Ядро их не интерпретирует: они для плагинов на события mxBoard. -->
         <field key="meta" dbtype="mediumtext" phptype="json" null="true"/>
+        <!-- Последний вердикт ИИ-проверки полноты: {complete, score, missing[], summary, model, checkedon, overridden}. -->
+        <field key="ai_verdict" dbtype="mediumtext" phptype="json" null="true"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="updatedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <field key="startedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>

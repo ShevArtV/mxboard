@@ -11,6 +11,8 @@ use xPDO\xPDO;
  * @property string $name
  * @property string $description
  * @property boolean $active
+ * @property boolean $ai_check
+ * @property string $ai_prompt
  * @property integer $position
  * @property integer $createdon
  *

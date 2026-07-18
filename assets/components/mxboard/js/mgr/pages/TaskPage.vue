@@ -395,6 +395,23 @@ function removeTask(event) {
                     <div v-else class="mxb-empty">{{ t('mxboard_ui_tor_empty') }}</div>
                 </div>
 
+                <!-- Вердикт ИИ-проверки полноты (если задача его получила при создании) -->
+                <div v-if="task.ai_verdict" class="mxb-section">
+                    <div class="mxb-section-title">
+                        <i class="pi pi-sparkles" />{{ t('mxboard_ui_ai_verdict') }}
+                        <span
+                            class="mxb-chip"
+                            :class="task.ai_verdict.complete ? 'mxb-ai-ok' : 'mxb-ai-bad'"
+                        >{{ task.ai_verdict.complete ? t('mxboard_ui_ai_ok') : t('mxboard_ui_ai_incomplete_short') }}</span>
+                        <span v-if="typeof task.ai_verdict.score === 'number'" class="mxb-chip">{{ task.ai_verdict.score }}/100</span>
+                        <span v-if="task.ai_verdict.overridden" class="mxb-chip mxb-ai-bad">{{ t('mxboard_ui_ai_overridden') }}</span>
+                    </div>
+                    <div v-if="task.ai_verdict.summary" class="mxb-md">{{ task.ai_verdict.summary }}</div>
+                    <ul v-if="task.ai_verdict.missing && task.ai_verdict.missing.length" class="mxb-ai-verdict-missing">
+                        <li v-for="(m, i) in task.ai_verdict.missing" :key="i">{{ m }}</li>
+                    </ul>
+                </div>
+
                 <div v-if="fieldRows.length" class="mxb-section">
                     <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
                     <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">

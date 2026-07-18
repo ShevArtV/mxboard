@@ -54,29 +54,38 @@ $classes = [
 $manager = $modx->getManager();
 
 // Миграции: ALTER TABLE ДО createObjectContainer (иначе xPDO падает на новом поле).
+// Ключ — FQCN модели: имя таблицы из mxboard_task_type в класс через str_replace+ucfirst
+// не разворачивается (дал бы MxBoardTask_type), поэтому маппим напрямую.
 $migrations = [
-    'mxboard_column' => [
+    \MxBoard\Model\MxBoardColumn::class => [
         'ADD COLUMN `color` VARCHAR(7) NOT NULL DEFAULT \'#6c757d\' AFTER `stage_key`',
     ],
-    'mxboard_comment' => [
+    \MxBoard\Model\MxBoardComment::class => [
         'ADD COLUMN `updatedon` INT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER `createdon`',
+    ],
+    \MxBoard\Model\MxBoardTaskType::class => [
+        'ADD COLUMN `ai_check` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 AFTER `active`',
+        'ADD COLUMN `ai_prompt` TEXT NULL AFTER `ai_check`',
+    ],
+    \MxBoard\Model\MxBoardTask::class => [
+        'ADD COLUMN `ai_verdict` MEDIUMTEXT NULL AFTER `meta`',
     ],
 ];
 
-foreach ($migrations as $table => $sqls) {
-    $fullTable = $modx->getTableName('MxBoard\\Model\\MxBoard' . ucfirst(str_replace('mxboard_', '', $table)));
+foreach ($migrations as $class => $sqls) {
+    $fullTable = $modx->getTableName($class);
     if (!$fullTable) {
         continue;
     }
     foreach ($sqls as $sql) {
         try {
             $modx->exec("ALTER TABLE {$fullTable} {$sql}");
-            $modx->log(modX::LOG_LEVEL_INFO, "[mxBoard] Миграция {$table}: OK");
+            $modx->log(modX::LOG_LEVEL_INFO, "[mxBoard] Миграция {$fullTable}: OK");
         } catch (\Throwable $e) {
             if (str_contains($e->getMessage(), 'Duplicate column')) {
                 continue;
             }
-            $modx->log(modX::LOG_LEVEL_WARN, "[mxBoard] Миграция {$table}: " . $e->getMessage());
+            $modx->log(modX::LOG_LEVEL_WARN, "[mxBoard] Миграция {$fullTable}: " . $e->getMessage());
         }
     }
 }

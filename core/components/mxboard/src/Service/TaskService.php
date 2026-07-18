@@ -94,6 +94,31 @@ class TaskService
             return $this->fail($fieldError);
         }
 
+        // ИИ-проверка полноты постановки (если включена у типа). Вердикт всегда идёт в журнал;
+        // при «неполной» в strict (или soft без ai_override) — блок и возврат вердикта фронту.
+        $aiVerdict = null;
+        if ((bool) $type->get('ai_check')) {
+            $verdict = (new AiReviewer($this->modx))->review(
+                ['title' => $title, 'tor' => (string) ($data['tor'] ?? ''), 'fields' => $fields],
+                $type,
+                $this->fieldDefs($type)
+            );
+            if ($verdict !== null) {
+                $mode = strtolower((string) $this->modx->getOption('mxboard.ai_check_mode', null, 'strict'));
+                $override = !empty($data['ai_override']);
+                if (!$verdict['complete'] && !($mode === 'soft' && $override)) {
+                    // Задачи ещё нет — вердикт отказа кладём в журнал с task_id=0 (аудит).
+                    $this->logAiCheck(0, $user, $verdict, $title, $channel);
+
+                    return $this->aiReject($verdict, $mode);
+                }
+                // Проходит (полная) или soft+override: вердикт поедет в задачу и журнал ниже.
+                $verdict['overridden'] = !$verdict['complete'];
+                $aiVerdict = $verdict;
+            }
+            // $verdict === null — провайдер недоступен: fail-open, работу доски не блокируем.
+        }
+
         // Исполнитель назначается автором при создании: обязателен и строго из отдела проекта.
         [$assignee, $assigneeError] = $this->resolveAssignee($data['assignee_id'] ?? $data['assignee'] ?? null, $project);
         if ($assigneeError !== null) {
@@ -131,12 +156,17 @@ class TaskService
             'deadline_proposed' => 0,
             'fields' => $fields,
             'meta' => $this->decodeJson($data['meta'] ?? null),
+            'ai_verdict' => $aiVerdict,
             'createdon' => $now,
             'updatedon' => $now,
         ]);
 
         if (!$task->save()) {
             return $this->fail('mxboard_err_save');
+        }
+
+        if ($aiVerdict !== null) {
+            $this->logAiCheck((int) $task->get('id'), $user, $aiVerdict, $title, $channel);
         }
 
         $this->log($task, $user, 'create', '', (string) $column->get('key'), '', $channel);
@@ -689,6 +719,90 @@ class TaskService
         }
 
         return [$out, null];
+    }
+
+    /**
+     * Определения полей типа (key/label/type/required) для промпта ИИ-проверки.
+     *
+     * @return list<array{key: string, label: string, type: string, required: bool}>
+     */
+    private function fieldDefs(MxBoardTaskType $type): array
+    {
+        $c = $this->modx->newQuery(MxBoardField::class);
+        $c->where(['task_type_id' => (int) $type->get('id')]);
+        $c->sortby('position', 'ASC');
+
+        $out = [];
+        /** @var MxBoardField $field */
+        foreach ($this->modx->getCollection(MxBoardField::class, $c) as $field) {
+            $out[] = [
+                'key' => (string) $field->get('key'),
+                'label' => (string) $field->get('label'),
+                'type' => (string) $field->get('type'),
+                'required' => (bool) $field->get('required'),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Отказ ИИ-проверки: вердикт едет фронту в object, чтобы показать чего не хватает.
+     * В soft-режиме фронт даст кнопку «всё равно создать» (повтор с ai_override=1).
+     *
+     * @param array{complete: bool, score: int, missing: list<string>, summary: string} $verdict
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>}
+     */
+    private function aiReject(array $verdict, string $mode): array
+    {
+        $message = $verdict['summary'] !== ''
+            ? $verdict['summary']
+            : ($this->modx->lexicon('mxboard_err_ai_incomplete') ?: 'mxboard_err_ai_incomplete');
+
+        return [
+            'success' => false,
+            'message' => $message,
+            'object' => [
+                'ai_incomplete' => true,
+                'mode' => $mode,
+                'can_override' => $mode === 'soft',
+                'verdict' => $verdict,
+            ],
+        ];
+    }
+
+    /**
+     * Запись вердикта ИИ-проверки в журнал доски. При strict-отказе задачи ещё нет —
+     * тогда taskId = 0 (аудит), в note кладём заголовок отклонённой задачи.
+     *
+     * @param array{complete: bool, score: int, missing: list<string>, summary: string} $verdict
+     */
+    private function logAiCheck(int $taskId, modUser $user, array $verdict, string $title, string $channel): void
+    {
+        $note = sprintf(
+            '%s score=%d %s',
+            $verdict['complete'] ? 'ok' : 'incomplete',
+            $verdict['score'],
+            $verdict['summary'] !== '' ? $verdict['summary'] : implode('; ', $verdict['missing'])
+        );
+        if ($taskId === 0) {
+            $note = '[' . $title . '] ' . $note;
+        }
+
+        /** @var MxBoardLog $log */
+        $log = $this->modx->newObject(MxBoardLog::class);
+        $log->fromArray([
+            'task_id' => $taskId,
+            'user_id' => (int) $user->get('id'),
+            'action' => 'ai_check',
+            'from_column' => '',
+            'to_column' => '',
+            'note' => mb_substr($note, 0, 255),
+            'channel' => $channel,
+            'createdon' => time(),
+        ]);
+        $log->save();
     }
 
     /** Есть ли у задачи незавершённые подзадачи (closedon = 0 = не в финальной стадии). */

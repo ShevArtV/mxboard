@@ -20,7 +20,7 @@ class Create extends ServiceProcessor
         $data = $this->presentProperties([
             'project', 'project_id', 'parent_id',
             'type', 'type_id', 'title', 'tor', 'priority',
-            'deadline', 'assignee', 'assignee_id',
+            'deadline', 'assignee', 'assignee_id', 'ai_override',
         ]);
 
         // JSON-поля: объект из JSON-тела или строка из form-data — сервис примет обе,

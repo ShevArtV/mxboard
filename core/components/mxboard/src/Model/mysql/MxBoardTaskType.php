@@ -22,6 +22,8 @@ class MxBoardTaskType extends \MxBoard\Model\MxBoardTaskType
             'name' => '',
             'description' => NULL,
             'active' => 1,
+            'ai_check' => 0,
+            'ai_prompt' => NULL,
             'position' => 0,
             'createdon' => 0,
         ),
@@ -60,7 +62,7 @@ class MxBoardTaskType extends \MxBoard\Model\MxBoardTaskType
                 'phptype' => 'string',
                 'null' => true,
             ),
-            'active' => 
+            'active' =>
             array (
                 'dbtype' => 'tinyint',
                 'precision' => '1',
@@ -70,7 +72,22 @@ class MxBoardTaskType extends \MxBoard\Model\MxBoardTaskType
                 'default' => 1,
                 'index' => 'index',
             ),
-            'position' => 
+            'ai_check' =>
+            array (
+                'dbtype' => 'tinyint',
+                'precision' => '1',
+                'attributes' => 'unsigned',
+                'phptype' => 'boolean',
+                'null' => false,
+                'default' => 0,
+            ),
+            'ai_prompt' =>
+            array (
+                'dbtype' => 'text',
+                'phptype' => 'string',
+                'null' => true,
+            ),
+            'position' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',

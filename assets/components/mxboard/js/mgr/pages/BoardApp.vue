@@ -593,4 +593,47 @@ const tab = ref('board');
     margin-left: 6px;
     opacity: 0.8;
 }
+
+/* Вердикт ИИ-проверки полноты постановки (в диалоге создания и на странице задачи). */
+.mxb-ai-verdict {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--p-orange-300, #fcd34d);
+    border-radius: 8px;
+    background: var(--p-orange-50, #fff7ed);
+}
+
+.mxb-ai-verdict-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--p-orange-700, #b45309);
+}
+
+.mxb-ai-verdict-summary {
+    margin-bottom: 6px;
+}
+
+.mxb-ai-verdict-missing {
+    margin: 6px 0 0;
+    padding-left: 18px;
+}
+
+.mxb-ai-verdict-missing li {
+    margin-bottom: 3px;
+}
+
+.mxb-chip.mxb-ai-ok {
+    background: var(--p-green-100, #dcfce7);
+    color: var(--p-green-700, #15803d);
+    opacity: 1;
+}
+
+.mxb-chip.mxb-ai-bad {
+    background: var(--p-red-100, #fee2e2);
+    color: var(--p-red-700, #b91c1c);
+    opacity: 1;
+}
 </style>
