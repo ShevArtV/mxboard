@@ -405,11 +405,341 @@ const tab = ref('board');
     font-size: 11px;
 }
 
-/* Страница задачи */
+/* Страница задачи — двухколоночная: слева описание+мета (свой скролл),
+   справа чат на всю высоту (свой скролл). Тулбар сверху фиксирован. */
 .mxb-taskpage {
-    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+    min-height: 420px;
+}
+
+.mxb-task-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(340px, 460px) minmax(0, 1fr);
+    gap: 16px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.mxb-task-left {
     overflow-y: auto;
-    max-height: calc(100vh - 60px);
+    padding-right: 8px;
+    min-height: 0;
+}
+
+/* Мета-карточка: строки «метка → значение», как в референсе. */
+.mxb-meta-card {
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 10px;
+    background: var(--p-content-background, #f6f7f9);
+    padding: 6px 14px;
+    margin-bottom: 16px;
+}
+
+.mxb-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+    font-size: 13px;
+}
+
+.mxb-meta-row:last-child {
+    border-bottom: none;
+}
+
+.mxb-meta-label {
+    flex: 0 0 120px;
+    color: var(--p-text-color-secondary, #6c757d);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+
+.mxb-meta-value {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    word-break: break-word;
+}
+
+.mxb-meta-assignee {
+    color: var(--p-primary-color, #10b981);
+    font-weight: 600;
+}
+
+.mxb-meta-row.mxb-overdue .mxb-meta-deadline strong {
+    color: var(--p-red-500, #ef4444);
+}
+
+.mxb-meta-deadline-actions,
+.mxb-meta-id {
+    gap: 6px;
+}
+
+.mxb-meta-id code {
+    background: var(--p-surface-100, #f1f3f5);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+/* Журнал — сворачиваемый <details>. */
+.mxb-log-section > summary {
+    cursor: pointer;
+    list-style: none;
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mxb-log-section > summary > .mxb-section-title {
+    margin-bottom: 0;
+}
+
+.mxb-log-section[open] > summary {
+    margin-bottom: 10px;
+}
+
+.mxb-log-section > summary::-webkit-details-marker {
+    display: none;
+}
+
+.mxb-log-section > summary::before {
+    content: '\e901';
+    font-family: 'primeicons';
+    font-size: 12px;
+    opacity: 0.6;
+    transition: transform 0.15s;
+}
+
+.mxb-log-section[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+/* --- Правая колонка: чат задачи --- */
+.mxb-task-chat {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 12px;
+    background: var(--p-surface-0, #fff);
+    overflow: hidden;
+}
+
+.mxb-chat-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+    font-weight: 600;
+    background: var(--p-content-background, #f6f7f9);
+}
+
+.mxb-chat-head-title {
+    font-size: 15px;
+}
+
+.mxb-chat-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.mxb-chat-msg {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    max-width: 82%;
+}
+
+.mxb-chat-msg--grouped {
+    margin-top: -1px;
+}
+
+/* Отступ между разными авторами/группами. */
+.mxb-chat-msg:not(.mxb-chat-msg--grouped) {
+    margin-top: 10px;
+}
+
+.mxb-chat-msg:first-child {
+    margin-top: 0;
+}
+
+.mxb-chat-msg--own {
+    margin-left: auto;
+    flex-direction: row-reverse;
+}
+
+.mxb-chat-avatar-slot {
+    flex: 0 0 32px;
+    width: 32px;
+}
+
+.mxb-chat-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    user-select: none;
+}
+
+.mxb-chat-bubble-wrap {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.mxb-chat-author {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--p-primary-color, #10b981);
+    margin: 0 0 3px 12px;
+}
+
+.mxb-chat-bubble {
+    position: relative;
+    padding: 8px 12px;
+    border-radius: 14px;
+    background: var(--p-surface-100, #f1f3f5);
+    border-top-left-radius: 4px;
+    font-size: 14px;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.mxb-chat-msg--own .mxb-chat-bubble {
+    background: var(--p-primary-100, #d1fae5);
+    color: var(--p-primary-950, #052e16);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 4px;
+}
+
+.mxb-chat-msg--grouped .mxb-chat-bubble {
+    border-top-left-radius: 14px;
+}
+
+.mxb-chat-msg--grouped.mxb-chat-msg--own .mxb-chat-bubble {
+    border-top-right-radius: 14px;
+}
+
+/* markdown внутри пузыря — без нижнего margin у последнего абзаца. */
+.mxb-chat-bubble .mxb-md p:last-child {
+    margin-bottom: 0;
+}
+
+.mxb-chat-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+.mxb-chat-time {
+    white-space: nowrap;
+}
+
+.mxb-chat-actions {
+    position: absolute;
+    top: -12px;
+    right: 6px;
+    display: none;
+    gap: 2px;
+    background: var(--p-surface-0, #fff);
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    padding: 1px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.mxb-chat-msg--own .mxb-chat-actions {
+    right: auto;
+    left: 6px;
+}
+
+.mxb-chat-bubble:hover .mxb-chat-actions {
+    display: flex;
+}
+
+/* Композер снизу. */
+.mxb-chat-composer {
+    flex: none;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--p-content-border-color, #e2e5e9);
+    background: var(--p-content-background, #f6f7f9);
+}
+
+.mxb-chat-attach {
+    flex: none;
+}
+
+.mxb-chat-input {
+    flex: 1;
+    min-height: 40px;
+    max-height: 160px;
+    padding: 9px 12px;
+    border: 1px solid var(--p-inputtext-border-color, #d1d5db);
+    border-radius: 20px;
+    font: inherit;
+    font-family: inherit;
+    background: var(--p-inputtext-background, #fff);
+    color: inherit;
+    resize: none;
+    box-sizing: border-box;
+}
+
+.mxb-chat-input:focus {
+    outline: none;
+    border-color: var(--p-primary-color, #10b981);
+}
+
+/* Адаптив: узкий экран — колонки стекаются, чат под мета. */
+@media (max-width: 1000px) {
+    .mxb-taskpage {
+        height: auto;
+        min-height: 0;
+    }
+
+    .mxb-task-body {
+        display: block;
+        overflow: visible;
+    }
+
+    .mxb-task-left {
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    .mxb-task-chat {
+        margin-top: 16px;
+        height: 70vh;
+    }
 }
 
 .mxb-task-title {

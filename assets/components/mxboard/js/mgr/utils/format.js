@@ -27,6 +27,14 @@ export function fmtDay(value) {
     return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}`;
 }
 
+/** Только время HH:MM (для чата задачи). */
+export function fmtTime(value) {
+    const d = toDate(value);
+    if (!d) return '';
+    const p = (n) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 /** unix-секунды → 'YYYY-MM-DD' для <input type="date">. */
 export function toDateInput(value) {
     const d = toDate(value);

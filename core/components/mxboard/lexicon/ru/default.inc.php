@@ -184,6 +184,13 @@ $_lang['mxboard_ui_no_comments'] = 'Комментариев нет';
 $_lang['mxboard_ui_log'] = 'Журнал';
 $_lang['mxboard_ui_no_log'] = 'Записей нет';
 
+// Карточка задачи (двухколоночная + чат).
+$_lang['mxboard_ui_chat'] = 'Чат задачи';
+$_lang['mxboard_ui_setter'] = 'Постановщик';
+$_lang['mxboard_ui_created'] = 'Дата создания';
+$_lang['mxboard_ui_task_id'] = 'ID';
+$_lang['mxboard_ui_attach_soon'] = 'Прикрепление файлов — скоро';
+
 // Действия журнала (человеческие названия).
 $_lang['mxboard_act_create'] = 'создана';
 $_lang['mxboard_act_move'] = 'перемещена';
@@ -214,6 +221,7 @@ $_lang['mxboard_msg_comment_added'] = 'Комментарий добавлен';
 $_lang['mxboard_msg_comment_updated'] = 'Комментарий обновлён';
 $_lang['mxboard_msg_comment_deleted'] = 'Комментарий удалён';
 $_lang['mxboard_msg_confirm_delete_comment'] = 'Удалить комментарий?';
+$_lang['mxboard_msg_id_copied'] = 'ID скопирован';
 $_lang['mxboard_msg_saved'] = 'Сохранено';
 $_lang['mxboard_msg_deadline_disputed'] = 'Дедлайн оспорен';
 $_lang['mxboard_msg_deadline_accepted'] = 'Новый дедлайн принят';

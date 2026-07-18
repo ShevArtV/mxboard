@@ -1,11 +1,11 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import { Button, InputText, Select, Tag, useToast, useConfirm } from 'primevue';
 import {
     TaskApi, TypeApi, ColumnApi, DepartmentApi, errorMessage, listOf,
 } from '../api/connector.js';
 import {
-    PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, toDateInput, isOverdue, normalizeTask,
+    PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, toDateInput, isOverdue, normalizeTask,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
@@ -51,6 +51,60 @@ const priority = computed(() => priorityMeta(task.value?.priority));
 const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
 
+// Название текущей стадии по ключу колонки (для мета-строки, когда список стадий загружен).
+const stageName = computed(() => {
+    const key = task.value?.column_key;
+    const col = columns.value.find((c) => c.key === key);
+    return col?.name || key || '';
+});
+
+// Комментарии как лента чата: «свои»/«чужие» + группировка подряд идущих сообщений
+// одного автора в пределах 5 минут (шапка с именем/аватаром — только у первого в группе).
+const chatMessages = computed(() => {
+    const list = detail.value.comments || [];
+    return list.map((c, i) => {
+        const prev = list[i - 1];
+        const sameAuthor = !!prev && prev.user_id === c.user_id;
+        const closeInTime = !!prev
+            && Math.abs((Number(c.createdon) || 0) - (Number(prev.createdon) || 0)) < 300;
+        return {
+            ...c,
+            own: c.user_id === props.userId,
+            firstOfGroup: !(sameAuthor && closeInTime),
+        };
+    });
+});
+
+// Инициалы для аватара (до двух слов имени).
+function initials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+
+// Стабильный оттенок аватара из id пользователя — чтобы собеседники визуально различались.
+function avatarStyle(userId) {
+    const hue = ((Number(userId) || 0) * 47) % 360;
+    return { background: `hsl(${hue}, 55%, 45%)` };
+}
+
+const chatScroll = ref(null);
+function scrollChatToBottom() {
+    nextTick(() => {
+        const el = chatScroll.value;
+        if (el) el.scrollTop = el.scrollHeight;
+    });
+}
+
+async function copyId() {
+    try {
+        await navigator.clipboard.writeText(String(props.taskId));
+        toast.add({ severity: 'success', summary: t('mxboard_msg_id_copied'), life: 2000 });
+    } catch {
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_rejected'), life: 3000 });
+    }
+}
+
 // fields задачи, размеченные лейблами и типами из схемы типа.
 const fieldRows = computed(() => {
     const values = task.value?.fields || {};
@@ -86,6 +140,7 @@ async function load(id) {
         comment.value = '';
         editing.value = false;
         disputeOpen.value = false;
+        scrollChatToBottom();
         loadContext();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_task_load'), detail: errorMessage(e), life: 8000 });
@@ -282,229 +337,305 @@ function removeTask(event) {
 
         <div v-if="loading" class="mxb-empty">{{ t('mxboard_ui_loading') }}</div>
 
-        <div v-else-if="task">
-            <!-- Родитель -->
-            <div v-if="detail.parent" class="mxb-parent-link" @click="emit('open-task', detail.parent.id)">
-                <i class="pi pi-arrow-up-right" /> {{ t('mxboard_ui_parent') }}: <strong>{{ detail.parent.title }}</strong>
-            </div>
+        <div v-else-if="task" class="mxb-task-body">
+            <!-- ЛЕВАЯ КОЛОНКА: описание + мета (свой скролл) -->
+            <div class="mxb-task-left">
+                <!-- Родитель -->
+                <div v-if="detail.parent" class="mxb-parent-link" @click="emit('open-task', detail.parent.id)">
+                    <i class="pi pi-arrow-up-right" /> {{ t('mxboard_ui_parent') }}: <strong>{{ detail.parent.title }}</strong>
+                </div>
 
-            <h2 class="mxb-task-title">{{ task.title }}</h2>
+                <h2 class="mxb-task-title">{{ task.title }}</h2>
 
-            <div class="mxb-card-meta" style="margin-bottom: 14px">
-                <Tag :value="priority.label" :severity="priority.severity" />
-                <span v-if="task.type_key" class="mxb-chip">{{ task.type_key }}</span>
-                <span><i class="pi pi-user" />{{ t('mxboard_ui_author_label') }}: {{ userName(task, 'author') || '—' }}</span>
-                <span><i class="pi pi-wrench" />{{ t('mxboard_ui_assignee_label') }}: {{ userName(task, 'assignee') || '—' }}</span>
-                <span v-if="task.column_key" class="mxb-chip">{{ task.column_key }}</span>
-            </div>
+                <!-- Мета-карточка -->
+                <div class="mxb-meta-card">
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_priority') }}</span>
+                        <span class="mxb-meta-value">
+                            <Tag :value="priority.label" :severity="priority.severity" />
+                            <span v-if="task.type_key" class="mxb-chip">{{ task.type_key }}</span>
+                        </span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_setter') }}</span>
+                        <span class="mxb-meta-value">{{ userName(task, 'author') || '—' }}</span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_assignee_label') }}</span>
+                        <span class="mxb-meta-value mxb-meta-assignee">{{ userName(task, 'assignee') || '—' }}</span>
+                    </div>
+                    <div class="mxb-meta-row" :class="{ 'mxb-overdue': overdue }">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_deadline_label') }}</span>
+                        <span class="mxb-meta-value mxb-meta-deadline">
+                            <strong>{{ fmtDay(task.deadlineon) || '—' }}</strong>
+                            <span v-if="overdue" class="mxb-overdue-badge">{{ t('mxboard_ui_overdue') }}</span>
+                            <span v-if="task.deadline_disputed" class="mxb-disputed-badge">
+                                <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ fmtDay(task.deadline_proposed) }}
+                            </span>
+                        </span>
+                    </div>
+                    <!-- Действия по дедлайну: разрешение оспаривания / оспорить -->
+                    <div v-if="(task.deadline_disputed && canManage) || (!task.deadline_disputed && isAssignee)" class="mxb-meta-row">
+                        <span class="mxb-meta-label" />
+                        <span class="mxb-meta-value mxb-meta-deadline-actions">
+                            <template v-if="task.deadline_disputed && canManage">
+                                <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolve(true)" />
+                                <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolve(false)" />
+                            </template>
+                            <Button
+                                v-else-if="isAssignee"
+                                :label="t('mxboard_ui_dispute')"
+                                icon="pi pi-flag"
+                                size="small"
+                                severity="secondary"
+                                outlined
+                                @click="openDispute"
+                            />
+                        </span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_stage') }}</span>
+                        <span class="mxb-meta-value">
+                            <Select
+                                v-if="columns.length"
+                                :model-value="task.column_key"
+                                :options="columns"
+                                option-label="name"
+                                option-value="key"
+                                :loading="busy"
+                                fluid
+                                @update:model-value="moveTo"
+                            />
+                            <span v-else class="mxb-chip">{{ stageName || '—' }}</span>
+                        </span>
+                    </div>
+                    <div v-if="projectKey" class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_project') }}</span>
+                        <span class="mxb-meta-value"><span class="mxb-chip">{{ projectKey }}</span></span>
+                    </div>
+                    <div v-if="task.createdon" class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_created') }}</span>
+                        <span class="mxb-meta-value">{{ fmtDate(task.createdon) }}</span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_task_id') }}</span>
+                        <span class="mxb-meta-value mxb-meta-id">
+                            <code>#{{ task.id }}</code>
+                            <Button icon="pi pi-copy" size="small" severity="secondary" text v-tooltip="t('mxboard_ui_copy')" @click="copyId" />
+                        </span>
+                    </div>
+                </div>
 
-            <!-- Дедлайн + оспаривание -->
-            <div class="mxb-deadline" :class="{ 'mxb-overdue': overdue }">
-                <i class="pi pi-calendar" />
-                <span>{{ t('mxboard_ui_deadline_label') }}: <strong>{{ fmtDay(task.deadlineon) || '—' }}</strong></span>
-                <span v-if="overdue" class="mxb-overdue-badge">{{ t('mxboard_ui_overdue') }}</span>
-
-                <template v-if="task.deadline_disputed">
-                    <span class="mxb-disputed-badge">
-                        <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ fmtDay(task.deadline_proposed) }}
-                    </span>
-                    <template v-if="canManage">
-                        <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolve(true)" />
-                        <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolve(false)" />
-                    </template>
-                </template>
-                <Button
-                    v-else-if="isAssignee"
-                    :label="t('mxboard_ui_dispute')"
-                    icon="pi pi-flag"
-                    size="small"
-                    severity="secondary"
-                    outlined
-                    @click="openDispute"
-                />
-            </div>
-
-            <!-- Форма оспаривания -->
-            <div v-if="disputeOpen" class="mxb-inline-form">
-                <div class="mxb-row">
-                    <div class="mxb-field mxb-col">
+                <!-- Форма оспаривания -->
+                <div v-if="disputeOpen" class="mxb-inline-form">
+                    <div class="mxb-field">
                         <label>{{ t('mxboard_ui_proposed_date') }}</label>
                         <input v-model="dispute.date" type="date" class="mxb-input" />
                     </div>
-                    <div class="mxb-field mxb-col mxb-col-2">
+                    <div class="mxb-field">
                         <label>{{ t('mxboard_ui_reason') }}</label>
                         <InputText v-model="dispute.reason" fluid :placeholder="t('mxboard_ui_reason_placeholder')" />
                     </div>
-                </div>
-                <div class="mxb-dialog-actions">
-                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="disputeOpen = false" />
-                    <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :loading="busy" @click="sendDispute" />
-                </div>
-            </div>
-
-            <!-- Смена стадии (сервер проверит право перехода) -->
-            <div v-if="columns.length" class="mxb-field" style="max-width: 320px">
-                <label>{{ t('mxboard_ui_stage') }}</label>
-                <Select
-                    :model-value="task.column_key"
-                    :options="columns"
-                    option-label="name"
-                    option-value="key"
-                    :loading="busy"
-                    fluid
-                    @update:model-value="moveTo"
-                />
-            </div>
-
-            <!-- РЕЖИМ ПРАВКИ -->
-            <div v-if="editing" class="mxb-section">
-                <div class="mxb-field">
-                    <label>{{ t('mxboard_ui_title') }}</label>
-                    <InputText v-model="form.title" fluid />
-                </div>
-                <div class="mxb-row">
-                    <div class="mxb-field mxb-col">
-                        <label>{{ t('mxboard_ui_deadline') }}</label>
-                        <input v-model="form.deadline" type="date" class="mxb-input" />
-                    </div>
-                    <div class="mxb-field mxb-col">
-                        <label>{{ t('mxboard_ui_priority') }}</label>
-                        <Select v-model="form.priority" :options="PRIORITIES" option-label="label" option-value="value" fluid />
-                    </div>
-                </div>
-                <div class="mxb-field">
-                    <label>{{ t('mxboard_ui_assignee') }}</label>
-                    <Select v-model="form.assignee_id" :options="users" option-label="username" option-value="id" filter fluid />
-                </div>
-                <div class="mxb-field">
-                    <label>{{ t('mxboard_ui_tor') }}</label>
-                    <textarea v-model="form.tor" class="mxb-textarea" rows="12" />
-                </div>
-                <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" />
-                <div class="mxb-dialog-actions">
-                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
-                    <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />
-                </div>
-            </div>
-
-            <!-- ПРОСМОТР -->
-            <div v-else>
-                <div class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-file" />{{ t('mxboard_ui_tor_section') }}</div>
-                    <div v-if="task.tor" class="mxb-md" v-html="torHtml" />
-                    <div v-else class="mxb-empty">{{ t('mxboard_ui_tor_empty') }}</div>
-                </div>
-
-                <!-- Вердикт ИИ-проверки полноты (если задача его получила при создании) -->
-                <div v-if="task.ai_verdict" class="mxb-section">
-                    <div class="mxb-section-title">
-                        <i class="pi pi-sparkles" />{{ t('mxboard_ui_ai_verdict') }}
-                        <span
-                            class="mxb-chip"
-                            :class="task.ai_verdict.complete ? 'mxb-ai-ok' : 'mxb-ai-bad'"
-                        >{{ task.ai_verdict.complete ? t('mxboard_ui_ai_ok') : t('mxboard_ui_ai_incomplete_short') }}</span>
-                        <span v-if="typeof task.ai_verdict.score === 'number'" class="mxb-chip">{{ task.ai_verdict.score }}/100</span>
-                        <span v-if="task.ai_verdict.overridden" class="mxb-chip mxb-ai-bad">{{ t('mxboard_ui_ai_overridden') }}</span>
-                    </div>
-                    <div v-if="task.ai_verdict.summary" class="mxb-md">{{ task.ai_verdict.summary }}</div>
-                    <ul v-if="task.ai_verdict.missing && task.ai_verdict.missing.length" class="mxb-ai-verdict-missing">
-                        <li v-for="(m, i) in task.ai_verdict.missing" :key="i">{{ m }}</li>
-                    </ul>
-                </div>
-
-                <div v-if="fieldRows.length" class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
-                    <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">
-                        <!-- URL: подпись + ссылка -->
-                        <template v-if="f.type === 'url'">
-                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                            <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
-                        </template>
-                        <!-- Date/number/user: inline через двоеточие -->
-                        <template v-else-if="f.type === 'date' || f.type === 'number' || f.type === 'user'">
-                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                            <span class="mxb-fieldrow-value">{{ f.value }}</span>
-                        </template>
-                        <!-- Textarea/text: подпись над блоком markdown -->
-                        <template v-else>
-                            <div class="mxb-fieldrow-label">{{ f.label }}</div>
-                            <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
-                        </template>
+                    <div class="mxb-dialog-actions">
+                        <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="disputeOpen = false" />
+                        <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :loading="busy" @click="sendDispute" />
                     </div>
                 </div>
 
-                <!-- Подзадачи -->
-                <div class="mxb-section">
-                    <div class="mxb-section-title">
-                        <i class="pi pi-sitemap" />{{ t('mxboard_ui_subtasks') }}
-                        <span class="mxb-column-count">{{ detail.subtasks.length }}</span>
-                        <span class="mxb-toolbar-spacer" />
-                        <Button :label="t('mxboard_ui_subtask')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="subtaskOpen = true" />
+                <!-- РЕЖИМ ПРАВКИ -->
+                <div v-if="editing" class="mxb-section">
+                    <div class="mxb-field">
+                        <label>{{ t('mxboard_ui_title') }}</label>
+                        <InputText v-model="form.title" fluid />
                     </div>
-                    <div
-                        v-for="s in detail.subtasks"
-                        :key="s.id"
-                        class="mxb-subtask"
-                        @click="emit('open-task', s.id)"
-                    >
-                        <i :class="s.closed ? 'pi pi-check-circle mxb-done' : 'pi pi-circle'" />
-                        <span class="mxb-subtask-title">{{ s.title }}</span>
-                        <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-wrench" />{{ s.assignee }}</span>
+                    <div class="mxb-row">
+                        <div class="mxb-field mxb-col">
+                            <label>{{ t('mxboard_ui_deadline') }}</label>
+                            <input v-model="form.deadline" type="date" class="mxb-input" />
+                        </div>
+                        <div class="mxb-field mxb-col">
+                            <label>{{ t('mxboard_ui_priority') }}</label>
+                            <Select v-model="form.priority" :options="PRIORITIES" option-label="label" option-value="value" fluid />
+                        </div>
                     </div>
-                    <div v-if="!detail.subtasks.length" class="mxb-empty">{{ t('mxboard_ui_no_subtasks') }}</div>
+                    <div class="mxb-field">
+                        <label>{{ t('mxboard_ui_assignee') }}</label>
+                        <Select v-model="form.assignee_id" :options="users" option-label="username" option-value="id" filter fluid />
+                    </div>
+                    <div class="mxb-field">
+                        <label>{{ t('mxboard_ui_tor') }}</label>
+                        <textarea v-model="form.tor" class="mxb-textarea" rows="12" />
+                    </div>
+                    <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" />
+                    <div class="mxb-dialog-actions">
+                        <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
+                        <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />
+                    </div>
                 </div>
 
-                <!-- Комментарии -->
-                <div class="mxb-section">
-                    <div class="mxb-section-title">
-                        <i class="pi pi-comments" />{{ t('mxboard_ui_comments') }}
-                        <span class="mxb-column-count">{{ detail.comments.length }}</span>
+                <!-- ПРОСМОТР -->
+                <div v-else>
+                    <div class="mxb-section">
+                        <div class="mxb-section-title"><i class="pi pi-file" />{{ t('mxboard_ui_tor_section') }}</div>
+                        <div v-if="task.tor" class="mxb-md" v-html="torHtml" />
+                        <div v-else class="mxb-empty">{{ t('mxboard_ui_tor_empty') }}</div>
                     </div>
-                    <div v-for="(c, i) in detail.comments" :key="c.id || i" class="mxb-comment">
-                        <div class="mxb-comment-head">
-                            <strong>{{ userName(c, 'user') || '—' }}</strong>
-                            <span>{{ fmtDate(c.createdon) }}</span>
-                            <span v-if="c.updatedon" class="mxb-comment-edited">({{ t('mxboard_ui_comment_edited') }})</span>
-                            <span class="mxb-toolbar-spacer" />
-                            <template v-if="c.user_id === userId">
-                                <Button v-if="editingCommentId !== c.id" icon="pi pi-pencil" size="small" severity="secondary" text @click="startEditComment(c)" />
-                                <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeComment($event, c)" />
+
+                    <!-- Вердикт ИИ-проверки полноты (если задача его получила при создании) -->
+                    <div v-if="task.ai_verdict" class="mxb-section">
+                        <div class="mxb-section-title">
+                            <i class="pi pi-sparkles" />{{ t('mxboard_ui_ai_verdict') }}
+                            <span
+                                class="mxb-chip"
+                                :class="task.ai_verdict.complete ? 'mxb-ai-ok' : 'mxb-ai-bad'"
+                            >{{ task.ai_verdict.complete ? t('mxboard_ui_ai_ok') : t('mxboard_ui_ai_incomplete_short') }}</span>
+                            <span v-if="typeof task.ai_verdict.score === 'number'" class="mxb-chip">{{ task.ai_verdict.score }}/100</span>
+                            <span v-if="task.ai_verdict.overridden" class="mxb-chip mxb-ai-bad">{{ t('mxboard_ui_ai_overridden') }}</span>
+                        </div>
+                        <div v-if="task.ai_verdict.summary" class="mxb-md">{{ task.ai_verdict.summary }}</div>
+                        <ul v-if="task.ai_verdict.missing && task.ai_verdict.missing.length" class="mxb-ai-verdict-missing">
+                            <li v-for="(m, i) in task.ai_verdict.missing" :key="i">{{ m }}</li>
+                        </ul>
+                    </div>
+
+                    <div v-if="fieldRows.length" class="mxb-section">
+                        <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
+                        <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">
+                            <!-- URL: подпись + ссылка -->
+                            <template v-if="f.type === 'url'">
+                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                                <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
+                            </template>
+                            <!-- Date/number/user: inline через двоеточие -->
+                            <template v-else-if="f.type === 'date' || f.type === 'number' || f.type === 'user'">
+                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                                <span class="mxb-fieldrow-value">{{ f.value }}</span>
+                            </template>
+                            <!-- Textarea/text: подпись над блоком markdown -->
+                            <template v-else>
+                                <div class="mxb-fieldrow-label">{{ f.label }}</div>
+                                <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
                             </template>
                         </div>
-                        <div v-if="editingCommentId === c.id" class="mxb-comment-edit">
-                            <textarea v-model="editingCommentText" class="mxb-textarea" rows="3" />
-                            <div class="mxb-dialog-actions">
-                                <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="cancelEditComment" />
-                                <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEditComment" />
+                    </div>
+
+                    <!-- Подзадачи -->
+                    <div class="mxb-section">
+                        <div class="mxb-section-title">
+                            <i class="pi pi-sitemap" />{{ t('mxboard_ui_subtasks') }}
+                            <span class="mxb-column-count">{{ detail.subtasks.length }}</span>
+                            <span class="mxb-toolbar-spacer" />
+                            <Button :label="t('mxboard_ui_subtask')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="subtaskOpen = true" />
+                        </div>
+                        <div
+                            v-for="s in detail.subtasks"
+                            :key="s.id"
+                            class="mxb-subtask"
+                            @click="emit('open-task', s.id)"
+                        >
+                            <i :class="s.closed ? 'pi pi-check-circle mxb-done' : 'pi pi-circle'" />
+                            <span class="mxb-subtask-title">{{ s.title }}</span>
+                            <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-wrench" />{{ s.assignee }}</span>
+                        </div>
+                        <div v-if="!detail.subtasks.length" class="mxb-empty">{{ t('mxboard_ui_no_subtasks') }}</div>
+                    </div>
+
+                    <!-- Журнал (сворачиваемый) -->
+                    <details class="mxb-section mxb-log-section">
+                        <summary class="mxb-section-title">
+                            <i class="pi pi-history" />{{ t('mxboard_ui_log') }}
+                            <span class="mxb-column-count">{{ detail.log.length }}</span>
+                        </summary>
+                        <div class="mxb-log-list">
+                            <div v-for="(l, i) in detail.log" :key="i" class="mxb-log">
+                                <span class="mxb-log-time">{{ fmtDate(l.createdon) }}</span>
+                                <span><strong>{{ userName(l, 'user') || '—' }}</strong></span>
+                                <span>
+                                    {{ actionLabel(l.action) }}
+                                    <template v-if="l.from_column || l.to_column">
+                                        ({{ l.from_column || '—' }} → {{ l.to_column || '—' }})
+                                    </template>
+                                    <template v-if="l.channel"> · {{ l.channel }}</template>
+                                </span>
+                            </div>
+                            <div v-if="!detail.log.length" class="mxb-empty">{{ t('mxboard_ui_no_log') }}</div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <!-- ПРАВАЯ КОЛОНКА: чат задачи (на всю высоту, свой скролл) -->
+            <div class="mxb-task-chat">
+                <div class="mxb-chat-head">
+                    <i class="pi pi-comments" />
+                    <span class="mxb-chat-head-title">{{ t('mxboard_ui_chat') }}</span>
+                    <span class="mxb-column-count">{{ detail.comments.length }}</span>
+                </div>
+
+                <div ref="chatScroll" class="mxb-chat-scroll">
+                    <div v-if="!chatMessages.length" class="mxb-empty">{{ t('mxboard_ui_no_comments') }}</div>
+                    <div
+                        v-for="c in chatMessages"
+                        :key="c.id"
+                        class="mxb-chat-msg"
+                        :class="{ 'mxb-chat-msg--own': c.own, 'mxb-chat-msg--grouped': !c.firstOfGroup }"
+                    >
+                        <div class="mxb-chat-avatar-slot">
+                            <span v-if="c.firstOfGroup" class="mxb-chat-avatar" :style="avatarStyle(c.user_id)">{{ initials(userName(c, 'user')) }}</span>
+                        </div>
+                        <div class="mxb-chat-bubble-wrap">
+                            <div v-if="c.firstOfGroup && !c.own" class="mxb-chat-author">{{ userName(c, 'user') || '—' }}</div>
+                            <div class="mxb-chat-bubble">
+                                <template v-if="editingCommentId === c.id">
+                                    <textarea v-model="editingCommentText" class="mxb-textarea" rows="3" />
+                                    <div class="mxb-dialog-actions">
+                                        <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="cancelEditComment" />
+                                        <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEditComment" />
+                                    </div>
+                                </template>
+                                <template v-else>
+                                    <div class="mxb-md" v-html="renderMarkdown(c.content)" />
+                                    <div class="mxb-chat-meta">
+                                        <span class="mxb-chat-time">{{ fmtTime(c.createdon) }}</span>
+                                        <span v-if="c.updatedon" class="mxb-comment-edited">{{ t('mxboard_ui_comment_edited') }}</span>
+                                    </div>
+                                    <div v-if="c.user_id === userId" class="mxb-chat-actions">
+                                        <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="startEditComment(c)" />
+                                        <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeComment($event, c)" />
+                                    </div>
+                                </template>
                             </div>
                         </div>
-                        <div v-else class="mxb-md" v-html="renderMarkdown(c.content)" />
-                    </div>
-                    <div v-if="!detail.comments.length" class="mxb-empty">{{ t('mxboard_ui_no_comments') }}</div>
-
-                    <div class="mxb-field" style="margin-top: 8px">
-                        <textarea v-model="comment" class="mxb-textarea" rows="3" :placeholder="t('mxboard_ui_comment_placeholder')" />
-                    </div>
-                    <div class="mxb-dialog-actions">
-                        <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :disabled="!comment.trim()" :loading="busy" @click="addComment" />
                     </div>
                 </div>
 
-                <!-- Журнал -->
-                <div class="mxb-section">
-                    <div class="mxb-section-title"><i class="pi pi-history" />{{ t('mxboard_ui_log') }}</div>
-                    <div v-for="(l, i) in detail.log" :key="i" class="mxb-log">
-                        <span class="mxb-log-time">{{ fmtDate(l.createdon) }}</span>
-                        <span><strong>{{ userName(l, 'user') || '—' }}</strong></span>
-                        <span>
-                            {{ actionLabel(l.action) }}
-                            <template v-if="l.from_column || l.to_column">
-                                ({{ l.from_column || '—' }} → {{ l.to_column || '—' }})
-                            </template>
-                            <template v-if="l.channel"> · {{ l.channel }}</template>
-                        </span>
-                    </div>
-                    <div v-if="!detail.log.length" class="mxb-empty">{{ t('mxboard_ui_no_log') }}</div>
+                <!-- Композер: место под прикрепление файла зарезервировано (загрузку включит C) -->
+                <div class="mxb-chat-composer">
+                    <Button
+                        icon="pi pi-paperclip"
+                        size="small"
+                        severity="secondary"
+                        text
+                        disabled
+                        v-tooltip.top="t('mxboard_ui_attach_soon')"
+                        class="mxb-chat-attach"
+                    />
+                    <textarea
+                        v-model="comment"
+                        class="mxb-chat-input"
+                        rows="1"
+                        :placeholder="t('mxboard_ui_comment_placeholder')"
+                        @keydown.enter.exact.prevent="addComment"
+                    />
+                    <Button
+                        icon="pi pi-send"
+                        size="small"
+                        rounded
+                        :disabled="!comment.trim()"
+                        :loading="busy"
+                        v-tooltip.top="t('mxboard_ui_send')"
+                        @click="addComment"
+                    />
                 </div>
             </div>
         </div>

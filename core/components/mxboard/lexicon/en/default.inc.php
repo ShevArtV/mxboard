@@ -184,6 +184,13 @@ $_lang['mxboard_ui_no_comments'] = 'No comments';
 $_lang['mxboard_ui_log'] = 'Log';
 $_lang['mxboard_ui_no_log'] = 'No records';
 
+// Task card (two-column + chat).
+$_lang['mxboard_ui_chat'] = 'Task chat';
+$_lang['mxboard_ui_setter'] = 'Reporter';
+$_lang['mxboard_ui_created'] = 'Created';
+$_lang['mxboard_ui_task_id'] = 'ID';
+$_lang['mxboard_ui_attach_soon'] = 'File attachments — coming soon';
+
 // Log actions (human-readable).
 $_lang['mxboard_act_create'] = 'created';
 $_lang['mxboard_act_move'] = 'moved';
@@ -214,6 +221,7 @@ $_lang['mxboard_msg_comment_added'] = 'Comment added';
 $_lang['mxboard_msg_comment_updated'] = 'Comment updated';
 $_lang['mxboard_msg_comment_deleted'] = 'Comment deleted';
 $_lang['mxboard_msg_confirm_delete_comment'] = 'Delete this comment?';
+$_lang['mxboard_msg_id_copied'] = 'ID copied';
 $_lang['mxboard_msg_saved'] = 'Saved';
 $_lang['mxboard_msg_deadline_disputed'] = 'Deadline disputed';
 $_lang['mxboard_msg_deadline_accepted'] = 'New deadline accepted';
