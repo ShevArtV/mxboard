@@ -118,6 +118,17 @@ const fieldRows = computed(() => {
         .map((f) => ({ key: f.key, label: f.label, type: f.type || 'textarea', value: values[f.key] }));
 });
 
+// Текстовые поля типа (Строка/Текст) сливаются в ОДИН оформленный документ:
+// подпись поля → заголовок первого уровня, значение под ним. Промежуточный md
+// прогоняется через renderMarkdown и показывается как готовый текст, не как сырой `#`.
+// Нетекстовые поля (url/дата/число/пользователь/select/файл) — отдельными строками.
+const TEXT_FIELD_TYPES = ['text', 'textarea'];
+const textFieldsMd = computed(() => fieldRows.value
+    .filter((f) => TEXT_FIELD_TYPES.includes(f.type))
+    .map((f) => `# ${f.label}\n\n${String(f.value)}`)
+    .join('\n\n'));
+const otherFieldRows = computed(() => fieldRows.value.filter((f) => !TEXT_FIELD_TYPES.includes(f.type)));
+
 // Человеческое название действия журнала (ключ mxboard_act_<action>), иначе — как есть.
 function actionLabel(action) {
     const key = `mxboard_act_${action}`;
@@ -613,9 +624,11 @@ function removeTask(event) {
                         </ul>
                     </div>
 
-                    <div v-if="fieldRows.length" class="mxb-section">
-                        <div class="mxb-section-title"><i class="pi pi-list" />{{ t('mxboard_ui_type_fields') }}</div>
-                        <div v-for="f in fieldRows" :key="f.key" class="mxb-fieldrow">
+                    <div v-if="textFieldsMd || otherFieldRows.length" class="mxb-section">
+                        <!-- Текстовые поля типа — единым оформленным документом (подписи = заголовки). -->
+                        <div v-if="textFieldsMd" class="mxb-md" v-html="renderMarkdown(textFieldsMd)" />
+                        <!-- Нетекстовые поля — отдельными строками. -->
+                        <div v-for="f in otherFieldRows" :key="f.key" class="mxb-fieldrow">
                             <!-- URL: подпись + ссылка -->
                             <template v-if="f.type === 'url'">
                                 <span class="mxb-fieldrow-label">{{ f.label }}:</span>
@@ -626,15 +639,10 @@ function removeTask(event) {
                                 <span class="mxb-fieldrow-label">{{ f.label }}:</span>
                                 <a :href="f.value" target="_blank" rel="noopener" download class="mxb-fieldrow-link"><i class="pi pi-paperclip" /> {{ t('mxboard_ui_download') }}</a>
                             </template>
-                            <!-- Date/number/user: inline через двоеточие -->
-                            <template v-else-if="f.type === 'date' || f.type === 'number' || f.type === 'user'">
+                            <!-- Date/number/user/select: inline через двоеточие -->
+                            <template v-else>
                                 <span class="mxb-fieldrow-label">{{ f.label }}:</span>
                                 <span class="mxb-fieldrow-value">{{ f.value }}</span>
-                            </template>
-                            <!-- Textarea/text: подпись над блоком markdown -->
-                            <template v-else>
-                                <div class="mxb-fieldrow-label">{{ f.label }}</div>
-                                <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
                             </template>
                         </div>
                     </div>
