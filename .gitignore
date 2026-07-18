@@ -6,3 +6,6 @@
 .DS_Store
 /config/
 /refs/
+
+# impeccable (локальное состояние ревьюера)
+.impeccable/

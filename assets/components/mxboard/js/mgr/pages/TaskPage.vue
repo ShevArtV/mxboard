@@ -6,6 +6,7 @@ import {
 } from '../api/connector.js';
 import {
     PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
+    initials, avatarStyle,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
@@ -90,17 +91,6 @@ const chatMessages = computed(() => {
 });
 
 // Инициалы для аватара (до двух слов имени).
-function initials(name) {
-    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return '?';
-    return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
-}
-
-// Стабильный оттенок аватара из id пользователя — чтобы собеседники визуально различались.
-function avatarStyle(userId) {
-    const hue = ((Number(userId) || 0) * 47) % 360;
-    return { background: `hsl(${hue}, 55%, 45%)` };
-}
 
 const chatScroll = ref(null);
 function scrollChatToBottom() {
@@ -454,11 +444,23 @@ function removeTask(event) {
                     </div>
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_setter') }}</span>
-                        <span class="mxb-meta-value">{{ userName(task, 'author') || '—' }}</span>
+                        <span class="mxb-meta-value">
+                            <template v-if="userName(task, 'author')">
+                                <span class="mxb-avatar mxb-avatar--sm" :style="avatarStyle(task.author_id)">{{ initials(userName(task, 'author')) }}</span>
+                                {{ userName(task, 'author') }}
+                            </template>
+                            <template v-else>—</template>
+                        </span>
                     </div>
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_assignee_label') }}</span>
-                        <span class="mxb-meta-value mxb-meta-assignee">{{ userName(task, 'assignee') || '—' }}</span>
+                        <span class="mxb-meta-value mxb-meta-assignee">
+                            <template v-if="userName(task, 'assignee')">
+                                <span class="mxb-avatar mxb-avatar--sm" :style="avatarStyle(task.assignee_id)">{{ initials(userName(task, 'assignee')) }}</span>
+                                {{ userName(task, 'assignee') }}
+                            </template>
+                            <template v-else>—</template>
+                        </span>
                     </div>
                     <div class="mxb-meta-row" :class="{ 'mxb-overdue': overdue }">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_deadline_label') }}</span>
@@ -649,13 +651,20 @@ function removeTask(event) {
                             v-for="s in detail.subtasks"
                             :key="s.id"
                             class="mxb-subtask"
+                            tabindex="0"
+                            role="button"
                             @click="emit('open-task', s.id)"
+                            @keydown.enter.prevent="emit('open-task', s.id)"
+                            @keydown.space.prevent="emit('open-task', s.id)"
                         >
                             <i :class="s.closed ? 'pi pi-check-circle mxb-done' : 'pi pi-circle'" />
                             <span class="mxb-subtask-title">{{ s.title }}</span>
-                            <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-wrench" />{{ s.assignee }}</span>
+                            <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-user" />{{ s.assignee }}</span>
                         </div>
-                        <div v-if="!detail.subtasks.length" class="mxb-empty">{{ t('mxboard_ui_no_subtasks') }}</div>
+                        <div v-if="!detail.subtasks.length" class="mxb-empty mxb-empty--rich">
+                            <i class="pi pi-sitemap" />
+                            <span>{{ t('mxboard_ui_no_subtasks') }}</span>
+                        </div>
                     </div>
 
                     <!-- Журнал (сворачиваемый) -->
@@ -691,7 +700,10 @@ function removeTask(event) {
                 </div>
 
                 <div ref="chatScroll" class="mxb-chat-scroll">
-                    <div v-if="!chatMessages.length" class="mxb-empty">{{ t('mxboard_ui_no_comments') }}</div>
+                    <div v-if="!chatMessages.length" class="mxb-empty mxb-empty--rich mxb-chat-empty">
+                        <i class="pi pi-comments" />
+                        <span>{{ t('mxboard_ui_no_comments') }}</span>
+                    </div>
                     <div
                         v-for="c in chatMessages"
                         :key="c.id"

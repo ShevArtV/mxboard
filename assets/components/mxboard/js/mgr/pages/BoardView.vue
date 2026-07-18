@@ -43,6 +43,19 @@ const filteredColumns = computed(() => {
     }));
 });
 
+// Цвет стадии для тонировки шапки колонки. Если у колонки не задан свой цвет
+// (BoardQuery отдаёт дефолтный серый #6c757d), берём из палитры по позиции —
+// чисто презентационный фолбэк, чтобы стадии читались цветом, как в референсе.
+// Реальный заданный цвет (из «Структуры») уважаем как есть.
+const STAGE_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
+function columnColor(column, index) {
+    const c = String(column.color || '').toLowerCase();
+    if (c && c !== '#6c757d') return column.color;
+    if (column.is_final) return '#10b981';
+    if (column.is_initial) return '#64748b';
+    return STAGE_PALETTE[index % STAGE_PALETTE.length];
+}
+
 // Ручной switch «доска ↔ страница задачи» (без vue-router).
 // Синхронизирован с URL-хэшем (#task-<id>), чтобы перезагрузка страницы на
 // открытой карточке не выкидывала на доску. TaskPage грузит задачу по ID сам.
@@ -299,17 +312,19 @@ async function onDrop(column) {
 
         <div v-else class="mxb-columns">
             <div
-                v-for="column in filteredColumns"
+                v-for="(column, ci) in filteredColumns"
                 :key="column.key"
                 class="mxb-column"
-                :class="{ 'mxb-column--over': dragOverKey === column.key }"
+                :class="{ 'mxb-column--over': dragOverKey === column.key, 'mxb-column--final': column.is_final }"
+                :style="{ '--col-color': columnColor(column, ci) }"
                 @dragover="onDragOver(column, $event)"
                 @dragleave="dragOverKey = dragOverKey === column.key ? '' : dragOverKey"
                 @drop.prevent="onDrop(column)"
             >
-                <div class="mxb-column-head" :style="{ borderTopColor: column.color || '#6c757d' }">
+                <div class="mxb-column-head">
+                    <span class="mxb-column-dot" />
                     <i v-if="column.is_final" class="pi pi-check-circle" />
-                    <span>{{ column.name }}</span>
+                    <span class="mxb-column-name">{{ column.name }}</span>
                     <span class="mxb-column-count">{{ column.tasks.length }}</span>
                 </div>
                 <div class="mxb-column-body">
@@ -322,7 +337,10 @@ async function onDrop(column) {
                         @dragstart="onDragStart(task, column, $event)"
                         @dragend="onDragEnd"
                     />
-                    <div v-if="!column.tasks.length" class="mxb-empty">{{ t('mxboard_ui_empty') }}</div>
+                    <div v-if="!column.tasks.length" class="mxb-empty mxb-empty--drop">
+                        <i class="pi pi-inbox" />
+                        <span>{{ t('mxboard_ui_empty') }}</span>
+                    </div>
                 </div>
             </div>
         </div>

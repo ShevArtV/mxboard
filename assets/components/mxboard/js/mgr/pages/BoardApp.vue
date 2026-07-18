@@ -43,6 +43,57 @@ const tab = ref('board');
 <style>
 .mxb {
     font-size: 14px;
+
+    /* Единая шкала радиусов/теней/отступов — чтобы поверхности читались одной рукой. */
+    --mxb-radius-sm: 8px;
+    --mxb-radius-md: 12px;
+    --mxb-radius-lg: 16px;
+    --mxb-radius-pill: 999px;
+    --mxb-shadow-1: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+    --mxb-shadow-2: 0 6px 16px rgba(15, 23, 42, 0.10);
+    --mxb-space-1: 4px;
+    --mxb-space-2: 8px;
+    --mxb-space-3: 12px;
+    --mxb-space-4: 16px;
+    --mxb-space-5: 20px;
+    /* Приглушённый, но проходящий по контрасту текст (не полупрозрачный серый). */
+    --mxb-ink-muted: var(--p-text-color-secondary, #5b6472);
+    --mxb-focus: 0 0 0 2px var(--p-surface-0, #fff), 0 0 0 4px var(--p-primary-400, #34d399);
+}
+
+/* Фокус-ринг для клавиатуры на наших кликабельных элементах (у PrimeVue-компонентов
+   свой фокус — их не трогаем). Раньше focus-состояний не было нигде. */
+.mxb-card:focus-visible,
+.mxb-subtask:focus-visible,
+.mxb-parent-link:focus-visible,
+.mxb-filedrop:focus-visible,
+.mxb-att:focus-visible,
+.mxb-att-body:focus-visible,
+.mxb-filefield-btn:focus-visible,
+.mxb-composer-file-x:focus-visible,
+.mxb-att-remove:focus-visible {
+    outline: none;
+    box-shadow: var(--mxb-focus);
+}
+
+/* Аватар пользователя (инициалы) — общий для доски, меты и чата. */
+.mxb-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 600;
+    line-height: 1;
+    user-select: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.mxb-avatar--sm {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
 }
 
 .mxb-tab-icon {
@@ -72,35 +123,70 @@ const tab = ref('board');
 }
 
 .mxb-column {
-    flex: 0 0 290px;
-    width: 290px;
+    --col-color: #6c757d;
+    flex: 0 0 300px;
+    width: 300px;
     background: var(--p-content-background, #f6f7f9);
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 10px;
+    border-radius: var(--mxb-radius-md);
     display: flex;
     flex-direction: column;
     min-height: 160px;
+    overflow: hidden;
 }
 
 .mxb-column--over {
-    border-color: var(--p-primary-color, #10b981);
-    box-shadow: 0 0 0 2px var(--p-primary-color, #10b981) inset;
+    border-color: var(--col-color);
+    box-shadow: 0 0 0 2px var(--col-color) inset;
 }
 
+/* Шапка стадии — тонирована цветом стадии (color-mix), это ведущий носитель
+   иерархии доски. Цвет отзывается эхом в дедлайн-пилюлях и статусах. */
 .mxb-column-head {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--mxb-space-2);
     padding: 10px 12px;
-    font-weight: 600;
-    border-top: 3px solid var(--col-color, #6c757d);
-    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    color: color-mix(in srgb, var(--col-color) 72%, #1e2530);
+    background: color-mix(in srgb, var(--col-color) 12%, var(--p-surface-0, #fff));
+    border-bottom: 1px solid color-mix(in srgb, var(--col-color) 24%, var(--p-content-border-color, #e2e5e9));
+}
+
+.mxb-column-dot {
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--col-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--col-color) 20%, transparent);
+}
+
+.mxb-column-head .pi-check-circle {
+    color: var(--col-color);
+}
+
+.mxb-column-name {
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.4px;
 }
 
 .mxb-column-count {
     margin-left: auto;
-    opacity: 0.6;
-    font-weight: 400;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--col-color, #64748b) 78%, #1e2530);
+    background: color-mix(in srgb, var(--col-color, #64748b) 16%, var(--p-surface-0, #fff));
+    border-radius: var(--mxb-radius-pill);
 }
 
 .mxb-column-body {
@@ -115,22 +201,59 @@ const tab = ref('board');
 .mxb-empty {
     padding: 16px 8px;
     text-align: center;
-    opacity: 0.5;
+    color: var(--mxb-ink-muted);
     font-size: 13px;
+}
+
+/* Осмысленное пустое состояние: приглушённая иконка + строка, а не голый серый текст. */
+.mxb-empty--rich {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 28px 12px;
+}
+
+.mxb-empty--rich .pi {
+    font-size: 26px;
+    color: var(--p-surface-300, #cbd5e1);
+}
+
+/* Пустая колонка доски — намёк на drop-зону. */
+.mxb-empty--drop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 2px;
+    padding: 18px 12px;
+    border: 1.5px dashed var(--p-content-border-color, #e2e5e9);
+    border-radius: var(--mxb-radius-sm);
+}
+
+.mxb-empty--drop .pi {
+    color: var(--p-surface-300, #cbd5e1);
+}
+
+.mxb-column--over .mxb-empty--drop {
+    border-color: var(--col-color, #10b981);
+    color: color-mix(in srgb, var(--col-color, #10b981) 75%, #1e2530);
 }
 
 .mxb-card {
     background: var(--p-surface-0, #fff);
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 8px;
-    padding: 12px;
+    border-radius: var(--mxb-radius-sm);
+    padding: 11px 12px;
     cursor: pointer;
-    transition: box-shadow 0.15s, transform 0.15s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
+    box-shadow: var(--mxb-shadow-1);
 }
 
 .mxb-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--mxb-shadow-2);
+    border-color: color-mix(in srgb, var(--col-color, #6c757d) 40%, var(--p-content-border-color, #e2e5e9));
     transform: translateY(-1px);
 }
 
@@ -141,21 +264,71 @@ const tab = ref('board');
 .mxb-card-title {
     font-weight: 600;
     line-height: 1.35;
-    margin-bottom: 8px;
+    margin-bottom: 9px;
     word-break: break-word;
+    color: var(--p-text-color, #1f2733);
 }
 
-.mxb-card-meta {
+/* Строка тегов (приоритет + тип) — визуально отделена от футера. */
+.mxb-card-tags {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
-    font-size: 12px;
-    opacity: 0.85;
 }
 
-.mxb-card-meta i {
-    margin-right: 3px;
+/* Футер карточки: исполнитель слева, дедлайн-пилюля справа. */
+.mxb-card-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--mxb-space-2);
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px solid var(--p-surface-100, #f1f3f5);
+    font-size: 12px;
+}
+
+.mxb-card-assignee {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-card-assignee-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 130px;
+}
+
+/* Дедлайн-пилюля с относительным временем, тон по состоянию. */
+.mxb-deadline-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--mxb-radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--p-surface-100, #f1f3f5);
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-deadline-chip .pi {
+    font-size: 11px;
+}
+
+.mxb-deadline-chip--overdue {
+    background: color-mix(in srgb, var(--p-red-500, #ef4444) 14%, transparent);
+    color: var(--p-red-600, #dc2626);
+}
+
+.mxb-deadline-chip--soon {
+    background: color-mix(in srgb, var(--p-orange-500, #f59e0b) 16%, transparent);
+    color: var(--p-orange-600, #d97706);
 }
 
 .mxb-free {
@@ -213,20 +386,29 @@ const tab = ref('board');
     padding: 0;
 }
 
+/* Секция — не «карточка», а раздел: заголовок + верхний разделитель, без рамки и
+   фона. Так вложенные подзадачи/плитки не образуют card-in-card. Единственные
+   поверхности слева — мета-карта и (справа) чат. */
 .mxb-section {
-    margin-top: 20px;
-    padding: 14px;
-    border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 8px;
-    background: var(--p-content-background, #f6f7f9);
+    margin-top: var(--mxb-space-4);
+    padding-top: var(--mxb-space-4);
+    border-top: 1px solid var(--p-content-border-color, #e2e5e9);
 }
 
 .mxb-section-title {
-    font-weight: 600;
-    margin-bottom: 10px;
+    font-weight: 700;
+    margin-bottom: var(--mxb-space-3);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-section-title > .pi {
+    color: var(--p-primary-color, #10b981);
     font-size: 14px;
 }
 
@@ -266,7 +448,7 @@ const tab = ref('board');
 }
 
 .mxb-log-time {
-    opacity: 0.6;
+    color: var(--mxb-ink-muted);
     white-space: nowrap;
 }
 
@@ -305,7 +487,7 @@ const tab = ref('board');
 
 .mxb-hint {
     font-size: 12px;
-    opacity: 0.65;
+    color: var(--mxb-ink-muted);
     margin-top: 4px;
 }
 
@@ -379,11 +561,16 @@ const tab = ref('board');
 .mxb-chip {
     display: inline-flex;
     align-items: center;
-    padding: 1px 8px;
-    border-radius: 10px;
+    padding: 2px 8px;
+    border-radius: var(--mxb-radius-pill);
     background: var(--p-surface-100, #f1f3f5);
+    color: var(--mxb-ink-muted);
     font-size: 11px;
-    opacity: 0.85;
+}
+
+/* Тип задачи — приглушённый тег, уступает приоритету по весу. */
+.mxb-chip--type {
+    letter-spacing: 0.2px;
 }
 
 .mxb-sub-icon {
@@ -432,10 +619,11 @@ const tab = ref('board');
 /* Мета-карточка: строки «метка → значение», как в референсе. */
 .mxb-meta-card {
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 10px;
-    background: var(--p-content-background, #f6f7f9);
-    padding: 6px 14px;
-    margin-bottom: 16px;
+    border-radius: var(--mxb-radius-md);
+    background: var(--p-surface-0, #fff);
+    box-shadow: var(--mxb-shadow-1);
+    padding: 4px 16px;
+    margin-bottom: var(--mxb-space-4);
 }
 
 .mxb-meta-row {
@@ -453,7 +641,7 @@ const tab = ref('board');
 
 .mxb-meta-label {
     flex: 0 0 120px;
-    color: var(--p-text-color-secondary, #6c757d);
+    color: var(--mxb-ink-muted);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -471,7 +659,7 @@ const tab = ref('board');
 }
 
 .mxb-meta-assignee {
-    color: var(--p-primary-color, #10b981);
+    color: var(--p-primary-700, #047857);
     font-weight: 600;
 }
 
@@ -532,8 +720,9 @@ const tab = ref('board');
     flex-direction: column;
     min-height: 0;
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 12px;
+    border-radius: var(--mxb-radius-md);
     background: var(--p-surface-0, #fff);
+    box-shadow: var(--mxb-shadow-1);
     overflow: hidden;
 }
 
@@ -552,6 +741,8 @@ const tab = ref('board');
     font-size: 15px;
 }
 
+/* Лента чата — отдельная тёплая поверхность (мягкий вертикальный тон), чтобы
+   «разговор» визуально отличался от рабочей меты, а не был пустым белым div. */
 .mxb-chat-scroll {
     flex: 1;
     overflow-y: auto;
@@ -559,6 +750,19 @@ const tab = ref('board');
     display: flex;
     flex-direction: column;
     gap: 3px;
+    background:
+        linear-gradient(180deg,
+            color-mix(in srgb, var(--p-primary-500, #10b981) 5%, var(--p-surface-50, #fafbfc)),
+            var(--p-surface-50, #fafbfc) 220px);
+}
+
+.mxb-chat-empty {
+    margin: auto;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-chat-empty .pi {
+    color: color-mix(in srgb, var(--p-primary-500, #10b981) 45%, var(--p-surface-300, #cbd5e1));
 }
 
 .mxb-chat-msg {
@@ -614,15 +818,18 @@ const tab = ref('board');
 .mxb-chat-author {
     font-size: 12px;
     font-weight: 600;
-    color: var(--p-primary-color, #10b981);
+    color: var(--p-primary-700, #047857);
     margin: 0 0 3px 12px;
 }
 
+/* Чужой пузырь — белая карточка с рамкой: контрастнее на тонированной ленте. */
 .mxb-chat-bubble {
     position: relative;
     padding: 8px 12px;
     border-radius: 14px;
-    background: var(--p-surface-100, #f1f3f5);
+    background: var(--p-surface-0, #fff);
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    box-shadow: var(--mxb-shadow-1);
     border-top-left-radius: 4px;
     font-size: 14px;
     line-height: 1.45;
@@ -632,6 +839,7 @@ const tab = ref('board');
 .mxb-chat-msg--own .mxb-chat-bubble {
     background: var(--p-primary-100, #d1fae5);
     color: var(--p-primary-950, #052e16);
+    border-color: color-mix(in srgb, var(--p-primary-400, #34d399) 55%, transparent);
     border-top-left-radius: 14px;
     border-top-right-radius: 4px;
 }
@@ -655,7 +863,7 @@ const tab = ref('board');
     gap: 6px;
     margin-top: 2px;
     font-size: 11px;
-    opacity: 0.6;
+    color: var(--mxb-ink-muted);
 }
 
 .mxb-chat-time {
@@ -680,7 +888,8 @@ const tab = ref('board');
     left: 6px;
 }
 
-.mxb-chat-bubble:hover .mxb-chat-actions {
+.mxb-chat-bubble:hover .mxb-chat-actions,
+.mxb-chat-bubble:focus-within .mxb-chat-actions {
     display: flex;
 }
 
@@ -771,15 +980,14 @@ const tab = ref('board');
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     border-radius: 50%;
     background: transparent;
-    color: inherit;
+    color: var(--mxb-ink-muted);
     cursor: pointer;
-    opacity: 0.6;
 }
 
 .mxb-composer-file-x:hover {
@@ -860,8 +1068,8 @@ const tab = ref('board');
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: none;
     border-radius: 50%;
@@ -1006,7 +1214,8 @@ const tab = ref('board');
 
 .mxb-parent-link {
     cursor: pointer;
-    color: var(--p-primary-color, #10b981);
+    color: var(--p-primary-700, #047857);
+    font-weight: 600;
 }
 
 .mxb-parent-link:hover {
@@ -1016,8 +1225,9 @@ const tab = ref('board');
 .mxb-parent-note {
     padding: 8px 10px;
     background: var(--p-surface-100, #f1f3f5);
-    border-radius: 6px;
+    border-radius: var(--mxb-radius-sm);
     margin-bottom: 12px;
+    color: var(--mxb-ink-muted);
 }
 
 .mxb-deadline {
@@ -1085,7 +1295,8 @@ const tab = ref('board');
 }
 
 .mxb-fieldrow-link {
-    color: var(--p-primary-color, #10b981);
+    color: var(--p-primary-700, #047857);
+    font-weight: 500;
     text-decoration: none;
 }
 
@@ -1097,17 +1308,18 @@ const tab = ref('board');
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 9px 11px;
     border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 8px;
+    border-radius: var(--mxb-radius-sm);
     margin-bottom: 6px;
     cursor: pointer;
     background: var(--p-surface-0, #fff);
-    transition: box-shadow 0.15s;
+    transition: box-shadow 0.16s ease, border-color 0.16s ease;
 }
 
 .mxb-subtask:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--mxb-shadow-2);
+    border-color: color-mix(in srgb, var(--p-primary-400, #34d399) 45%, var(--p-content-border-color, #e2e5e9));
 }
 
 .mxb-subtask-title {
@@ -1117,7 +1329,7 @@ const tab = ref('board');
 
 .mxb-subtask-assignee {
     font-size: 12px;
-    opacity: 0.75;
+    color: var(--mxb-ink-muted);
 }
 
 .mxb-subtask-assignee i,
@@ -1212,5 +1424,19 @@ const tab = ref('board');
     background: var(--p-red-100, #fee2e2);
     color: var(--p-red-700, #b91c1c);
     opacity: 1;
+}
+
+/* Уважаем системную настройку «меньше движения»: гасим лифты/повороты/переходы. */
+@media (prefers-reduced-motion: reduce) {
+    .mxb *,
+    .mxb *::before,
+    .mxb *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+    }
+
+    .mxb-card:hover {
+        transform: none;
+    }
 }
 </style>

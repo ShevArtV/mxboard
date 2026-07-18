@@ -64,6 +64,54 @@ export function isOverdue(task) {
     return dl > 0 && !closed && dl * 1000 < Date.now();
 }
 
+/** Начало календарного дня — для счёта дедлайнов «в днях», без учёта времени. */
+function dayStart(d) {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/**
+ * Относительный дедлайн: «сегодня» / «завтра» / «через 3 дня» / «2 дня назад».
+ * Локализация — через браузерный Intl.RelativeTimeFormat (не хардкод строк);
+ * язык берём из <html lang>, при сбое — падаем на абсолютную дату.
+ */
+export function fmtRelativeDay(value) {
+    const d = toDate(value);
+    if (!d) return '';
+    const diffDays = Math.round((dayStart(d) - dayStart(new Date())) / 86400000);
+    try {
+        const loc = (typeof document !== 'undefined' && document.documentElement.lang) || 'ru';
+        return new Intl.RelativeTimeFormat(loc, { numeric: 'auto' }).format(diffDays, 'day');
+    } catch {
+        return fmtDay(value);
+    }
+}
+
+/**
+ * Тон дедлайн-пилюли: 'overdue' (просрочен) / 'soon' (≤2 дней) / 'normal' / 'none'.
+ * Закрытая задача — всегда 'normal' (не пугаем красным то, что уже сделано).
+ */
+export function deadlineTone(task) {
+    const dl = Number(task?.deadlineon) || 0;
+    if (!dl) return 'none';
+    if (Number(task?.closedon) || 0) return 'normal';
+    if (isOverdue(task)) return 'overdue';
+    const days = Math.round((dayStart(new Date(dl * 1000)) - dayStart(new Date())) / 86400000);
+    return days <= 2 ? 'soon' : 'normal';
+}
+
+/** Инициалы из имени (аватар). Общий помощник для чата и карточек. */
+export function initials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
+}
+
+/** Стабильный оттенок аватара из id пользователя — собеседники визуально различаются. */
+export function avatarStyle(userId) {
+    const hue = ((Number(userId) || 0) * 47) % 360;
+    return { background: `hsl(${hue}, 52%, 45%)` };
+}
+
 function toDate(value) {
     if (!value) return null;
     const num = Number(value);
@@ -102,6 +150,7 @@ export function normalizeBoard(res) {
         key: String(c.key ?? ''),
         name: String(c.name ?? c.key ?? ''),
         stage_key: String(c.stage_key ?? ''),
+        color: String(c.color ?? '') || '#6c757d',
         is_initial: !!Number(c.is_initial),
         is_final: !!Number(c.is_final),
         tasks: (Array.isArray(c.tasks) ? c.tasks : []).map(normalizeTask),
