@@ -133,6 +133,7 @@ $_lang['mxboard_ui_filter_all'] = 'All';
 $_lang['mxboard_ui_filter_author'] = 'I am author';
 $_lang['mxboard_ui_filter_assignee'] = 'I am assignee';
 $_lang['mxboard_ui_filter_all_priorities'] = 'All priorities';
+$_lang['mxboard_ui_reset_filters'] = 'Reset filters';
 $_lang['mxboard_ui_new_task'] = 'New task';
 $_lang['mxboard_ui_no_projects'] = 'No projects in this department. Create one on the “Structure” tab.';
 

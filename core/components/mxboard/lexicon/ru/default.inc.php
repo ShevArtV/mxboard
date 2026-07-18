@@ -133,6 +133,7 @@ $_lang['mxboard_ui_filter_all'] = 'Все';
 $_lang['mxboard_ui_filter_author'] = 'Я автор';
 $_lang['mxboard_ui_filter_assignee'] = 'Я исполнитель';
 $_lang['mxboard_ui_filter_all_priorities'] = 'Все приоритеты';
+$_lang['mxboard_ui_reset_filters'] = 'Сбросить фильтры';
 $_lang['mxboard_ui_new_task'] = 'Новая задача';
 $_lang['mxboard_ui_no_projects'] = 'Нет проектов в этом отделе. Создайте проект на вкладке «Структура».';
 

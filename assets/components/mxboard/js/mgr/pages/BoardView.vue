@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Button, Select, SelectButton, useToast } from 'primevue';
+import { Button, Select, useToast } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
@@ -33,6 +33,36 @@ const filter = ref('all');
 // Фильтр по приоритету: -1 = все, 0-3 = конкретный.
 const PRIORITY_FILTERS = [{ value: -1, label: t('mxboard_ui_filter_all_priorities') }, ...PRIORITIES];
 const priorityFilter = ref(-1);
+
+// Фильтры доски переживают перезагрузку: пишем в localStorage и восстанавливаем в init().
+// Ключ привязан к пользователю — на общем браузере фильтры не «протекают» между аккаунтами.
+const FILTERS_KEY = `mxb_board_filters_${userId}`;
+function saveFilters() {
+    try {
+        localStorage.setItem(FILTERS_KEY, JSON.stringify({
+            departmentId: departmentId.value,
+            projectKey: projectKey.value,
+            filter: filter.value,
+            priorityFilter: priorityFilter.value,
+        }));
+    } catch (e) { /* localStorage недоступен — не критично */ }
+}
+function readSavedFilters() {
+    try {
+        return JSON.parse(localStorage.getItem(FILTERS_KEY) || 'null');
+    } catch (e) { return null; }
+}
+watch([departmentId, projectKey, filter, priorityFilter], saveFilters);
+
+// Сброс фильтров: роль/приоритет в дефолт, отдел/проект — на первый.
+function resetFilters() {
+    filter.value = 'all';
+    priorityFilter.value = -1;
+    departmentId.value = departments.value.length ? (Number(departments.value[0].id) || 0) : 0;
+    pickFirstProject();
+    columns.value = [];
+    if (projectKey.value) load();
+}
 
 // Колонки с учётом фильтра по приоритету (клиентская фильтрация).
 const filteredColumns = computed(() => {
@@ -113,8 +143,17 @@ async function init() {
         return;
     }
     if (departments.value.length) {
-        departmentId.value = Number(departments.value[0].id) || 0;
-        pickFirstProject();
+        const saved = readSavedFilters();
+        const validDept = saved && departments.value.some((d) => Number(d.id) === Number(saved.departmentId));
+        departmentId.value = validDept ? Number(saved.departmentId) : (Number(departments.value[0].id) || 0);
+        if (saved) {
+            if (['all', 'author', 'assignee'].includes(saved.filter)) filter.value = saved.filter;
+            if (Number.isInteger(saved.priorityFilter)) priorityFilter.value = saved.priorityFilter;
+        }
+        // Проект восстанавливаем, только если он есть в выбранном отделе; иначе — первый.
+        const validProj = saved && projectsInDepartment.value.some((p) => p.key === saved.projectKey);
+        if (validProj) projectKey.value = saved.projectKey;
+        else pickFirstProject();
         if (projectKey.value) load();
     }
 }
@@ -273,13 +312,13 @@ async function onDrop(column) {
                 :placeholder="t('mxboard_ui_project')"
                 @change="load"
             />
-            <SelectButton
+            <Select
                 v-model="filter"
                 :options="FILTERS"
                 option-label="label"
                 option-value="value"
-                :allow-empty="false"
                 @change="load"
+                style="max-width: 170px"
             />
             <Select
                 v-model="priorityFilter"
@@ -288,6 +327,14 @@ async function onDrop(column) {
                 option-value="value"
                 :placeholder="t('mxboard_ui_priority')"
                 style="max-width: 160px"
+            />
+            <Button
+                :label="t('mxboard_ui_reset_filters')"
+                icon="pi pi-filter-slash"
+                size="small"
+                severity="secondary"
+                text
+                @click="resetFilters"
             />
             <span class="mxb-toolbar-spacer" />
             <Button
