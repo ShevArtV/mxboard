@@ -24,7 +24,7 @@ const props = defineProps({
     canMoveAny: { type: Boolean, default: false },
     userId: { type: Number, default: 0 },
 });
-const emit = defineEmits(['back', 'open-task', 'changed']);
+const emit = defineEmits(['back', 'open-task', 'changed', 'loaded']);
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -145,6 +145,10 @@ async function load(id) {
         const res = await TaskApi.get(id);
         const obj = res.object ?? {};
         task.value = normalizeTask(obj);
+        // Отдаём проект задачи наверх — при прямой перезагрузке (открытие по хэшу)
+        // доска ещё не выбрала проект/отдел, а они нужны для списка исполнителей и
+        // создания подзадачи. BoardView сопоставит project_id со своим списком.
+        emit('loaded', { project_id: Number(obj.project_id) || 0 });
         detail.value = {
             parent: obj.parent ?? null,
             subtasks: Array.isArray(obj.subtasks) ? obj.subtasks : [],

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { Button, Select, SelectButton, useToast } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
@@ -44,7 +44,31 @@ const filteredColumns = computed(() => {
 });
 
 // Ручной switch «доска ↔ страница задачи» (без vue-router).
-const openTaskId = ref(0);
+// Синхронизирован с URL-хэшем (#task-<id>), чтобы перезагрузка страницы на
+// открытой карточке не выкидывала на доску. TaskPage грузит задачу по ID сам.
+function taskIdFromHash() {
+    const m = String(window.location.hash || '').match(/task-(\d+)/);
+    return m ? Number(m[1]) : 0;
+}
+const openTaskId = ref(taskIdFromHash());
+
+// Открытие/закрытие задачи → хэш. Закрытие чистим через replaceState, чтобы не
+// плодить пустую запись в истории и не прыгать по несуществующему якорю.
+watch(openTaskId, (id) => {
+    const hash = id ? `#task-${id}` : '';
+    if (hash) {
+        if (window.location.hash !== hash) window.location.hash = hash;
+    } else if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+});
+
+// Кнопки браузера «назад/вперёд» — подтягиваем состояние из хэша.
+onMounted(() => {
+    window.addEventListener('hashchange', () => {
+        openTaskId.value = taskIdFromHash();
+    });
+});
 
 const dragTaskKey = ref('');
 const dragFromKey = ref('');
@@ -65,6 +89,14 @@ async function init() {
         projects.value = listOf(p);
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
+        return;
+    }
+    // Задача восстановлена по хэшу — контекст доски задаст её project_id (см.
+    // onTaskLoaded), первый проект не навязываем, иначе перезатрём проект задачи.
+    if (openTaskId.value) {
+        if (pendingProjectId.value && applyTaskContext(pendingProjectId.value)) {
+            pendingProjectId.value = 0;
+        }
         return;
     }
     if (departments.value.length) {
@@ -108,6 +140,28 @@ async function load() {
 
 function openTask(task) {
     openTaskId.value = task.id;
+}
+
+// Задача открыта напрямую по хэшу (перезагрузка) — доска ещё не выбрала проект/отдел.
+// Восстанавливаем их из project_id задачи, чтобы работали список исполнителей и
+// создание подзадачи. Список проектов грузится асинхронно — если ещё пуст, запомним
+// project_id и применим после init().
+const pendingProjectId = ref(0);
+
+function applyTaskContext(projectId) {
+    const proj = projects.value.find((p) => Number(p.id) === projectId);
+    if (!proj) return false;
+    projectKey.value = proj.key;
+    departmentId.value = Number(proj.department_id) || 0;
+    // Догружаем доску под задачей, чтобы возврат «назад» не показал пустой экран.
+    load();
+    return true;
+}
+
+function onTaskLoaded({ project_id: projectId }) {
+    const pid = Number(projectId) || 0;
+    if (!pid || projectKey.value) return; // проект уже выбран — доска в норме
+    if (!applyTaskContext(pid)) pendingProjectId.value = pid;
 }
 
 function onDragStart(task, column, ev) {
@@ -185,6 +239,7 @@ async function onDrop(column) {
         @back="openTaskId = 0"
         @open-task="openTaskId = $event"
         @changed="load"
+        @loaded="onTaskLoaded"
     />
 
     <div v-else>
