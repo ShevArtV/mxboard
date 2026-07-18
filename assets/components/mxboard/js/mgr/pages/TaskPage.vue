@@ -588,10 +588,6 @@ function removeTask(event) {
                         <label>{{ t('mxboard_ui_assignee') }}</label>
                         <Select v-model="form.assignee_id" :options="users" option-label="username" option-value="id" filter fluid />
                     </div>
-                    <div class="mxb-field">
-                        <label>{{ t('mxboard_ui_tor') }}</label>
-                        <textarea v-model="form.tor" class="mxb-textarea" rows="12" />
-                    </div>
                     <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" :task-id="taskId" />
                     <div class="mxb-dialog-actions">
                         <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
@@ -601,11 +597,6 @@ function removeTask(event) {
 
                 <!-- ПРОСМОТР -->
                 <div v-else>
-                    <div class="mxb-section">
-                        <div class="mxb-section-title"><i class="pi pi-file" />{{ t('mxboard_ui_tor_section') }}</div>
-                        <div v-if="task.tor" class="mxb-md" v-html="torHtml" />
-                        <div v-else class="mxb-empty">{{ t('mxboard_ui_tor_empty') }}</div>
-                    </div>
 
                     <!-- Вердикт ИИ-проверки полноты (если задача его получила при создании) -->
                     <div v-if="task.ai_verdict" class="mxb-section">
