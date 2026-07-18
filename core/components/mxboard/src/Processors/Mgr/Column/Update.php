@@ -19,7 +19,7 @@ class Update extends ServiceProcessor
         return $this->fromResult((new StructureService($this->modx))->updateColumn(
             $user,
             (int) $this->getProperty('id', 0),
-            $this->presentProperties(['name', 'move_roles', 'stage_key', 'position', 'is_initial', 'is_final'])
+            $this->presentProperties(['name', 'move_roles', 'stage_key', 'color', 'position', 'is_initial', 'is_final'])
         ));
     }
 }
