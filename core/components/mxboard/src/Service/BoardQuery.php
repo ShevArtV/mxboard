@@ -55,7 +55,10 @@ class BoardQuery
                 'id' => (int) $project->get('id'),
                 'key' => (string) $project->get('key'),
                 'name' => (string) $project->get('name'),
+                'description' => (string) $project->get('description'),
                 'department_id' => (int) $project->get('department_id'),
+                'active' => (bool) $project->get('active'),
+                'position' => (int) $project->get('position'),
             ];
         }
 
