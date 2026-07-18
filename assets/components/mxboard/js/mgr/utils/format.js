@@ -35,6 +35,20 @@ export function fmtTime(value) {
     return `${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/** Байты → человекочитаемый размер (Б/КБ/МБ/ГБ). */
+export function fmtSize(bytes) {
+    const n = Number(bytes) || 0;
+    if (n < 1024) return `${n} B`;
+    const units = ['KB', 'MB', 'GB', 'TB'];
+    let val = n / 1024;
+    let i = 0;
+    while (val >= 1024 && i < units.length - 1) {
+        val /= 1024;
+        i += 1;
+    }
+    return `${val < 10 ? val.toFixed(1) : Math.round(val)} ${units[i]}`;
+}
+
 /** unix-секунды → 'YYYY-MM-DD' для <input type="date">. */
 export function toDateInput(value) {
     const d = toDate(value);

@@ -2,14 +2,15 @@
 import { ref, computed, watch, nextTick } from 'vue';
 import { Button, InputText, Select, Tag, useToast, useConfirm } from 'primevue';
 import {
-    TaskApi, TypeApi, ColumnApi, DepartmentApi, errorMessage, listOf,
+    TaskApi, TypeApi, ColumnApi, DepartmentApi, AttachmentApi, errorMessage, listOf,
 } from '../api/connector.js';
 import {
-    PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, toDateInput, isOverdue, normalizeTask,
+    PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import TypeFields from '../components/TypeFields.vue';
+import Attachments from '../components/Attachments.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 
 // Страница задачи — отдельная вью (ручной switch в BoardView, без vue-router).
@@ -35,6 +36,9 @@ const columns = ref([]);
 const users = ref([]);
 
 const comment = ref('');
+const pendingFiles = ref([]); // выбранные, но ещё не отправленные файлы композера
+const composerFileInput = ref(null);
+const taskFileInput = ref(null);
 const editingCommentId = ref(0);
 const editingCommentText = ref('');
 const editing = ref(false);
@@ -50,6 +54,11 @@ const canManage = computed(() => isAuthor.value || props.canMoveAny);
 const priority = computed(() => priorityMeta(task.value?.priority));
 const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
+
+// Вложения уровня задачи (comment_id=0) — приходят в task.attachments из taskDetail.
+const taskAttachments = computed(() => task.value?.attachments || []);
+// Композер можно отправить, если есть текст ИЛИ выбраны файлы.
+const canSend = computed(() => !!comment.value.trim() || pendingFiles.value.length > 0);
 
 // Название текущей стадии по ключу колонки (для мета-строки, когда список стадий загружен).
 const stageName = computed(() => {
@@ -138,6 +147,7 @@ async function load(id) {
             log: Array.isArray(obj.log) ? obj.log : [],
         };
         comment.value = '';
+        pendingFiles.value = [];
         editing.value = false;
         disputeOpen.value = false;
         scrollChatToBottom();
@@ -198,10 +208,75 @@ async function moveTo(columnKey) {
     if (ok) reload();
 }
 
+// Отправка сообщения чата. Если приложены файлы — сперва создаём коммент (чтобы
+// получить его id), затем грузим файлы к нему. Сообщение без текста, но с файлами
+// допустимо: в теле — плейсхолдер, содержательное — сами вложения.
 async function addComment() {
-    if (!comment.value.trim()) return;
-    const ok = await act(() => TaskApi.comment(props.taskId, comment.value.trim()), t('mxboard_msg_comment_added'));
+    if (!canSend.value) return;
+    const text = comment.value.trim();
+    const files = pendingFiles.value.slice();
+    busy.value = true;
+    try {
+        const content = text || t('mxboard_ui_files_message');
+        const res = await TaskApi.comment(props.taskId, content);
+        const commentId = Number(res?.object?.id) || 0;
+        if (files.length && commentId) {
+            const up = await AttachmentApi.upload(props.taskId, commentId, files);
+            // Частичный успех загрузки: коммент создан, но часть файлов не легла — предупредим.
+            if (up?.message) {
+                toast.add({ severity: 'warn', summary: t('mxboard_msg_upload_partial'), detail: up.message, life: 8000 });
+            }
+        }
+        comment.value = '';
+        pendingFiles.value = [];
+        toast.add({ severity: 'success', summary: t('mxboard_msg_comment_added'), life: 3000 });
+        reload();
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+    } finally {
+        busy.value = false;
+    }
+}
+
+// Выбор файлов в композере: докидываем к уже выбранным, чистим input для повторного выбора того же файла.
+function onComposerFiles(event) {
+    const files = Array.from(event.target.files || []);
+    if (files.length) pendingFiles.value = pendingFiles.value.concat(files);
+    event.target.value = '';
+}
+
+function removePendingFile(idx) {
+    pendingFiles.value = pendingFiles.value.filter((_, i) => i !== idx);
+}
+
+// Загрузка файлов прямо к задаче (comment_id=0) — блок «Файлы задачи» в левой колонке.
+async function onTaskFiles(event) {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    const ok = await act(async () => {
+        const up = await AttachmentApi.upload(props.taskId, 0, files);
+        if (up?.message) {
+            toast.add({ severity: 'warn', summary: t('mxboard_msg_upload_partial'), detail: up.message, life: 8000 });
+        }
+    }, t('mxboard_msg_file_uploaded'));
     if (ok) reload();
+}
+
+function removeAttachment(att, event) {
+    confirm.require({
+        target: event?.currentTarget,
+        message: t('mxboard_msg_confirm_delete_file'),
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: t('mxboard_ui_delete'),
+        rejectLabel: t('mxboard_ui_cancel'),
+        acceptProps: { severity: 'danger', size: 'small' },
+        rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
+        accept: async () => {
+            const ok = await act(() => AttachmentApi.remove(att.id), t('mxboard_msg_file_deleted'));
+            if (ok) reload();
+        },
+    });
 }
 
 function startEditComment(c) {
@@ -466,7 +541,7 @@ function removeTask(event) {
                         <label>{{ t('mxboard_ui_tor') }}</label>
                         <textarea v-model="form.tor" class="mxb-textarea" rows="12" />
                     </div>
-                    <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" />
+                    <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" :task-id="taskId" />
                     <div class="mxb-dialog-actions">
                         <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
                         <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />
@@ -506,6 +581,11 @@ function removeTask(event) {
                                 <span class="mxb-fieldrow-label">{{ f.label }}:</span>
                                 <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
                             </template>
+                            <!-- File: подпись + ссылка на файл со скачиванием -->
+                            <template v-else-if="f.type === 'file'">
+                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                                <a :href="f.value" target="_blank" rel="noopener" download class="mxb-fieldrow-link"><i class="pi pi-paperclip" /> {{ t('mxboard_ui_download') }}</a>
+                            </template>
                             <!-- Date/number/user: inline через двоеточие -->
                             <template v-else-if="f.type === 'date' || f.type === 'number' || f.type === 'user'">
                                 <span class="mxb-fieldrow-label">{{ f.label }}:</span>
@@ -517,6 +597,24 @@ function removeTask(event) {
                                 <div class="mxb-md" v-html="renderMarkdown(String(f.value))" />
                             </template>
                         </div>
+                    </div>
+
+                    <!-- Файлы задачи (уровня задачи, comment_id=0) -->
+                    <div class="mxb-section">
+                        <div class="mxb-section-title">
+                            <i class="pi pi-paperclip" />{{ t('mxboard_ui_task_files') }}
+                            <span class="mxb-column-count">{{ taskAttachments.length }}</span>
+                            <span class="mxb-toolbar-spacer" />
+                            <Button :label="t('mxboard_ui_attach_file')" icon="pi pi-upload" size="small" severity="secondary" outlined :loading="busy" @click="taskFileInput?.click()" />
+                            <input ref="taskFileInput" type="file" multiple class="mxb-file-hidden" @change="onTaskFiles" />
+                        </div>
+                        <Attachments
+                            :items="taskAttachments"
+                            :user-id="userId"
+                            :can-manage="canManage"
+                            @remove="removeAttachment"
+                        />
+                        <div v-if="!taskAttachments.length" class="mxb-empty">{{ t('mxboard_ui_no_files') }}</div>
                     </div>
 
                     <!-- Подзадачи -->
@@ -595,6 +693,13 @@ function removeTask(event) {
                                 </template>
                                 <template v-else>
                                     <div class="mxb-md" v-html="renderMarkdown(c.content)" />
+                                    <Attachments
+                                        v-if="c.attachments && c.attachments.length"
+                                        :items="c.attachments"
+                                        :user-id="userId"
+                                        :can-manage="canManage"
+                                        @remove="removeAttachment"
+                                    />
                                     <div class="mxb-chat-meta">
                                         <span class="mxb-chat-time">{{ fmtTime(c.createdon) }}</span>
                                         <span v-if="c.updatedon" class="mxb-comment-edited">{{ t('mxboard_ui_comment_edited') }}</span>
@@ -609,33 +714,45 @@ function removeTask(event) {
                     </div>
                 </div>
 
-                <!-- Композер: место под прикрепление файла зарезервировано (загрузку включит C) -->
-                <div class="mxb-chat-composer">
-                    <Button
-                        icon="pi pi-paperclip"
-                        size="small"
-                        severity="secondary"
-                        text
-                        disabled
-                        v-tooltip.top="t('mxboard_ui_attach_soon')"
-                        class="mxb-chat-attach"
-                    />
-                    <textarea
-                        v-model="comment"
-                        class="mxb-chat-input"
-                        rows="1"
-                        :placeholder="t('mxboard_ui_comment_placeholder')"
-                        @keydown.enter.exact.prevent="addComment"
-                    />
-                    <Button
-                        icon="pi pi-send"
-                        size="small"
-                        rounded
-                        :disabled="!comment.trim()"
-                        :loading="busy"
-                        v-tooltip.top="t('mxboard_ui_send')"
-                        @click="addComment"
-                    />
+                <!-- Композер: текст + прикрепление файлов к сообщению -->
+                <div class="mxb-chat-composer-wrap">
+                    <!-- Выбранные, но ещё не отправленные файлы -->
+                    <div v-if="pendingFiles.length" class="mxb-composer-files">
+                        <span v-for="(f, i) in pendingFiles" :key="i" class="mxb-composer-file">
+                            <i class="pi pi-file" />
+                            <span class="mxb-composer-file-name" :title="f.name">{{ f.name }}</span>
+                            <span class="mxb-composer-file-size">{{ fmtSize(f.size) }}</span>
+                            <button type="button" class="mxb-composer-file-x" :title="t('mxboard_ui_cancel')" @click="removePendingFile(i)"><i class="pi pi-times" /></button>
+                        </span>
+                    </div>
+                    <div class="mxb-chat-composer">
+                        <Button
+                            icon="pi pi-paperclip"
+                            size="small"
+                            severity="secondary"
+                            text
+                            v-tooltip.top="t('mxboard_ui_attach_file')"
+                            class="mxb-chat-attach"
+                            @click="composerFileInput?.click()"
+                        />
+                        <input ref="composerFileInput" type="file" multiple class="mxb-file-hidden" @change="onComposerFiles" />
+                        <textarea
+                            v-model="comment"
+                            class="mxb-chat-input"
+                            rows="1"
+                            :placeholder="t('mxboard_ui_comment_placeholder')"
+                            @keydown.enter.exact.prevent="addComment"
+                        />
+                        <Button
+                            icon="pi pi-send"
+                            size="small"
+                            rounded
+                            :disabled="!canSend"
+                            :loading="busy"
+                            v-tooltip.top="t('mxboard_ui_send')"
+                            @click="addComment"
+                        />
+                    </div>
                 </div>
             </div>
         </div>

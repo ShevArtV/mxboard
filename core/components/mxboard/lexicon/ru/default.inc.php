@@ -191,6 +191,16 @@ $_lang['mxboard_ui_created'] = 'Дата создания';
 $_lang['mxboard_ui_task_id'] = 'ID';
 $_lang['mxboard_ui_attach_soon'] = 'Прикрепление файлов — скоро';
 
+// Подзадача C: вложения во фронте (композер, блок файлов задачи, поле file).
+$_lang['mxboard_ui_task_files'] = 'Файлы задачи';
+$_lang['mxboard_ui_attach_file'] = 'Прикрепить файл';
+$_lang['mxboard_ui_no_files'] = 'Файлов нет';
+$_lang['mxboard_ui_download'] = 'Скачать';
+$_lang['mxboard_ui_clear'] = 'Очистить';
+$_lang['mxboard_ui_file_replace'] = 'Заменить файл';
+$_lang['mxboard_ui_file_after_save'] = 'Файл можно прикрепить после сохранения задачи';
+$_lang['mxboard_ui_files_message'] = 'Прикреплённые файлы';
+
 // Действия журнала (человеческие названия).
 $_lang['mxboard_act_create'] = 'создана';
 $_lang['mxboard_act_move'] = 'перемещена';
@@ -221,6 +231,10 @@ $_lang['mxboard_msg_comment_added'] = 'Комментарий добавлен';
 $_lang['mxboard_msg_comment_updated'] = 'Комментарий обновлён';
 $_lang['mxboard_msg_comment_deleted'] = 'Комментарий удалён';
 $_lang['mxboard_msg_confirm_delete_comment'] = 'Удалить комментарий?';
+$_lang['mxboard_msg_file_uploaded'] = 'Файл загружен';
+$_lang['mxboard_msg_file_deleted'] = 'Файл удалён';
+$_lang['mxboard_msg_confirm_delete_file'] = 'Удалить файл?';
+$_lang['mxboard_msg_upload_partial'] = 'Часть файлов не загружена';
 $_lang['mxboard_msg_id_copied'] = 'ID скопирован';
 $_lang['mxboard_msg_saved'] = 'Сохранено';
 $_lang['mxboard_msg_deadline_disputed'] = 'Дедлайн оспорен';

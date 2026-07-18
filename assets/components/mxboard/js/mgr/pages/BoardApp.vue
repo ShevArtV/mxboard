@@ -719,6 +719,222 @@ const tab = ref('board');
     border-color: var(--p-primary-color, #10b981);
 }
 
+/* Скрытый нативный input[type=file] — клик проксируем с кнопки/label. */
+.mxb-file-hidden {
+    display: none;
+}
+
+/* Обёртка композера: строка файлов над строкой ввода. */
+.mxb-chat-composer-wrap {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+}
+
+.mxb-chat-composer-wrap .mxb-chat-composer {
+    border-top: 1px solid var(--p-content-border-color, #e2e5e9);
+}
+
+/* Выбранные, но не отправленные файлы над полем ввода. */
+.mxb-composer-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px 0;
+    background: var(--p-content-background, #f6f7f9);
+}
+
+.mxb-composer-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+    padding: 4px 6px 4px 8px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    background: var(--p-surface-0, #fff);
+    font-size: 12px;
+}
+
+.mxb-composer-file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mxb-composer-file-size {
+    opacity: 0.6;
+    white-space: nowrap;
+}
+
+.mxb-composer-file-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.6;
+}
+
+.mxb-composer-file-x:hover {
+    opacity: 1;
+    background: var(--p-surface-100, #f1f3f5);
+}
+
+/* Список вложений (в сообщении, блоке задачи). */
+.mxb-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.mxb-att {
+    position: relative;
+}
+
+/* Картинка-превью. */
+.mxb-att--image .mxb-att-thumb {
+    display: block;
+    width: 120px;
+    height: 120px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+}
+
+.mxb-att--image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Чип файла. */
+.mxb-att--file {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 280px;
+    padding: 6px 10px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 10px;
+    background: var(--p-surface-0, #fff);
+    font-size: 13px;
+}
+
+.mxb-att-icon {
+    color: var(--p-primary-color, #10b981);
+    font-size: 16px;
+}
+
+.mxb-att-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: inherit;
+    text-decoration: none;
+}
+
+.mxb-att-name:hover {
+    text-decoration: underline;
+}
+
+.mxb-att-size {
+    opacity: 0.6;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.mxb-att-dl {
+    color: var(--p-text-muted-color, #6b7280);
+    text-decoration: none;
+}
+
+.mxb-att-dl:hover {
+    color: var(--p-primary-color, #10b981);
+}
+
+/* Кнопка удаления вложения. */
+.mxb-att-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+}
+
+.mxb-att--image .mxb-att-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    font-size: 11px;
+}
+
+.mxb-att--image .mxb-att-remove:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+.mxb-att-remove--inline {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--p-text-muted-color, #6b7280);
+}
+
+.mxb-att-remove--inline:hover {
+    background: var(--p-red-50, #fef2f2);
+    color: var(--p-red-500, #ef4444);
+}
+
+/* Поле типа file в форме. */
+.mxb-filefield {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mxb-filefield-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: 8px;
+    background: var(--p-surface-0, #fff);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.mxb-filefield-btn:hover {
+    border-color: var(--p-primary-color, #10b981);
+}
+
+.mxb-filefield-current {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mxb-filefield-hint {
+    font-size: 12px;
+    opacity: 0.6;
+}
+
 /* Адаптив: узкий экран — колонки стекаются, чат под мета. */
 @media (max-width: 1000px) {
     .mxb-taskpage {

@@ -125,6 +125,47 @@ export const TaskApi = {
     resolveDeadline: (id, accept) => post(T + 'ResolveDeadline', { id, accept: accept ? 1 : 0 }),
 };
 
+// Вложения. Загрузка файлов через useApi невозможна (он кладёт только JSON/скаляры
+// в FormData, а File-объекты не шлёт), поэтому multipart отправляем raw fetch'ем на
+// коннектор компонента — ровно как useApi: action и токен в query (?action=…&HTTP_MODAUTH=…),
+// тело — FormData с полями file[]. Удаление обычным JSON-вызовом.
+export const AttachmentApi = {
+    /**
+     * Загрузить файлы к задаче (commentId=0) или к сообщению чата (commentId>0).
+     * @param {number} taskId
+     * @param {number} commentId
+     * @param {File[]} files
+     */
+    async upload(taskId, commentId, files) {
+        const c = cfg();
+        const url = new URL(c.connector_url, window.location.origin);
+        url.searchParams.set('action', T + 'Upload');
+        if (c.token) url.searchParams.set('HTTP_MODAUTH', c.token);
+
+        const fd = new FormData();
+        fd.append('task_id', String(taskId));
+        fd.append('comment_id', String(commentId || 0));
+        for (const f of files) fd.append('file[]', f, f.name);
+
+        // Content-Type не ставим руками — браузер сам добавит multipart boundary.
+        const res = await fetch(url.toString(), {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        let data = {};
+        try { data = await res.json(); } catch { /* пустой/невалидный ответ */ }
+        // Тот же договор, что у useApi: бросаем при !ok или success===false, тело — в err.data.
+        if (!res.ok || data.success === false) {
+            const err = new Error(data.message || `HTTP ${res.status}`);
+            err.data = data;
+            throw err;
+        }
+        return data;
+    },
+    remove: (attachmentId) => post(T + 'AttachmentRemove', { attachment_id: attachmentId }),
+};
+
 export const TokenApi = {
     getList: (params = {}) => post(K + 'GetList', params),
     create: (user_id, name) => post(K + 'Create', { user_id, name }),

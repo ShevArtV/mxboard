@@ -191,6 +191,16 @@ $_lang['mxboard_ui_created'] = 'Created';
 $_lang['mxboard_ui_task_id'] = 'ID';
 $_lang['mxboard_ui_attach_soon'] = 'File attachments — coming soon';
 
+// Subtask C: front-end attachments (composer, task files block, file field).
+$_lang['mxboard_ui_task_files'] = 'Task files';
+$_lang['mxboard_ui_attach_file'] = 'Attach file';
+$_lang['mxboard_ui_no_files'] = 'No files';
+$_lang['mxboard_ui_download'] = 'Download';
+$_lang['mxboard_ui_clear'] = 'Clear';
+$_lang['mxboard_ui_file_replace'] = 'Replace file';
+$_lang['mxboard_ui_file_after_save'] = 'You can attach a file after saving the task';
+$_lang['mxboard_ui_files_message'] = 'Attached files';
+
 // Log actions (human-readable).
 $_lang['mxboard_act_create'] = 'created';
 $_lang['mxboard_act_move'] = 'moved';
@@ -221,6 +231,10 @@ $_lang['mxboard_msg_comment_added'] = 'Comment added';
 $_lang['mxboard_msg_comment_updated'] = 'Comment updated';
 $_lang['mxboard_msg_comment_deleted'] = 'Comment deleted';
 $_lang['mxboard_msg_confirm_delete_comment'] = 'Delete this comment?';
+$_lang['mxboard_msg_file_uploaded'] = 'File uploaded';
+$_lang['mxboard_msg_file_deleted'] = 'File deleted';
+$_lang['mxboard_msg_confirm_delete_file'] = 'Delete this file?';
+$_lang['mxboard_msg_upload_partial'] = 'Some files were not uploaded';
 $_lang['mxboard_msg_id_copied'] = 'ID copied';
 $_lang['mxboard_msg_saved'] = 'Saved';
 $_lang['mxboard_msg_deadline_disputed'] = 'Deadline disputed';
