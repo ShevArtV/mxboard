@@ -207,11 +207,6 @@ function removeStaged(idx) {
             />
         </div>
 
-        <div class="mxb-field">
-            <label>{{ t('mxboard_ui_tor') }}</label>
-            <textarea v-model="form.tor" class="mxb-textarea" rows="8" />
-        </div>
-
         <!-- Динамические поля выбранного типа. -->
         <div v-if="loadingType" class="mxb-empty">{{ t('mxboard_ui_loading_fields') }}</div>
         <TypeFields
