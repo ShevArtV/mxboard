@@ -97,6 +97,7 @@ $_lang['mxboard_err_upload_no_file'] = 'No file provided.';
 $_lang['mxboard_err_upload_failed'] = 'Failed to upload the file.';
 $_lang['mxboard_err_upload_ext'] = 'File extension is not allowed.';
 $_lang['mxboard_err_upload_size'] = 'File exceeds the allowed size.';
+$_lang['mxboard_err_upload_too_many'] = 'Too many files at once.';
 $_lang['mxboard_err_source_unavailable'] = 'Attachment media source is unavailable — check the mxboard.media_source setting.';
 $_lang['mxboard_err_attachment_not_found'] = 'Attachment not found.';
 $_lang['mxboard_err_attachment_denied'] = 'Only the file author, task author, or a manager can remove an attachment.';
@@ -200,6 +201,8 @@ $_lang['mxboard_ui_clear'] = 'Clear';
 $_lang['mxboard_ui_file_replace'] = 'Replace file';
 $_lang['mxboard_ui_file_after_save'] = 'You can attach a file after saving the task';
 $_lang['mxboard_ui_files_message'] = 'Attached files';
+$_lang['mxboard_ui_drop_hint'] = 'Drop files here or click to choose';
+$_lang['mxboard_ui_too_many_files'] = 'You can attach at most {max} files at once';
 
 // Log actions (human-readable).
 $_lang['mxboard_act_create'] = 'created';

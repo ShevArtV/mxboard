@@ -52,6 +52,12 @@ return [
         'value' => '10485760',
         'area' => 'mxboard_main',
     ],
+    // Сколько файлов можно приложить за один раз (батч drag-n-drop/выбора). 0 — без лимита.
+    'mxboard.upload_max_files' => [
+        'xtype' => 'numberfield',
+        'value' => '10',
+        'area' => 'mxboard_main',
+    ],
     // Разрешённые расширения вложений через запятую (пусто — не ограничиваем на стороне mxBoard;
     // источник всё равно применит свой allowedFileTypes / системный upload_files).
     'mxboard.upload_extensions' => [

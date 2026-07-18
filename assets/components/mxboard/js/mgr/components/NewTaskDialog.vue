@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { Dialog, Button, InputText, Select, useToast } from 'primevue';
-import { TaskApi, TypeApi, DepartmentApi, errorMessage, listOf } from '../api/connector.js';
-import { PRIORITIES } from '../utils/format.js';
+import { TaskApi, TypeApi, DepartmentApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
+import { PRIORITIES, fmtSize } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import TypeFields from './TypeFields.vue';
+import FileDrop from './FileDrop.vue';
 
 const props = defineProps({
     visible: { type: Boolean, default: false },
@@ -30,11 +31,14 @@ const aiVerdict = ref(null);
 const aiCanOverride = ref(false);
 
 const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} });
+// Файлы, приложенные ДО создания задачи: копятся в памяти, грузятся после успешного create.
+const pendingFiles = ref([]);
 
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
     if (!open) return;
     form.value = { type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} };
+    pendingFiles.value = [];
     aiVerdict.value = null;
     aiCanOverride.value = false;
     schema.value = null;
@@ -95,7 +99,7 @@ async function save(override = false) {
 
     saving.value = true;
     try {
-        await TaskApi.create({
+        const res = await TaskApi.create({
             project: props.projectKey,
             parent_id: props.parentId || 0,
             type: form.value.type,
@@ -107,6 +111,19 @@ async function save(override = false) {
             fields: form.value.fields,
             ai_override: override ? 1 : 0,
         });
+        // Задача создана — теперь есть task_id, грузим приложенные заранее файлы (best-effort).
+        const newId = Number(res?.object?.id) || 0;
+        if (newId && pendingFiles.value.length) {
+            try {
+                const up = await AttachmentApi.upload(newId, 0, pendingFiles.value);
+                if (up?.message) {
+                    toast.add({ severity: 'warn', summary: t('mxboard_msg_upload_partial'), detail: up.message, life: 8000 });
+                }
+            } catch (upErr) {
+                // Задача уже создана — файл не критичен, не откатываем, только предупреждаем.
+                toast.add({ severity: 'warn', summary: t('mxboard_err_upload_failed'), detail: errorMessage(upErr), life: 8000 });
+            }
+        }
         toast.add({ severity: 'success', summary: t('mxboard_msg_task_created'), life: 3000 });
         emit('update:visible', false);
         emit('created');
@@ -122,6 +139,15 @@ async function save(override = false) {
     } finally {
         saving.value = false;
     }
+}
+
+// Файлы приходят из FileDrop уже обрезанными по лимиту — просто копим.
+function addStagedFiles(files) {
+    if (files && files.length) pendingFiles.value = pendingFiles.value.concat(files);
+}
+
+function removeStaged(idx) {
+    pendingFiles.value = pendingFiles.value.filter((_, i) => i !== idx);
 }
 </script>
 
@@ -192,6 +218,20 @@ async function save(override = false) {
             :fields="schema.fields"
             :users="users"
         />
+
+        <!-- Файлы задачи: копятся до создания, грузятся после успешного сохранения. -->
+        <div class="mxb-field">
+            <label>{{ t('mxboard_ui_task_files') }}</label>
+            <div v-if="pendingFiles.length" class="mxb-composer-files mxb-staged-files">
+                <span v-for="(f, i) in pendingFiles" :key="i" class="mxb-composer-file">
+                    <i class="pi pi-file" />
+                    <span class="mxb-composer-file-name" :title="f.name">{{ f.name }}</span>
+                    <span class="mxb-composer-file-size">{{ fmtSize(f.size) }}</span>
+                    <button type="button" class="mxb-composer-file-x" :title="t('mxboard_ui_cancel')" @click="removeStaged(i)"><i class="pi pi-times" /></button>
+                </span>
+            </div>
+            <FileDrop :busy="saving" :already="pendingFiles.length" @files="addStagedFiles" />
+        </div>
 
         <!-- Вердикт ИИ-проверки полноты постановки -->
         <div v-if="aiVerdict" class="mxb-ai-verdict">

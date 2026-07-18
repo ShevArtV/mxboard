@@ -9,8 +9,10 @@ import {
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
+import { capFiles } from '../utils/upload.js';
 import TypeFields from '../components/TypeFields.vue';
 import Attachments from '../components/Attachments.vue';
+import FileDrop from '../components/FileDrop.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 
 // Страница задачи — отдельная вью (ручной switch в BoardView, без vue-router).
@@ -38,7 +40,7 @@ const users = ref([]);
 const comment = ref('');
 const pendingFiles = ref([]); // выбранные, но ещё не отправленные файлы композера
 const composerFileInput = ref(null);
-const taskFileInput = ref(null);
+const composerOver = ref(false); // подсветка drop-зоны композера
 const editingCommentId = ref(0);
 const editingCommentText = ref('');
 const editing = ref(false);
@@ -238,11 +240,24 @@ async function addComment() {
     }
 }
 
-// Выбор файлов в композере: докидываем к уже выбранным, чистим input для повторного выбора того же файла.
-function onComposerFiles(event) {
-    const files = Array.from(event.target.files || []);
+// Докинуть файлы в композер (из выбора или drop) с капом числа «за раз» с учётом уже выбранных.
+function addComposerFiles(fileList) {
+    const { files, dropped, max } = capFiles(fileList, pendingFiles.value.length);
+    if (dropped > 0) {
+        toast.add({ severity: 'warn', summary: t('mxboard_ui_too_many_files', { max }), life: 5000 });
+    }
     if (files.length) pendingFiles.value = pendingFiles.value.concat(files);
-    event.target.value = '';
+}
+
+function onComposerFiles(event) {
+    addComposerFiles(event.target.files);
+    event.target.value = ''; // сброс для повторного выбора того же файла
+}
+
+function onComposerDrop(event) {
+    composerOver.value = false;
+    const dt = event.dataTransfer;
+    if (dt && dt.files && dt.files.length) addComposerFiles(dt.files);
 }
 
 function removePendingFile(idx) {
@@ -250,10 +265,9 @@ function removePendingFile(idx) {
 }
 
 // Загрузка файлов прямо к задаче (comment_id=0) — блок «Файлы задачи» в левой колонке.
-async function onTaskFiles(event) {
-    const files = Array.from(event.target.files || []);
-    event.target.value = '';
-    if (!files.length) return;
+// files приходит из FileDrop уже обрезанным по лимиту.
+async function uploadTaskFiles(files) {
+    if (!files || !files.length) return;
     const ok = await act(async () => {
         const up = await AttachmentApi.upload(props.taskId, 0, files);
         if (up?.message) {
@@ -604,9 +618,6 @@ function removeTask(event) {
                         <div class="mxb-section-title">
                             <i class="pi pi-paperclip" />{{ t('mxboard_ui_task_files') }}
                             <span class="mxb-column-count">{{ taskAttachments.length }}</span>
-                            <span class="mxb-toolbar-spacer" />
-                            <Button :label="t('mxboard_ui_attach_file')" icon="pi pi-upload" size="small" severity="secondary" outlined :loading="busy" @click="taskFileInput?.click()" />
-                            <input ref="taskFileInput" type="file" multiple class="mxb-file-hidden" @change="onTaskFiles" />
                         </div>
                         <Attachments
                             :items="taskAttachments"
@@ -615,6 +626,7 @@ function removeTask(event) {
                             @remove="removeAttachment"
                         />
                         <div v-if="!taskAttachments.length" class="mxb-empty">{{ t('mxboard_ui_no_files') }}</div>
+                        <FileDrop :busy="busy" @files="uploadTaskFiles" />
                     </div>
 
                     <!-- Подзадачи -->
@@ -714,8 +726,15 @@ function removeTask(event) {
                     </div>
                 </div>
 
-                <!-- Композер: текст + прикрепление файлов к сообщению -->
-                <div class="mxb-chat-composer-wrap">
+                <!-- Композер: текст + прикрепление файлов к сообщению (drag-n-drop + мультивыбор) -->
+                <div
+                    class="mxb-chat-composer-wrap"
+                    :class="{ 'mxb-composer-over': composerOver }"
+                    @dragover.prevent="composerOver = true"
+                    @dragenter.prevent="composerOver = true"
+                    @dragleave.prevent="composerOver = false"
+                    @drop.prevent="onComposerDrop"
+                >
                     <!-- Выбранные, но ещё не отправленные файлы -->
                     <div v-if="pendingFiles.length" class="mxb-composer-files">
                         <span v-for="(f, i) in pendingFiles" :key="i" class="mxb-composer-file">

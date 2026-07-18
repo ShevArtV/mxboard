@@ -79,6 +79,18 @@ class AttachmentService
 
         $created = [];
         $errors = [];
+
+        // Серверный кап на число файлов за раз — не зависим от фронта. Лишние отсекаем
+        // с явной ошибкой в partial-ответе, обработку продолжаем на разрешённых.
+        $maxFiles = (int) $this->modx->getOption('mxboard.upload_max_files', null, 0);
+        if ($maxFiles > 0 && count($files) > $maxFiles) {
+            foreach (array_slice($files, $maxFiles) as $extra) {
+                $extraName = trim((string) ($extra['name'] ?? ''));
+                $errors[] = $this->lex('mxboard_err_upload_too_many') . ($extraName !== '' ? ": {$extraName}" : '');
+            }
+            $files = array_slice($files, 0, $maxFiles);
+        }
+
         foreach ($files as $file) {
             $name = trim((string) ($file['name'] ?? ''));
             if ($name === '' || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($file['tmp_name'])) {

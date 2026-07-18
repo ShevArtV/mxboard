@@ -97,6 +97,7 @@ $_lang['mxboard_err_upload_no_file'] = 'Файл не передан.';
 $_lang['mxboard_err_upload_failed'] = 'Не удалось загрузить файл.';
 $_lang['mxboard_err_upload_ext'] = 'Недопустимое расширение файла.';
 $_lang['mxboard_err_upload_size'] = 'Файл превышает допустимый размер.';
+$_lang['mxboard_err_upload_too_many'] = 'Превышен лимит числа файлов за раз.';
 $_lang['mxboard_err_source_unavailable'] = 'Media source для вложений недоступен — проверьте настройку mxboard.media_source.';
 $_lang['mxboard_err_attachment_not_found'] = 'Вложение не найдено.';
 $_lang['mxboard_err_attachment_denied'] = 'Удалить вложение может автор файла, автор задачи или менеджер.';
@@ -200,6 +201,8 @@ $_lang['mxboard_ui_clear'] = 'Очистить';
 $_lang['mxboard_ui_file_replace'] = 'Заменить файл';
 $_lang['mxboard_ui_file_after_save'] = 'Файл можно прикрепить после сохранения задачи';
 $_lang['mxboard_ui_files_message'] = 'Прикреплённые файлы';
+$_lang['mxboard_ui_drop_hint'] = 'Перетащите файлы сюда или нажмите для выбора';
+$_lang['mxboard_ui_too_many_files'] = 'Можно приложить не больше {max} файлов за раз';
 
 // Действия журнала (человеческие названия).
 $_lang['mxboard_act_create'] = 'создана';

@@ -65,6 +65,12 @@ class MxboardboardManagerController extends modExtraManagerController
             'is_manager' => $isManager,
             // Гейт вкладки «Токены агентов»: только суперадмин.
             'is_sudo' => (bool) $isSudo,
+            // Лимиты вложений для фронта (кап числа файлов за раз и максимальный размер).
+            // Серверную проверку это не заменяет — только дружелюбная валидация до отправки.
+            'upload' => [
+                'max_files' => (int) $this->modx->getOption('mxboard.upload_max_files', null, 10),
+                'max_size' => (int) $this->modx->getOption('mxboard.upload_max_size', null, 0),
+            ],
         ];
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->modx->regClientStartupHTMLBlock("<script>window.MxBoardConfig = {$json};</script>");

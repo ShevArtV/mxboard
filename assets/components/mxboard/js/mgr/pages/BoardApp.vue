@@ -935,6 +935,56 @@ const tab = ref('board');
     opacity: 0.6;
 }
 
+/* Зона drag-n-drop (FileDrop). */
+.mxb-filedrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 14px 16px;
+    border: 1.5px dashed var(--p-content-border-color, #d1d5db);
+    border-radius: 10px;
+    background: var(--p-content-background, #f6f7f9);
+    color: var(--p-text-muted-color, #6b7280);
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+
+.mxb-filedrop:hover {
+    border-color: var(--p-primary-color, #10b981);
+    color: var(--p-primary-color, #10b981);
+}
+
+.mxb-filedrop--over {
+    border-color: var(--p-primary-color, #10b981);
+    background: var(--p-primary-50, #ecfdf5);
+    color: var(--p-primary-color, #10b981);
+}
+
+.mxb-filedrop--busy {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.mxb-filedrop-icon {
+    font-size: 18px;
+}
+
+/* Подсветка композера при перетаскивании файла в него. */
+.mxb-composer-over {
+    outline: 2px dashed var(--p-primary-color, #10b981);
+    outline-offset: -2px;
+    background: var(--p-primary-50, #ecfdf5);
+}
+
+/* Staged-файлы в диалоге создания: не липнут к низу, как в композере. */
+.mxb-staged-files {
+    padding: 0 0 6px;
+    background: transparent;
+}
+
 /* Адаптив: узкий экран — колонки стекаются, чат под мета. */
 @media (max-width: 1000px) {
     .mxb-taskpage {
