@@ -51,6 +51,13 @@ const disputeOpen = ref(false);
 const dispute = ref({ date: '', reason: '' });
 const subtaskOpen = ref(false);
 
+// Кат для собранного описания: прячем длинный текст под max-height и показываем
+// кнопку «Развернуть» только если текст реально не влез (замер после рендера).
+const DESC_CLAMP_PX = 320;
+const descEl = ref(null);
+const descExpanded = ref(false);
+const descOverflow = ref(false);
+
 const isAuthor = computed(() => !!task.value && task.value.author_id === props.userId);
 const isAssignee = computed(() => !!task.value && task.value.assignee_id === props.userId);
 const canManage = computed(() => isAuthor.value || props.canMoveAny);
@@ -128,6 +135,15 @@ const textFieldsMd = computed(() => fieldRows.value
     .map((f) => `# ${f.label}\n\n${String(f.value)}`)
     .join('\n\n'));
 const otherFieldRows = computed(() => fieldRows.value.filter((f) => !TEXT_FIELD_TYPES.includes(f.type)));
+
+// Перемер высоты собранного текста после смены содержимого/задачи.
+function measureDesc() {
+    nextTick(() => {
+        const el = descEl.value;
+        descOverflow.value = !!el && el.scrollHeight > DESC_CLAMP_PX + 8;
+    });
+}
+watch(textFieldsMd, () => { descExpanded.value = false; measureDesc(); }, { immediate: true });
 
 // Человеческое название действия журнала (ключ mxboard_act_<action>), иначе — как есть.
 function actionLabel(action) {
@@ -444,6 +460,42 @@ function removeTask(event) {
 
                 <h2 class="mxb-task-title">{{ task.title }}</h2>
 
+                <!-- Описание: собранные текстовые поля типа — первым блоком, длинный текст под катом. -->
+                <div v-if="!editing && (textFieldsMd || otherFieldRows.length)" class="mxb-section">
+                    <template v-if="textFieldsMd">
+                        <div
+                            ref="descEl"
+                            class="mxb-md"
+                            :class="{ 'mxb-md--clamp': descOverflow && !descExpanded }"
+                            v-html="renderMarkdown(textFieldsMd)"
+                        />
+                        <button
+                            v-if="descOverflow"
+                            type="button"
+                            class="mxb-md-toggle"
+                            @click="descExpanded = !descExpanded"
+                        >
+                            <i :class="descExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" />
+                            {{ descExpanded ? t('mxboard_ui_collapse') : t('mxboard_ui_expand') }}
+                        </button>
+                    </template>
+                    <!-- Нетекстовые поля — отдельными строками. -->
+                    <div v-for="f in otherFieldRows" :key="f.key" class="mxb-fieldrow">
+                        <template v-if="f.type === 'url'">
+                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                            <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
+                        </template>
+                        <template v-else-if="f.type === 'file'">
+                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                            <a :href="f.value" target="_blank" rel="noopener" download class="mxb-fieldrow-link"><i class="pi pi-paperclip" /> {{ t('mxboard_ui_download') }}</a>
+                        </template>
+                        <template v-else>
+                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
+                            <span class="mxb-fieldrow-value">{{ f.value }}</span>
+                        </template>
+                    </div>
+                </div>
+
                 <!-- Мета-карточка -->
                 <div class="mxb-meta-card">
                     <div class="mxb-meta-row">
@@ -613,29 +665,6 @@ function removeTask(event) {
                         <ul v-if="task.ai_verdict.missing && task.ai_verdict.missing.length" class="mxb-ai-verdict-missing">
                             <li v-for="(m, i) in task.ai_verdict.missing" :key="i">{{ m }}</li>
                         </ul>
-                    </div>
-
-                    <div v-if="textFieldsMd || otherFieldRows.length" class="mxb-section">
-                        <!-- Текстовые поля типа — единым оформленным документом (подписи = заголовки). -->
-                        <div v-if="textFieldsMd" class="mxb-md" v-html="renderMarkdown(textFieldsMd)" />
-                        <!-- Нетекстовые поля — отдельными строками. -->
-                        <div v-for="f in otherFieldRows" :key="f.key" class="mxb-fieldrow">
-                            <!-- URL: подпись + ссылка -->
-                            <template v-if="f.type === 'url'">
-                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                                <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
-                            </template>
-                            <!-- File: подпись + ссылка на файл со скачиванием -->
-                            <template v-else-if="f.type === 'file'">
-                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                                <a :href="f.value" target="_blank" rel="noopener" download class="mxb-fieldrow-link"><i class="pi pi-paperclip" /> {{ t('mxboard_ui_download') }}</a>
-                            </template>
-                            <!-- Date/number/user/select: inline через двоеточие -->
-                            <template v-else>
-                                <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                                <span class="mxb-fieldrow-value">{{ f.value }}</span>
-                            </template>
-                        </div>
                     </div>
 
                     <!-- Подзадачи -->

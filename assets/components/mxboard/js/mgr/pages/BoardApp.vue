@@ -386,6 +386,41 @@ const tab = ref('board');
     padding: 0;
 }
 
+/* Кат длинного описания: ограничение по высоте с затуханием у нижнего края. */
+.mxb-md--clamp {
+    max-height: 320px;
+    overflow: hidden;
+    position: relative;
+}
+.mxb-md--clamp::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56px;
+    background: linear-gradient(to bottom, transparent, var(--p-surface-0, #fff));
+    pointer-events: none;
+}
+.mxb-md-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 5px 14px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: var(--mxb-radius-pill);
+    background: var(--p-surface-0, #fff);
+    color: var(--mxb-ink-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.mxb-md-toggle:hover {
+    background: var(--p-surface-50, #f6f7f9);
+    color: var(--p-text-color, #1e2530);
+}
+
 /* Секция — не «карточка», а раздел: заголовок + верхний разделитель, без рамки и
    фона. Так вложенные подзадачи/плитки не образуют card-in-card. Единственные
    поверхности слева — мета-карта и (справа) чат. */
@@ -604,7 +639,7 @@ const tab = ref('board');
 .mxb-task-body {
     flex: 1;
     display: grid;
-    grid-template-columns: minmax(340px, 460px) minmax(0, 1fr);
+    grid-template-columns: minmax(340px, 1fr) minmax(0, 2fr);
     gap: 16px;
     min-height: 0;
     overflow: hidden;
