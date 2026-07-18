@@ -795,109 +795,90 @@ const tab = ref('board');
     margin-top: 6px;
 }
 
+/* Единый формат вложения — квадратная плитка. */
 .mxb-att {
     position: relative;
-}
-
-/* Картинка-превью. */
-.mxb-att--image .mxb-att-thumb {
-    display: block;
-    width: 120px;
-    height: 120px;
+    width: 104px;
+    height: 104px;
     border-radius: 10px;
     overflow: hidden;
     border: 1px solid var(--p-content-border-color, #e2e5e9);
+    background: var(--p-surface-0, #fff);
 }
 
-.mxb-att--image img {
+.mxb-att-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    height: 100%;
+    padding: 8px;
+    box-sizing: border-box;
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Картинка — превью на всю плитку. */
+.mxb-att-img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
 }
 
-/* Чип файла. */
-.mxb-att--file {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 280px;
-    padding: 6px 10px;
-    border: 1px solid var(--p-content-border-color, #e2e5e9);
-    border-radius: 10px;
-    background: var(--p-surface-0, #fff);
-    font-size: 13px;
+.mxb-att--image .mxb-att-body {
+    padding: 0;
 }
 
-.mxb-att-icon {
+/* Файл — крупная иконка + имя. */
+/* Специфичность .mxb-att перебивает PrimeIcons `.pi { font-size: 1rem }`. */
+.mxb-att .mxb-att-icon {
     color: var(--p-primary-color, #10b981);
-    font-size: 16px;
+    font-size: 46px;
+    line-height: 1;
 }
 
 .mxb-att-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: inherit;
-    text-decoration: none;
+    text-align: center;
+    font-size: 11px;
+    line-height: 1.25;
+    word-break: break-word;
+    color: var(--p-text-color, #374151);
 }
 
-.mxb-att-name:hover {
-    text-decoration: underline;
-}
-
-.mxb-att-size {
-    opacity: 0.6;
-    white-space: nowrap;
-    margin-left: auto;
-}
-
-.mxb-att-dl {
-    color: var(--p-text-muted-color, #6b7280);
-    text-decoration: none;
-}
-
-.mxb-att-dl:hover {
-    color: var(--p-primary-color, #10b981);
-}
-
-/* Кнопка удаления вложения. */
+/* Кнопка удаления — в углу плитки, по наведению. */
 .mxb-att-remove {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    border: none;
-    cursor: pointer;
-    color: #fff;
-}
-
-.mxb-att--image .mxb-att-remove {
     position: absolute;
     top: 4px;
     right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 22px;
     height: 22px;
+    padding: 0;
+    border: none;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.55);
+    color: #fff;
     font-size: 11px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s;
 }
 
-.mxb-att--image .mxb-att-remove:hover {
-    background: rgba(0, 0, 0, 0.8);
+.mxb-att:hover .mxb-att-remove {
+    opacity: 1;
 }
 
-.mxb-att-remove--inline {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--p-text-muted-color, #6b7280);
-}
-
-.mxb-att-remove--inline:hover {
-    background: var(--p-red-50, #fef2f2);
-    color: var(--p-red-500, #ef4444);
+.mxb-att-remove:hover {
+    background: var(--p-red-500, #ef4444);
 }
 
 /* Поле типа file в форме. */

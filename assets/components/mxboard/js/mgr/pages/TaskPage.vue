@@ -222,8 +222,8 @@ async function addComment() {
     const files = pendingFiles.value.slice();
     busy.value = true;
     try {
-        const content = text || t('mxboard_ui_files_message');
-        const res = await TaskApi.comment(props.taskId, content);
+        // Сообщение только с файлами — без текста и без плейсхолдера; содержательное — вложения.
+        const res = await TaskApi.comment(props.taskId, text, !text && files.length > 0);
         const commentId = Number(res?.object?.id) || 0;
         if (files.length && commentId) {
             const up = await AttachmentApi.upload(props.taskId, commentId, files);
@@ -708,7 +708,7 @@ function removeTask(event) {
                                     </div>
                                 </template>
                                 <template v-else>
-                                    <div class="mxb-md" v-html="renderMarkdown(c.content)" />
+                                    <div v-if="c.content" class="mxb-md" v-html="renderMarkdown(c.content)" />
                                     <Attachments
                                         v-if="c.attachments && c.attachments.length"
                                         :items="c.attachments"

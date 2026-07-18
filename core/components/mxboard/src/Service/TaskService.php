@@ -261,10 +261,12 @@ class TaskService
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
-    public function comment(modUser $user, int $taskId, string $content, string $channel = 'mcp'): array
+    public function comment(modUser $user, int $taskId, string $content, string $channel = 'mcp', bool $allowEmpty = false): array
     {
+        // Пустой текст допустим только для сообщения-вложения (allowEmpty=1 от чат-UI,
+        // где к комменту тут же цепляются файлы). Для REST/MCP текст по-прежнему обязателен.
         $content = trim($content);
-        if ($content === '') {
+        if ($content === '' && !$allowEmpty) {
             return $this->fail('mxboard_err_comment_empty');
         }
 

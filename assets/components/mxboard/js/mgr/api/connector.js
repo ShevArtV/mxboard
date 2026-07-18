@@ -115,7 +115,7 @@ export const TaskApi = {
     get: (id) => post(T + 'Get', { id }),
     create: (data) => post(T + 'Create', data),
     move: (id, column, note = '') => post(T + 'Move', { id, column, note }),
-    comment: (id, content) => post(T + 'Comment', { id, content }),
+    comment: (id, content, allowEmpty = false) => post(T + 'Comment', { id, content, allow_empty: allowEmpty ? 1 : 0 }),
     updateComment: (taskId, commentId, content) => post(T + 'CommentUpdate', { id: taskId, comment_id: commentId, content }),
     deleteComment: (taskId, commentId) => post(T + 'CommentDelete', { id: taskId, comment_id: commentId }),
     update: (data) => post(T + 'Update', data),

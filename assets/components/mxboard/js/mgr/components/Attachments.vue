@@ -1,11 +1,10 @@
 <script setup>
 import { computed } from 'vue';
-import { fmtSize } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 
 /**
- * Показ списка вложений: картинки (is_image) — превью-плиткой, прочее — чипом
- * с иконкой/именем/размером и ссылкой на скачивание. Удаление — эмитом наверх;
+ * Показ списка вложений единым форматом: квадратная плитка — превью для картинок,
+ * иконка + имя для прочего; полное имя по наведению. Удаление — эмитом наверх;
  * кнопку показываем автору файла и менеджеру (сервер всё равно проверит право).
  */
 const props = defineProps({
@@ -42,35 +41,29 @@ function fileIcon(ext) {
 
 <template>
     <div v-if="list.length" class="mxb-attachments">
-        <template v-for="att in list" :key="att.id">
-            <!-- Картинка: превью-плитка -->
-            <div v-if="att.is_image" class="mxb-att mxb-att--image">
-                <a :href="att.url" target="_blank" rel="noopener" class="mxb-att-thumb">
-                    <img :src="att.url" :alt="att.name" loading="lazy" />
-                </a>
-                <button
-                    v-if="canRemove(att)"
-                    type="button"
-                    class="mxb-att-remove"
-                    :title="t('mxboard_ui_delete')"
-                    @click="emit('remove', att, $event)"
-                ><i class="pi pi-times" /></button>
-            </div>
-
-            <!-- Прочее: чип -->
-            <div v-else class="mxb-att mxb-att--file">
-                <i class="mxb-att-icon" :class="fileIcon(att.ext)" />
-                <a :href="att.url" target="_blank" rel="noopener" class="mxb-att-name" :title="att.name">{{ att.name }}</a>
-                <span class="mxb-att-size">{{ fmtSize(att.size) }}</span>
-                <a :href="att.url" target="_blank" rel="noopener" download class="mxb-att-dl" :title="t('mxboard_ui_download')"><i class="pi pi-download" /></a>
-                <button
-                    v-if="canRemove(att)"
-                    type="button"
-                    class="mxb-att-remove mxb-att-remove--inline"
-                    :title="t('mxboard_ui_delete')"
-                    @click="emit('remove', att, $event)"
-                ><i class="pi pi-times" /></button>
-            </div>
-        </template>
+        <!-- Единый формат: квадратная плитка. Картинка — превью; прочее — иконка + имя.
+             При наведении — полное имя (title + всплывающая подпись). -->
+        <div
+            v-for="att in list"
+            :key="att.id"
+            class="mxb-att"
+            :class="att.is_image ? 'mxb-att--image' : 'mxb-att--file'"
+            :title="att.name"
+        >
+            <a :href="att.url" target="_blank" rel="noopener" :download="att.is_image ? null : att.name" class="mxb-att-body">
+                <img v-if="att.is_image" :src="att.url" :alt="att.name" loading="lazy" class="mxb-att-img" />
+                <template v-else>
+                    <i class="mxb-att-icon" :class="fileIcon(att.ext)" />
+                    <span class="mxb-att-name">{{ att.name }}</span>
+                </template>
+            </a>
+            <button
+                v-if="canRemove(att)"
+                type="button"
+                class="mxb-att-remove"
+                :title="t('mxboard_ui_delete')"
+                @click.prevent="emit('remove', att, $event)"
+            ><i class="pi pi-times" /></button>
+        </div>
     </div>
 </template>

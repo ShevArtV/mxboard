@@ -19,7 +19,8 @@ class Comment extends ServiceProcessor
             $user,
             (int) $this->getProperty('id', 0),
             (string) $this->getProperty('content', ''),
-            'mgr'
+            'mgr',
+            (bool) $this->getProperty('allow_empty', false)
         ));
     }
 }
