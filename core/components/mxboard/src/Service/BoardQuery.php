@@ -277,6 +277,20 @@ class BoardQuery
         }
         $out['subtasks'] = $subtasks;
 
+        // Вложения задачи одним запросом, разложенные на «уровня задачи» (comment_id=0) и
+        // по каждому комментарию — чтобы фронт (B/C) показал их у задачи и в сообщениях.
+        $attachmentsByComment = [];
+        $taskAttachments = [];
+        foreach ((new AttachmentService($this->modx))->listForTask((int) $task->get('id')) as $attachment) {
+            $commentId = (int) $attachment['comment_id'];
+            if ($commentId > 0) {
+                $attachmentsByComment[$commentId][] = $attachment;
+            } else {
+                $taskAttachments[] = $attachment;
+            }
+        }
+        $out['attachments'] = $taskAttachments;
+
         // Комментарии.
         $mq = $this->modx->newQuery(MxBoardComment::class);
         $mq->where(['task_id' => (int) $task->get('id')]);
@@ -284,10 +298,15 @@ class BoardQuery
         $comments = [];
         /** @var MxBoardComment $comment */
         foreach ($this->modx->getCollection(MxBoardComment::class, $mq) as $comment) {
+            $commentId = (int) $comment->get('id');
             $comments[] = [
+                'id' => $commentId,
+                'user_id' => (int) $comment->get('user_id'),
                 'user' => $this->username((int) $comment->get('user_id')),
                 'content' => (string) $comment->get('content'),
                 'createdon' => (int) $comment->get('createdon'),
+                'updatedon' => (int) $comment->get('updatedon'),
+                'attachments' => $attachmentsByComment[$commentId] ?? [],
             ];
         }
         $out['comments'] = $comments;

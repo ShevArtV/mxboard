@@ -49,6 +49,7 @@ $classes = [
     \MxBoard\Model\MxBoardComment::class,
     \MxBoard\Model\MxBoardLog::class,
     \MxBoard\Model\MxBoardToken::class,
+    \MxBoard\Model\MxBoardAttachment::class,
 ];
 
 $manager = $modx->getManager();

@@ -382,7 +382,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'cardinality' => 'many',
                 'owner' => 'local',
             ),
-            'Logs' => 
+            'Logs' =>
             array (
                 'class' => 'MxBoard\\Model\\MxBoardLog',
                 'local' => 'id',
@@ -390,8 +390,16 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'cardinality' => 'many',
                 'owner' => 'local',
             ),
+            'Attachments' =>
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardAttachment',
+                'local' => 'id',
+                'foreign' => 'task_id',
+                'cardinality' => 'many',
+                'owner' => 'local',
+            ),
         ),
-        'aggregates' => 
+        'aggregates' =>
         array (
             'Project' => 
             array (

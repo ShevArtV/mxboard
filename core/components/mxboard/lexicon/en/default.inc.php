@@ -92,6 +92,15 @@ $_lang['mxboard_err_column_protected'] = 'Cannot remove the initial or final col
 $_lang['mxboard_err_column_has_tasks'] = 'Cannot remove the column: it still has tasks.';
 $_lang['mxboard_err_api_disabled'] = 'REST API is disabled by the mxboard.api_enabled system setting.';
 
+// Subtask A: task and chat message attachments.
+$_lang['mxboard_err_upload_no_file'] = 'No file provided.';
+$_lang['mxboard_err_upload_failed'] = 'Failed to upload the file.';
+$_lang['mxboard_err_upload_ext'] = 'File extension is not allowed.';
+$_lang['mxboard_err_upload_size'] = 'File exceeds the allowed size.';
+$_lang['mxboard_err_source_unavailable'] = 'Attachment media source is unavailable — check the mxboard.media_source setting.';
+$_lang['mxboard_err_attachment_not_found'] = 'Attachment not found.';
+$_lang['mxboard_err_attachment_denied'] = 'Only the file author, task author, or a manager can remove an attachment.';
+
 $_lang['mxboard_department'] = 'Department';
 $_lang['mxboard_project'] = 'Project';
 $_lang['mxboard_task_type'] = 'Task type';

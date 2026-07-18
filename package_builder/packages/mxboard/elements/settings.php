@@ -39,10 +39,24 @@ return [
         'value' => '0',
         'area' => 'mxboard_rights',
     ],
-    // Медиа-источник MODX для загрузки файлов в поля-файлы (0 — источник по умолчанию).
+    // Медиа-источник MODX для вложений задач/комментов и полей-файлов. Заполняется
+    // резолвером 03 при установке (выделенный источник «mxBoard»). 0 — источник по умолчанию.
     'mxboard.media_source' => [
         'xtype' => 'numberfield',
         'value' => '0',
+        'area' => 'mxboard_main',
+    ],
+    // Максимальный размер вложения, байт (0 — без своего лимита, действует лимит источника/MODX).
+    'mxboard.upload_max_size' => [
+        'xtype' => 'numberfield',
+        'value' => '10485760',
+        'area' => 'mxboard_main',
+    ],
+    // Разрешённые расширения вложений через запятую (пусто — не ограничиваем на стороне mxBoard;
+    // источник всё равно применит свой allowedFileTypes / системный upload_files).
+    'mxboard.upload_extensions' => [
+        'xtype' => 'textfield',
+        'value' => 'jpg,jpeg,png,gif,webp,svg,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,md,csv,zip,rar,7z,log,json',
         'area' => 'mxboard_main',
     ],
 

@@ -92,6 +92,15 @@ $_lang['mxboard_err_column_protected'] = 'Нельзя удалить старт
 $_lang['mxboard_err_column_has_tasks'] = 'Нельзя удалить колонку: в ней есть задачи.';
 $_lang['mxboard_err_api_disabled'] = 'REST-API отключён системной настройкой mxboard.api_enabled.';
 
+// Подзадача A: вложения задач и сообщений чата.
+$_lang['mxboard_err_upload_no_file'] = 'Файл не передан.';
+$_lang['mxboard_err_upload_failed'] = 'Не удалось загрузить файл.';
+$_lang['mxboard_err_upload_ext'] = 'Недопустимое расширение файла.';
+$_lang['mxboard_err_upload_size'] = 'Файл превышает допустимый размер.';
+$_lang['mxboard_err_source_unavailable'] = 'Media source для вложений недоступен — проверьте настройку mxboard.media_source.';
+$_lang['mxboard_err_attachment_not_found'] = 'Вложение не найдено.';
+$_lang['mxboard_err_attachment_denied'] = 'Удалить вложение может автор файла, автор задачи или менеджер.';
+
 $_lang['mxboard_department'] = 'Отдел';
 $_lang['mxboard_project'] = 'Проект';
 $_lang['mxboard_task_type'] = 'Тип задачи';

@@ -354,6 +354,10 @@ class TaskService
             return $this->fail('mxboard_err_comment_author_only');
         }
 
+        // Вложения сообщения: физфайлы удаляем явно (composite снял бы лишь записи и только
+        // по задаче) ДО удаления коммента.
+        (new AttachmentService($this->modx))->purgeForComment($commentId);
+
         if (!$comment->remove()) {
             return $this->fail('mxboard_err_save');
         }
@@ -564,6 +568,10 @@ class TaskService
         $childrenTable = $this->modx->getTableName(MxBoardTask::class);
         $stmt = $this->modx->prepare("UPDATE {$childrenTable} SET parent_id = 0 WHERE parent_id = :id");
         $stmt->execute([':id' => $taskId]);
+
+        // Физфайлы всех вложений (задачи и её комментов) — до remove(): composite снимет
+        // только записи, файлы в источнике останутся сиротами, если их не снести явно.
+        (new AttachmentService($this->modx))->purgeForTask($taskId);
 
         if (!$task->remove()) {
             return $this->fail('mxboard_err_save');

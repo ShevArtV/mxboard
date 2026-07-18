@@ -16,6 +16,7 @@ $xpdo_meta_map = array (
             6 => 'MxBoard\\Model\\MxBoardComment',
             7 => 'MxBoard\\Model\\MxBoardLog',
             8 => 'MxBoard\\Model\\MxBoardToken',
+            9 => 'MxBoard\\Model\\MxBoardAttachment',
         ),
     ),
 );
