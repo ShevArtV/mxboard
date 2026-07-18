@@ -40,6 +40,7 @@ const deadlineToneClass = computed(() => `mxb-deadline-chip--${deadlineTone(prop
         </div>
 
         <div class="mxb-card-tags">
+            <span v-if="task.num" class="mxb-chip mxb-chip--num">{{ task.num }}</span>
             <Tag :value="priority.label" :severity="priority.severity" />
             <span v-if="task.type_key" class="mxb-chip mxb-chip--type">{{ task.type_key }}</span>
         </div>

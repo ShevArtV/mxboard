@@ -10,6 +10,7 @@ use xPDO\xPDO;
  * @property integer $parent_id
  * @property integer $type_id
  * @property integer $column_id
+ * @property string $num
  * @property string $title
  * @property string $tor
  * @property integer $author_id

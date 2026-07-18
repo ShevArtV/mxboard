@@ -178,10 +178,12 @@ class StructureService
     }
 
     /**
-     * Создать проект с колонками. Без колонок — берётся глобальный шаблон (project_id=0).
+     * Создать проект. Колонки опциональны: без них проект создаётся пустым — доска
+     * покажет дефолтный шаблон (project_id=0), свои колонки задаются позже копированием
+     * (copyColumns). Если колонки переданы явно (API) — инвариант «ровно одна initial и
+     * ровно одна final» проверяется здесь.
      *
-     * Право: менеджер отдела. Инвариант: ровно одна initial и ровно одна final.
-     * Уникум `(department_id, key)`.
+     * Право: менеджер отдела. Уникум `(department_id, key)`.
      *
      * @param array<string, mixed> $data
      *
@@ -211,13 +213,14 @@ class StructureService
         }
 
         $columnsInput = $data['columns'] ?? [];
-        $columns = is_array($columnsInput) && $columnsInput !== []
-            ? $this->normalizeColumns($columnsInput)
-            : $this->templateColumns();
-
-        [$columns, $columnError] = $columns;
-        if ($columnError !== null) {
-            return $this->fail($columnError);
+        if (is_array($columnsInput) && $columnsInput !== []) {
+            [$columns, $columnError] = $this->normalizeColumns($columnsInput);
+            if ($columnError !== null) {
+                return $this->fail($columnError);
+            }
+        } else {
+            // Без явных колонок — проект пустой (fallback на шаблон при показе доски).
+            $columns = [];
         }
 
         $now = time();
@@ -251,7 +254,7 @@ class StructureService
                 'name' => $col['name'],
                 'position' => $pos,
                 'move_roles' => $col['move_roles'],
-                'stage_key' => $col['stage_key'],
+                'color' => $col['color'],
                 'is_initial' => $col['is_initial'],
                 'is_final' => $col['is_final'],
                 'createdon' => $now,
@@ -626,7 +629,7 @@ class StructureService
      * Флаги is_initial/is_final здесь игнорируются: у проекта они уже стоят на других
      * колонках (инвариант «ровно одна»), перенос — через updateColumn.
      *
-     * @param array<string, mixed> $data project_id + key/name/move_roles/stage_key/position
+     * @param array<string, mixed> $data project_id + key/name/move_roles/color/position
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
@@ -660,7 +663,6 @@ class StructureService
             'name' => $name,
             'position' => $position,
             'move_roles' => trim((string) ($data['move_roles'] ?? '')),
-            'stage_key' => trim((string) ($data['stage_key'] ?? '')),
             'color' => trim((string) ($data['color'] ?? '#6c757d')),
             'is_initial' => false,
             'is_final' => false,
@@ -675,7 +677,7 @@ class StructureService
     }
 
     /**
-     * Правка колонки: name, move_roles, stage_key, position; `key` не меняется
+     * Правка колонки: name, move_roles, color, position; `key` не меняется
      * (он в журнале переходов). is_initial/is_final = 1 ПЕРЕНОСИТ флаг с прежней
      * колонки-носителя — инвариант «ровно одна» сохраняется сам собой; снять флаг
      * в 0 напрямую нельзя (falsy-значения игнорируются).
@@ -705,9 +707,6 @@ class StructureService
         }
         if (array_key_exists('move_roles', $data)) {
             $column->set('move_roles', trim((string) $data['move_roles']));
-        }
-        if (array_key_exists('stage_key', $data)) {
-            $column->set('stage_key', trim((string) $data['stage_key']));
         }
         if (array_key_exists('color', $data)) {
             $column->set('color', trim((string) $data['color']) ?: '#6c757d');
@@ -759,6 +758,164 @@ class StructureService
         }
 
         return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Скопировать набор колонок в проект из источника (другой проект или глобальный
+     * шаблон project_id = 0). Доступно ТОЛЬКО пока в целевом проекте нет ни одной задачи:
+     * иначе смена column_id осиротила бы карточки. Идемпотентно: прежние свои колонки
+     * проекта удаляются, затем создаётся набор источника (позиция — по порядку).
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function copyColumns(modUser $user, int $targetProjectId, int $sourceId): array
+    {
+        if ($targetProjectId <= 0) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+        $error = $this->columnScopeGate($user, $targetProjectId);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+        if ($sourceId === $targetProjectId) {
+            return $this->fail('mxboard_err_copy_source_invalid');
+        }
+        if ((int) $this->modx->getCount(MxBoardTask::class, ['project_id' => $targetProjectId]) > 0) {
+            return $this->fail('mxboard_err_copy_has_tasks');
+        }
+
+        [$columns, $srcError] = $sourceId === 0
+            ? $this->templateColumns()
+            : $this->projectColumns($sourceId);
+        if ($srcError !== null) {
+            return $this->fail($srcError);
+        }
+
+        $now = time();
+        $this->modx->beginTransaction();
+
+        // Задач нет — осиротить нечего: сносим прежние свои колонки цели и создаём заново.
+        foreach ($this->modx->getCollection(MxBoardColumn::class, ['project_id' => $targetProjectId]) as $old) {
+            if (!$old->remove()) {
+                $this->modx->rollback();
+                return $this->fail('mxboard_err_save');
+            }
+        }
+
+        foreach ($columns as $pos => $col) {
+            /** @var MxBoardColumn $column */
+            $column = $this->modx->newObject(MxBoardColumn::class);
+            $column->fromArray([
+                'project_id' => $targetProjectId,
+                'key' => $col['key'],
+                'name' => $col['name'],
+                'position' => $pos,
+                'move_roles' => $col['move_roles'],
+                'color' => $col['color'],
+                'is_initial' => $col['is_initial'],
+                'is_final' => $col['is_final'],
+                'createdon' => $now,
+            ]);
+            if (!$column->save()) {
+                $this->modx->rollback();
+                return $this->fail('mxboard_err_save');
+            }
+        }
+
+        $this->modx->commit();
+
+        return $this->ok(['project_id' => $targetProjectId, 'columns' => $columns]);
+    }
+
+    /**
+     * Источники для копирования колонок в проект: глобальный шаблон (если не пуст) +
+     * проекты того же отдела, у которых есть свои колонки (кроме самого целевого).
+     * Фронт: если источник ровно один — копирует без диалога выбора.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function columnSources(modUser $user, int $projectId): array
+    {
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, $projectId);
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+        if (!Transitions::isDepartmentManager($this->modx, $user, (int) $project->get('department_id'))) {
+            return $this->fail('mxboard_err_structure_denied');
+        }
+
+        $sources = [];
+        if ($this->columnsOf(0) !== []) {
+            $sources[] = [
+                'id' => 0,
+                'key' => '',
+                'name' => $this->modx->lexicon('mxboard_ui_struct_source_default') ?: 'По умолчанию',
+            ];
+        }
+
+        $c = $this->modx->newQuery(MxBoardProject::class);
+        $c->where(['department_id' => (int) $project->get('department_id')]);
+        $c->sortby('position', 'ASC');
+        /** @var MxBoardProject $p */
+        foreach ($this->modx->getCollection(MxBoardProject::class, $c) as $p) {
+            $pid = (int) $p->get('id');
+            if ($pid === $projectId) {
+                continue;
+            }
+            if ((int) $this->modx->getCount(MxBoardColumn::class, ['project_id' => $pid]) > 0) {
+                $sources[] = ['id' => $pid, 'key' => (string) $p->get('key'), 'name' => (string) $p->get('name')];
+            }
+        }
+
+        return $this->ok(['sources' => $sources]);
+    }
+
+    /**
+     * Переупорядочить колонки проекта: массив id в новом порядке, position — по индексу.
+     * Требуется полная перестановка (набор id совпадает с колонками проекта).
+     *
+     * @param list<int> $orderedIds
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function reorderColumns(modUser $user, int $projectId, array $orderedIds): array
+    {
+        $error = $this->columnScopeGate($user, $projectId);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $orderedIds)));
+        if ($ids === []) {
+            return $this->fail('mxboard_err_column_invalid');
+        }
+
+        /** @var array<int, MxBoardColumn> $own */
+        $own = [];
+        foreach ($this->modx->getCollection(MxBoardColumn::class, ['project_id' => $projectId]) as $col) {
+            $own[(int) $col->get('id')] = $col;
+        }
+        if (count($ids) !== count($own)) {
+            return $this->fail('mxboard_err_reorder_mismatch');
+        }
+        foreach ($ids as $id) {
+            if (!isset($own[$id])) {
+                return $this->fail('mxboard_err_reorder_mismatch');
+            }
+        }
+
+        $this->modx->beginTransaction();
+        foreach ($ids as $pos => $id) {
+            $own[$id]->set('position', $pos);
+            if (!$own[$id]->save()) {
+                $this->modx->rollback();
+                return $this->fail('mxboard_err_save');
+            }
+        }
+        $this->modx->commit();
+
+        return $this->ok(['project_id' => $projectId, 'order' => $ids]);
     }
 
     /**
@@ -889,7 +1046,6 @@ class StructureService
                 'key' => $key,
                 'name' => $name,
                 'move_roles' => trim((string) ($raw['move_roles'] ?? '')),
-                'stage_key' => trim((string) ($raw['stage_key'] ?? '')),
                 'color' => trim((string) ($raw['color'] ?? '#6c757d')),
                 'is_initial' => $isInitial,
                 'is_final' => $isFinal,
@@ -904,14 +1060,15 @@ class StructureService
     }
 
     /**
-     * Колонки из глобального шаблона (project_id = 0).
+     * Колонки указанного проекта (или шаблона project_id = 0) как плоский массив для
+     * клонирования (без id/position — position назначается заново по порядку).
      *
-     * @return array{0: list<array<string, mixed>>, 1: string|null}
+     * @return list<array<string, mixed>>
      */
-    private function templateColumns(): array
+    private function columnsOf(int $projectId): array
     {
         $c = $this->modx->newQuery(MxBoardColumn::class);
-        $c->where(['project_id' => 0]);
+        $c->where(['project_id' => $projectId]);
         $c->sortby('position', 'ASC');
 
         $out = [];
@@ -921,18 +1078,37 @@ class StructureService
                 'key' => (string) $column->get('key'),
                 'name' => (string) $column->get('name'),
                 'move_roles' => (string) $column->get('move_roles'),
-                'stage_key' => (string) $column->get('stage_key'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
             ];
         }
 
-        if ($out === []) {
-            return [[], 'mxboard_err_no_template_columns'];
-        }
+        return $out;
+    }
 
-        return [$out, null];
+    /**
+     * Колонки глобального шаблона (project_id = 0) для копирования.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: string|null}
+     */
+    private function templateColumns(): array
+    {
+        $out = $this->columnsOf(0);
+
+        return $out === [] ? [[], 'mxboard_err_no_template_columns'] : [$out, null];
+    }
+
+    /**
+     * Колонки проекта-источника для копирования.
+     *
+     * @return array{0: list<array<string, mixed>>, 1: string|null}
+     */
+    private function projectColumns(int $projectId): array
+    {
+        $out = $this->columnsOf($projectId);
+
+        return $out === [] ? [[], 'mxboard_err_copy_source_empty'] : [$out, null];
     }
 
     /**

@@ -138,7 +138,7 @@ export function userName(row, prefix) {
 
 /**
  * Доска приходит от BoardQuery::board: {project, columns:[{key,name,is_initial,
- * is_final,stage_key,tasks:[...]}]}. Колонки адресуются КЛЮЧОМ (id у них нет —
+ * is_final,tasks:[...]}]}. Колонки адресуются КЛЮЧОМ (id у них нет —
  * перетаскивание оперирует column.key, не id).
  */
 export function normalizeBoard(res) {
@@ -149,7 +149,6 @@ export function normalizeBoard(res) {
     const normalized = columns.map((c) => ({
         key: String(c.key ?? ''),
         name: String(c.name ?? c.key ?? ''),
-        stage_key: String(c.stage_key ?? ''),
         color: String(c.color ?? '') || '#6c757d',
         is_initial: !!Number(c.is_initial),
         is_final: !!Number(c.is_final),

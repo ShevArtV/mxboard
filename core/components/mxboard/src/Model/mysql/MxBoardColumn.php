@@ -22,7 +22,6 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'name' => '',
             'position' => 0,
             'move_roles' => '',
-            'stage_key' => '',
             'color' => '#6c757d',
             'is_initial' => 0,
             'is_final' => 0,
@@ -74,15 +73,6 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'phptype' => 'string',
                 'null' => false,
                 'default' => '',
-            ),
-            'stage_key' =>
-            array (
-                'dbtype' => 'varchar',
-                'precision' => '100',
-                'phptype' => 'string',
-                'null' => true,
-                'default' => '',
-                'index' => 'index',
             ),
             'color' =>
             array (
@@ -160,15 +150,15 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                     ),
                 ),
             ),
-            'position' => 
+            'position' =>
             array (
                 'alias' => 'position',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
-                'columns' => 
+                'columns' =>
                 array (
-                    'position' => 
+                    'position' =>
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -176,24 +166,8 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                     ),
                 ),
             ),
-            'stage_key' => 
-            array (
-                'alias' => 'stage_key',
-                'primary' => false,
-                'unique' => false,
-                'type' => 'BTREE',
-                'columns' => 
-                array (
-                    'stage_key' => 
-                    array (
-                        'length' => '',
-                        'collation' => 'A',
-                        'null' => true,
-                    ),
-                ),
-            ),
         ),
-        'composites' => 
+        'composites' =>
         array (
             'Tasks' => 
             array (

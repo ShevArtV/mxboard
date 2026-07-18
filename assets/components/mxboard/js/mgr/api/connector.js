@@ -107,6 +107,12 @@ export const ColumnApi = {
     create: (data) => post(C + 'Create', data),
     update: (id, data) => post(C + 'Update', { id, ...data }),
     remove: (id) => post(C + 'Remove', { id }),
+    // Источники для копирования (шаблон + проекты отдела со своими колонками).
+    sources: (projectId) => post(C + 'Sources', { project_id: projectId }),
+    // Копировать колонки из источника (sourceId: id проекта или 0 — дефолтный шаблон).
+    copy: (projectId, sourceId) => post(C + 'Copy', { project_id: projectId, source_id: sourceId }),
+    // Переупорядочить: order — массив id в новом порядке (drag-n-drop).
+    reorder: (projectId, order) => post(C + 'Reorder', withJson({ project_id: projectId, order }, ['order'])),
 };
 
 // Задача. Модель v2: исполнитель назначается при создании (пула/захвата нет),

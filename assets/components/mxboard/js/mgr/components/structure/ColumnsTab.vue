@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import {
-    DataTable, Column, Button, InputText, Dialog, Select, Checkbox, Tag, useToast, useConfirm,
+    DataTable, Column, Button, InputText, Dialog, Select, Checkbox, RadioButton, Tag, Message, useToast, useConfirm,
 } from 'primevue';
 import {
     ProjectApi, ColumnApi, errorMessage, listOf,
 } from '../../api/connector.js';
+import { revisions, bumpColumns } from '../../utils/bus.js';
 import { t } from '../../utils/i18n.js';
 
 const toast = useToast();
@@ -18,15 +19,56 @@ const loading = ref(false);
 const saving = ref(false);
 
 const createOpen = ref(false);
-const createForm = ref({ key: '', name: '', move_roles: '', stage_key: '', color: '#6c757d' });
+const createForm = ref({ key: '', name: '', move_mode: 'both', color: '#6c757d' });
 const editOpen = ref(false);
-const editForm = ref({ id: 0, name: '', move_roles: '', stage_key: '', color: '#6c757d', position: 0, is_initial: false, is_final: false });
+const editForm = ref({ id: 0, name: '', move_mode: 'both', color: '#6c757d', position: 0, is_initial: false, is_final: false });
+
+const copyOpen = ref(false);
+const copySources = ref([]);
+const copySourceId = ref(null);
+
+// Кто может двигать карточку В колонку — 4 понятных варианта вместо CSV-синтаксиса.
+// На бэке остаётся move_roles (CSV): радио лишь собирает/парсит его.
+const MOVE_OPTIONS = computed(() => [
+    { value: 'both', label: t('mxboard_ui_struct_move_both') },
+    { value: 'author', label: t('mxboard_ui_struct_move_author') },
+    { value: 'assignee', label: t('mxboard_ui_struct_move_assignee') },
+]);
+function modeToRoles(mode) {
+    return { author: 'author', assignee: 'assignee', both: 'author,assignee' }[mode] || 'author,assignee';
+}
+function rolesToMode(roles) {
+    const parts = String(roles || '').split(',').map((x) => x.trim()).filter(Boolean);
+    const a = parts.includes('author') || parts.includes('any');
+    const s = parts.includes('assignee') || parts.includes('any');
+    if (a && s) return 'both';
+    if (a) return 'author';
+    if (s) return 'assignee';
+    return 'both';
+}
+function moveLabel(roles) {
+    const map = { author: 'mxboard_ui_struct_move_author', assignee: 'mxboard_ui_struct_move_assignee', both: 'mxboard_ui_struct_move_both' };
+    return t(map[rolesToMode(roles)]);
+}
 
 // Опции селектора: «шаблон новых проектов» (project_id=0) + реальные проекты.
 const projectOptions = computed(() => [
     { id: 0, name: t('mxboard_ui_struct_template') },
     ...projects.value.map((p) => ({ id: Number(p.id), name: p.name })),
 ]);
+
+// Fallback: выбран реальный проект (>0), но показанные колонки принадлежат шаблону
+// (project_id=0) — своих колонок у проекта нет. Такие колонки только для чтения.
+const isFallback = computed(() => Number(projectId.value) > 0
+    && columns.value.length > 0
+    && Number(columns.value[0].project_id) === 0);
+
+// Редактировать (создавать/править/удалять/двигать) можно только СВОИ колонки:
+// шаблон (project_id=0) правит суперюзер, свои колонки проекта — менеджер.
+const canEdit = computed(() => !isFallback.value);
+
+// Копировать колонки предлагаем только для реального проекта (у шаблона источника нет).
+const canCopy = computed(() => Number(projectId.value) > 0);
 
 onMounted(async () => {
     try {
@@ -38,6 +80,15 @@ onMounted(async () => {
 });
 
 watch(projectId, load);
+
+// Реактивная синхронизация: проект создан/удалён на соседней вкладке — обновляем
+// список проектов, чтобы новый сразу был доступен в селекторе (без перезагрузки).
+async function reloadProjects() {
+    try {
+        projects.value = listOf(await ProjectApi.getList());
+    } catch (e) { /* тихо: список освежится при следующем действии */ }
+}
+watch(() => revisions.projects, reloadProjects);
 
 async function load() {
     if (projectId.value === null) { columns.value = []; return; }
@@ -52,7 +103,7 @@ async function load() {
 }
 
 function openCreate() {
-    createForm.value = { key: '', name: '', move_roles: '', stage_key: '', color: '#6c757d' };
+    createForm.value = { key: '', name: '', move_mode: 'both', color: '#6c757d' };
     createOpen.value = true;
 }
 async function create() {
@@ -63,13 +114,13 @@ async function create() {
             project_id: projectId.value,
             key: createForm.value.key.trim(),
             name: createForm.value.name.trim(),
-            move_roles: createForm.value.move_roles,
-            stage_key: createForm.value.stage_key,
+            move_roles: modeToRoles(createForm.value.move_mode),
             color: createForm.value.color,
         });
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_created'), life: 3000 });
         createOpen.value = false;
         load();
+        bumpColumns();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
     } finally {
@@ -79,7 +130,7 @@ async function create() {
 
 function openEdit(col) {
     editForm.value = {
-        id: col.id, name: col.name || '', move_roles: col.move_roles || '', stage_key: col.stage_key || '',
+        id: col.id, name: col.name || '', move_mode: rolesToMode(col.move_roles),
         color: col.color || '#6c757d',
         position: Number(col.position) || 0,
         is_initial: col.is_initial === true || col.is_initial === 1,
@@ -93,8 +144,7 @@ async function saveEdit() {
         // is_initial/is_final = 1 переносит флаг; снять в 0 напрямую нельзя (сервер игнорит falsy).
         const data = {
             name: editForm.value.name,
-            move_roles: editForm.value.move_roles,
-            stage_key: editForm.value.stage_key,
+            move_roles: modeToRoles(editForm.value.move_mode),
             color: editForm.value.color,
             position: editForm.value.position,
         };
@@ -104,6 +154,7 @@ async function saveEdit() {
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
         editOpen.value = false;
         load();
+        bumpColumns();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
     } finally {
@@ -124,11 +175,62 @@ function removeColumn(event, col) {
                 await ColumnApi.remove(col.id);
                 toast.add({ severity: 'success', summary: t('mxboard_ui_struct_removed'), life: 3000 });
                 load();
+                bumpColumns();
             } catch (e) {
                 toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
             }
         },
     });
+}
+
+// Drag-n-drop переупорядочивание: оптимистично применяем и шлём новый порядок id.
+async function onRowReorder(e) {
+    const prev = columns.value;
+    columns.value = e.value;
+    try {
+        await ColumnApi.reorder(projectId.value, e.value.map((c) => c.id));
+        toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 2000 });
+        bumpColumns();
+    } catch (err) {
+        columns.value = prev;
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(err), life: 8000 });
+        load();
+    }
+}
+
+// Копирование: если источник один — копируем сразу, иначе показываем диалог выбора.
+async function openCopy() {
+    try {
+        const res = await ColumnApi.sources(projectId.value);
+        const list = (res && res.object && Array.isArray(res.object.sources)) ? res.object.sources : [];
+        if (list.length === 0) {
+            toast.add({ severity: 'warn', summary: t('mxboard_ui_struct_copy_no_sources'), life: 5000 });
+            return;
+        }
+        if (list.length === 1) {
+            await doCopy(list[0].id);
+            return;
+        }
+        copySources.value = list;
+        copySourceId.value = list[0].id;
+        copyOpen.value = true;
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+    }
+}
+async function doCopy(sourceId) {
+    saving.value = true;
+    try {
+        await ColumnApi.copy(projectId.value, sourceId);
+        toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
+        copyOpen.value = false;
+        load();
+        bumpColumns();
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+    } finally {
+        saving.value = false;
+    }
 }
 </script>
 
@@ -136,17 +238,22 @@ function removeColumn(event, col) {
     <div>
         <div class="mxb-toolbar">
             <Select v-model="projectId" :options="projectOptions" option-label="name" option-value="id" :placeholder="t('mxboard_ui_struct_pick_project')" />
-            <Button :label="t('mxboard_ui_struct_new_column')" icon="pi pi-plus" size="small" :disabled="projectId === null" @click="openCreate" />
+            <Button v-if="canEdit" :label="t('mxboard_ui_struct_new_column')" icon="pi pi-plus" size="small" :disabled="projectId === null" @click="openCreate" />
+            <Button v-if="canCopy" :label="t('mxboard_ui_struct_copy_columns')" icon="pi pi-copy" size="small" severity="secondary" @click="openCopy" />
             <Button :label="t('mxboard_ui_refresh')" icon="pi pi-refresh" size="small" severity="secondary" outlined :loading="loading" @click="load" />
         </div>
 
-        <div class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_flag_transfer') }}</div>
+        <Message v-if="isFallback" severity="info" :closable="false" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_readonly_hint') }}</Message>
+        <div v-else class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_flag_transfer') }}<template v-if="canEdit"> · {{ t('mxboard_ui_struct_reorder_hint') }}</template></div>
 
-        <DataTable :value="columns" :loading="loading" size="small" striped-rows>
-            <Column field="position" :header="t('mxboard_ui_struct_position')" style="width: 90px" />
+        <DataTable :value="columns" :loading="loading" size="small" striped-rows @row-reorder="onRowReorder">
+            <Column v-if="canEdit" row-reorder style="width: 40px" />
+            <Column field="position" :header="t('mxboard_ui_struct_position')" style="width: 80px" />
             <Column field="key" :header="t('mxboard_ui_struct_key')" style="width: 150px" />
             <Column field="name" :header="t('mxboard_ui_struct_name')" />
-            <Column field="move_roles" :header="t('mxboard_ui_struct_move_roles')" style="width: 180px" />
+            <Column :header="t('mxboard_ui_struct_move_roles')" style="width: 180px">
+                <template #body="{ data }">{{ moveLabel(data.move_roles) }}</template>
+            </Column>
             <Column field="color" :header="t('mxboard_ui_struct_color')" style="width: 80px">
                 <template #body="{ data }">
                     <span :style="{ display: 'inline-block', width: '24px', height: '24px', borderRadius: '4px', backgroundColor: data.color || '#6c757d', verticalAlign: 'middle' }" />
@@ -158,7 +265,7 @@ function removeColumn(event, col) {
                     <Tag v-if="data.is_final" :value="t('mxboard_ui_struct_is_final')" severity="success" />
                 </template>
             </Column>
-            <Column style="width: 110px">
+            <Column v-if="canEdit" style="width: 110px">
                 <template #body="{ data }">
                     <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="openEdit(data)" />
                     <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeColumn($event, data)" />
@@ -181,12 +288,13 @@ function removeColumn(event, col) {
             </div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_move_roles') }}</label>
-                <InputText v-model="createForm.move_roles" fluid placeholder="author,assignee" />
+                <div class="mxb-radio-group">
+                    <div v-for="opt in MOVE_OPTIONS" :key="opt.value" class="mxb-radio-item">
+                        <RadioButton v-model="createForm.move_mode" :input-id="'cmove-' + opt.value" :value="opt.value" />
+                        <label :for="'cmove-' + opt.value">{{ opt.label }}</label>
+                    </div>
+                </div>
                 <div class="mxb-hint">{{ t('mxboard_ui_struct_move_roles_hint') }}</div>
-            </div>
-            <div class="mxb-field">
-                <label>{{ t('mxboard_ui_struct_stage_key') }}</label>
-                <InputText v-model="createForm.stage_key" fluid />
             </div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_color') }}</label>
@@ -209,14 +317,13 @@ function removeColumn(event, col) {
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />
             </div>
-            <div class="mxb-row">
-                <div class="mxb-field mxb-col">
-                    <label>{{ t('mxboard_ui_struct_move_roles') }}</label>
-                    <InputText v-model="editForm.move_roles" fluid />
-                </div>
-                <div class="mxb-field mxb-col">
-                    <label>{{ t('mxboard_ui_struct_stage_key') }}</label>
-                    <InputText v-model="editForm.stage_key" fluid />
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_move_roles') }}</label>
+                <div class="mxb-radio-group">
+                    <div v-for="opt in MOVE_OPTIONS" :key="opt.value" class="mxb-radio-item">
+                        <RadioButton v-model="editForm.move_mode" :input-id="'emove-' + opt.value" :value="opt.value" />
+                        <label :for="'emove-' + opt.value">{{ opt.label }}</label>
+                    </div>
                 </div>
             </div>
             <div class="mxb-field">
@@ -242,6 +349,21 @@ function removeColumn(event, col) {
                 <div class="mxb-dialog-actions">
                     <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="editOpen = false" />
                     <Button :label="t('mxboard_ui_save')" icon="pi pi-check" :loading="saving" @click="saveEdit" />
+                </div>
+            </template>
+        </Dialog>
+
+        <!-- Копирование колонок из источника -->
+        <Dialog v-model:visible="copyOpen" modal :header="t('mxboard_ui_struct_copy_title')" :style="{ width: '480px' }">
+            <div class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_copy_hint') }}</div>
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_copy_source') }}</label>
+                <Select v-model="copySourceId" :options="copySources" option-label="name" option-value="id" fluid />
+            </div>
+            <template #footer>
+                <div class="mxb-dialog-actions">
+                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="copyOpen = false" />
+                    <Button :label="t('mxboard_ui_struct_copy_columns')" icon="pi pi-copy" :loading="saving" @click="doCopy(copySourceId)" />
                 </div>
             </template>
         </Dialog>

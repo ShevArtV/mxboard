@@ -6,9 +6,12 @@ namespace MxBoard\Service;
 
 use MODX\Revolution\modUser;
 use MODX\Revolution\modX;
+use MxBoard\Helpers\Columns;
+use MxBoard\Helpers\TaskNum;
 use MxBoard\Helpers\Transitions;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
+use MxBoard\Model\MxBoardCounter;
 use MxBoard\Model\MxBoardComment;
 use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
@@ -137,6 +140,7 @@ class TaskService
         }
 
         $now = time();
+        $num = $this->makeNum($now);
 
         /** @var MxBoardTask $task */
         $task = $this->modx->newObject(MxBoardTask::class);
@@ -145,6 +149,7 @@ class TaskService
             'parent_id' => $parentId,
             'type_id' => (int) $type->get('id'),
             'column_id' => (int) $column->get('id'),
+            'num' => $num,
             'title' => $title,
             'tor' => (string) ($data['tor'] ?? ''),
             'author_id' => (int) $user->get('id'),
@@ -615,10 +620,12 @@ class TaskService
      */
     public function columnBy(MxBoardProject $project, array $criteria): ?MxBoardColumn
     {
+        // Fallback: у проекта без своих колонок берём глобальный шаблон (project_id = 0).
+        $scope = Columns::scope($this->modx, (int) $project->get('id'));
         /** @var MxBoardColumn|null $column */
         $column = $this->modx->getObject(
             MxBoardColumn::class,
-            array_merge(['project_id' => (int) $project->get('id')], $criteria)
+            array_merge(['project_id' => $scope], $criteria)
         );
 
         return $column;
@@ -838,6 +845,68 @@ class TaskService
             'assignee_id' => $userId,
             'closedon' => 0,
         ]);
+    }
+
+    /**
+     * Найти задачу по адресу: числовой id ИЛИ человекочитаемый num (напр. 2607-15).
+     * Позволяет MCP/REST принимать оба — num устойчив к переносу базы задач.
+     */
+    public function resolveTaskRef(mixed $ref): ?MxBoardTask
+    {
+        if (is_int($ref) || (is_string($ref) && ctype_digit(trim($ref)))) {
+            $id = (int) $ref;
+
+            return $id > 0 ? $this->modx->getObject(MxBoardTask::class, $id) : null;
+        }
+        $num = trim((string) $ref);
+        if ($num === '') {
+            return null;
+        }
+
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, ['num' => $num]);
+
+        return $task;
+    }
+
+    /**
+     * Сгенерировать уникальный номер задачи по шаблону mxboard.task_num_format.
+     * Счётчик берётся атомарно под блокировкой строки (nextCounter).
+     */
+    private function makeNum(int $when): string
+    {
+        $format = trim((string) $this->modx->getOption('mxboard.task_num_format', null, TaskNum::DEFAULT_FORMAT));
+        if ($format === '') {
+            $format = TaskNum::DEFAULT_FORMAT;
+        }
+        $seq = $this->nextCounter(TaskNum::period($format, $when));
+
+        return TaskNum::render($format, $when, $seq);
+    }
+
+    /**
+     * Следующий порядковый номер периода. INSERT IGNORE гарантирует строку, UPDATE под
+     * блокировкой строки сериализует конкурентные вставки, SELECT в той же транзакции
+     * читает уже увеличенное значение — устойчиво к гонкам и к удалению задач.
+     */
+    private function nextCounter(string $period): int
+    {
+        $table = $this->modx->getTableName(MxBoardCounter::class);
+
+        $this->modx->beginTransaction();
+        try {
+            $this->modx->prepare("INSERT IGNORE INTO {$table} (period, value) VALUES (?, 0)")->execute([$period]);
+            $this->modx->prepare("UPDATE {$table} SET value = value + 1 WHERE period = ?")->execute([$period]);
+            $sel = $this->modx->prepare("SELECT value FROM {$table} WHERE period = ?");
+            $sel->execute([$period]);
+            $value = (int) $sel->fetchColumn();
+            $this->modx->commit();
+
+            return $value;
+        } catch (\Throwable $e) {
+            $this->modx->rollback();
+            throw $e;
+        }
     }
 
     private function nextPosition(int $columnId): int

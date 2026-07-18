@@ -132,6 +132,10 @@ const tab = ref('board');
     display: flex;
     flex-direction: column;
     min-height: 160px;
+    /* Влезть в область менеджера: колонка не выше вьюпорта (минус табы+тулбар+хедер),
+       иначе длинный список карточек уходит под низ фрейма без прокрутки. Длинные
+       списки скроллятся ВНУТРИ колонки (.mxb-column-body), шапка остаётся на месте. */
+    max-height: calc(100vh - 210px);
     overflow: hidden;
 }
 
@@ -196,6 +200,8 @@ const tab = ref('board');
     gap: 8px;
     flex: 1;
     min-height: 80px;
+    /* Скролл карточек внутри колонки — последняя карточка всегда доступна. */
+    overflow-y: auto;
 }
 
 .mxb-empty {
@@ -1374,6 +1380,30 @@ const tab = ref('board');
 
 .mxb-done {
     color: var(--p-green-500, #10b981);
+}
+
+/* Радио-группа «кто может двигать» — 4 варианта вместо CSV-поля. */
+.mxb-radio-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    padding-top: 2px;
+}
+
+.mxb-radio-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mxb-radio-item label {
+    margin: 0;
+    font-weight: 400;
+    font-size: 13px;
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--p-text-color, #1f2733);
+    cursor: pointer;
 }
 
 /* --- 3c: экран «Структура» --- */

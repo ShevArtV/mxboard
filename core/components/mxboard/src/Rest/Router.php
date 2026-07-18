@@ -131,19 +131,16 @@ final class Router
             return $this->result($this->tasks->create($this->user, $body, self::CHANNEL), 201);
         }
 
-        $taskId = (int) ($seg[1] ?? 0);
-        if ($taskId <= 0) {
-            return $this->fail('mxboard_err_task_id_required', 400);
+        // Адрес задачи в пути — id (число) или num (напр. 2607-15).
+        $task = $this->tasks->resolveTaskRef((string) ($seg[1] ?? ''));
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found', 404);
         }
+        $taskId = (int) $task->get('id');
         $action = $seg[2] ?? '';
 
         // GET /tasks/{id}
         if ($method === 'GET' && $action === '') {
-            /** @var MxBoardTask|null $task */
-            $task = $this->modx->getObject(MxBoardTask::class, $taskId);
-            if (!$task) {
-                return $this->fail('mxboard_err_task_not_found', 404);
-            }
             $detail = $this->query->taskDetail($this->user, $task);
             if ($detail === null) {
                 return $this->fail('mxboard_err_view_denied', 403);

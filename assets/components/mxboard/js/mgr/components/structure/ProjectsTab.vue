@@ -6,6 +6,7 @@ import {
 import {
     DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../../api/connector.js';
+import { bumpProjects } from '../../utils/bus.js';
 import { t } from '../../utils/i18n.js';
 
 const toast = useToast();
@@ -61,6 +62,7 @@ async function create() {
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_created'), life: 3000 });
         createOpen.value = false;
         load();
+        bumpProjects();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
     } finally {
@@ -86,6 +88,7 @@ async function saveEdit() {
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
         editOpen.value = false;
         load();
+        bumpProjects();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
     } finally {
@@ -106,6 +109,7 @@ function removeProject(event, project) {
                 await ProjectApi.remove(project.id);
                 toast.add({ severity: 'success', summary: t('mxboard_ui_struct_removed'), life: 3000 });
                 load();
+                bumpProjects();
             } catch (e) {
                 toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
             }

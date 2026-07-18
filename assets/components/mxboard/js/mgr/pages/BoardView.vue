@@ -5,6 +5,7 @@ import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
 import { normalizeBoard, normalizeTask, PRIORITIES } from '../utils/format.js';
+import { revisions } from '../utils/bus.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
@@ -189,6 +190,19 @@ async function load() {
         loading.value = false;
     }
 }
+
+// Реактивная синхронизация со «Структурой» (без перезагрузки страницы):
+// новый/изменённый проект — освежаем селектор; изменение колонок (состав/порядок/
+// цвет/копирование) — перечитываем доску текущего проекта.
+async function reloadProjects() {
+    try {
+        projects.value = listOf(await ProjectApi.getList());
+    } catch (e) { /* тихо: освежится при следующем действии */ }
+}
+watch(() => revisions.projects, reloadProjects);
+watch(() => revisions.columns, () => {
+    if (projectKey.value) load();
+});
 
 function openTask(task) {
     openTaskId.value = task.id;

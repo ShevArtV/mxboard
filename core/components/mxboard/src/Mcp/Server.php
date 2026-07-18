@@ -144,7 +144,7 @@ final class Server
                 'mine' => ['type' => 'boolean', 'description' => 'Только карточки, взятые вами.'],
             ]),
             $this->tool('task_get', 'Карточка целиком: поля, родитель, подзадачи, комментарии.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
             ], ['task_id']),
             $this->tool('task_schema', 'Какие поля нужны для типа задачи (встроенные + обязательные).', [
                 'type' => ['type' => 'string', 'description' => 'Ключ типа задачи.'],
@@ -166,30 +166,30 @@ final class Server
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
             ]),
             $this->tool('task_move', 'Перевести карточку в колонку по ключу. Если правила не пускают — ошибка с причиной.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'column' => ['type' => 'string', 'description' => 'Ключ колонки назначения.'],
                 'note' => ['type' => 'string', 'description' => 'Пояснение — попадёт в журнал.'],
             ], ['task_id', 'column']),
             $this->tool('task_comment', 'Комментарий к карточке: так вы отчитываетесь о ходе.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'content' => ['type' => 'string', 'description' => 'Текст (markdown).'],
             ], ['task_id', 'content']),
             $this->tool('task_comment_edit', 'Редактировать свой комментарий.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
                 'content' => ['type' => 'string', 'description' => 'Новый текст (markdown).'],
             ], ['task_id', 'comment_id', 'content']),
             $this->tool('task_comment_delete', 'Удалить свой комментарий.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
             ], ['task_id', 'comment_id']),
             $this->tool('task_dispute_deadline', 'Оспорить дедлайн (исполнитель): предложить новую дату с причиной. Меняет её автор.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
                 'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос.'],
             ], ['task_id', 'proposed_date']),
             $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, приоритет, тип, поля, ToR.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'title' => ['type' => 'string'],
                 'deadline' => ['type' => 'string', 'description' => 'YYYY-MM-DD или unix.'],
                 'priority' => ['type' => 'integer'],
@@ -198,11 +198,11 @@ final class Server
                 'tor' => ['type' => 'string'],
             ], ['task_id']),
             $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'accept' => ['type' => 'boolean', 'description' => 'true — принять предложенную дату; false — отклонить.'],
             ], ['task_id', 'accept']),
             $this->tool('task_delete', 'Удалить карточку (автор/менеджер). Подзадачи открепляются, не удаляются.', [
-                'task_id' => ['type' => 'integer', 'description' => 'ID карточки.'],
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
             ], ['task_id']),
         ];
     }
@@ -226,14 +226,14 @@ final class Server
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name', 'fields']),
-            $this->tool('project_create', 'Создать проект с колонками (менеджер). Без колонок — из шаблона. Ровно одна initial и одна final.', [
+            $this->tool('project_create', 'Создать проект (менеджер). Колонки опциональны: без них проект показывает дефолтный шаблон, свои задаются позже копированием. Если переданы — ровно одна initial и одна final.', [
                 'department_id' => ['type' => 'integer', 'description' => 'ID отдела.'],
                 'key' => ['type' => 'string', 'description' => 'Ключ проекта.'],
                 'name' => ['type' => 'string', 'description' => 'Название.'],
                 'description' => ['type' => 'string'],
                 'columns' => [
                     'type' => 'array',
-                    'description' => 'Колонки: [{key, name, move_roles, stage_key?, is_initial, is_final}]. Пусто — взять шаблон.',
+                    'description' => 'Колонки: [{key, name, move_roles, color?, is_initial, is_final}]. Пусто — проект без своих колонок (доска покажет дефолтный шаблон).',
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name']),
@@ -455,6 +455,7 @@ final class Server
         }
 
         return '#' . (int) $row['id']
+            . (!empty($row['num']) ? ' (' . (string) $row['num'] . ')' : '')
             . ($priority > 0 ? ' · p' . $priority : '')
             . ($row['type_key'] ? ' · ' . (string) $row['type_key'] : '')
             . ' · ' . (string) $row['title']
@@ -470,16 +471,11 @@ final class Server
      */
     private function taskGet(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
-        }
-
-        /** @var MxBoardTask|null $task */
-        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
         if (!$task) {
             return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $detail = $this->query->taskDetail($this->user, $task);
         if ($detail === null) {
@@ -487,7 +483,7 @@ final class Server
         }
 
         $out = [];
-        $out[] = '#' . $detail['id'] . ' · ' . $detail['title'] . ' [' . $detail['type_key'] . ']';
+        $out[] = '#' . $detail['id'] . (!empty($detail['num']) ? ' (' . $detail['num'] . ')' : '') . ' · ' . $detail['title'] . ' [' . $detail['type_key'] . ']';
         $out[] = 'Колонка: ' . $detail['column_key'] . ' · автор ' . ($detail['author'] ?: '—')
             . ' · исполнитель ' . ($detail['assignee'] ?: 'свободна');
         $out[] = 'Дедлайн: ' . ($detail['deadlineon'] ? date('Y-m-d', (int) $detail['deadlineon']) : '—')
@@ -578,7 +574,7 @@ final class Server
 
         $task = (array) $result['object'];
 
-        return $this->content('Карточка #' . (int) $task['id'] . ' «' . (string) $task['title'] . '» создана.');
+        return $this->content('Карточка #' . (int) $task['id'] . (!empty($task['num']) ? ' (' . (string) $task['num'] . ')' : '') . ' «' . (string) $task['title'] . '» создана.');
     }
 
     /**
@@ -613,10 +609,11 @@ final class Server
      */
     private function taskMove(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
         $column = $this->str($args['column'] ?? null);
         if ($column === '') {
             return $this->content($this->lex('mxboard_err_column_required'), true);
@@ -637,10 +634,11 @@ final class Server
      */
     private function taskComment(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $result = $this->tasks->comment($this->user, $taskId, $this->str($args['content'] ?? null), self::CHANNEL);
         if (!$result['success']) {
@@ -702,10 +700,11 @@ final class Server
      */
     private function taskDispute(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $proposed = $args['proposed_date'] ?? null;
         $proposedInt = is_numeric($proposed) ? (int) $proposed : (int) (strtotime((string) $proposed) ?: 0);
@@ -731,10 +730,11 @@ final class Server
      */
     private function taskUpdate(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $data = [];
         foreach (['title', 'type', 'tor'] as $k) {
@@ -767,10 +767,11 @@ final class Server
      */
     private function taskResolve(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $result = $this->tasks->resolveDeadline($this->user, $taskId, !empty($args['accept']), self::CHANNEL);
         if (!$result['success']) {
@@ -787,10 +788,11 @@ final class Server
      */
     private function taskDelete(array $args): array
     {
-        $taskId = $this->int($args['task_id'] ?? null);
-        if ($taskId <= 0) {
-            return $this->content($this->lex('mxboard_err_task_id_required'), true);
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
         }
+        $taskId = (int) $task->get('id');
 
         $result = $this->tasks->delete($this->user, $taskId, self::CHANNEL);
         if (!$result['success']) {

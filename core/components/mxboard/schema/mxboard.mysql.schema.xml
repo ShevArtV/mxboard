@@ -79,9 +79,6 @@
         <!-- Кто вправе переводить карточку В эту колонку. CSV ролей: author, assignee, any
              и/или группы как group:Name. Пусто = только обладатель права mxboard_move_any. -->
         <field key="move_roles" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
-        <!-- Необязательный сквозной тег стадии: одинаковый ключ в разных проектах даёт
-             кросс-проектную отчётность («сколько задач на review по всем проектам»). -->
-        <field key="stage_key" dbtype="varchar" precision="100" phptype="string" null="true" default="" index="index"/>
         <!-- Колонка, в которую попадает новая карточка. Инвариант: ровно одна на проект. -->
         <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <!-- Терминальная колонка: вход в неё = закрытие карточки. Инвариант: ровно одна на проект. -->
@@ -97,9 +94,6 @@
         </index>
         <index alias="position" name="position" primary="false" unique="false" type="BTREE">
             <column key="position" length="" collation="A" null="false"/>
-        </index>
-        <index alias="stage_key" name="stage_key" primary="false" unique="false" type="BTREE">
-            <column key="stage_key" length="" collation="A" null="true"/>
         </index>
 
         <aggregate alias="Project" class="MxBoard\Model\MxBoardProject" local="project_id" foreign="id" cardinality="one" owner="foreign"/>
@@ -174,6 +168,10 @@
         <field key="parent_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="type_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="column_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Человекочитаемый уникальный номер задачи (напр. 2607-15). Формируется при создании
+             по шаблону mxboard.task_num_format; служит адресом наравне с id (перенос базы).
+             null допускается только на миг миграции (unique + NULL) — create() всегда проставляет. -->
+        <field key="num" dbtype="varchar" precision="32" phptype="string" null="true" default="null" index="unique"/>
         <field key="title" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
         <!-- Постановка задачи (ToR) в markdown. -->
         <field key="tor" dbtype="mediumtext" phptype="string" null="true"/>
@@ -210,6 +208,9 @@
         </index>
         <index alias="column_id" name="column_id" primary="false" unique="false" type="BTREE">
             <column key="column_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="num" name="num" primary="false" unique="true" type="BTREE">
+            <column key="num" length="" collation="A" null="false"/>
         </index>
         <index alias="author_id" name="author_id" primary="false" unique="false" type="BTREE">
             <column key="author_id" length="" collation="A" null="false"/>
@@ -350,6 +351,18 @@
 
         <aggregate alias="Task" class="MxBoard\Model\MxBoardTask" local="task_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="User" class="MODX\Revolution\modUser" local="user_id" foreign="id" cardinality="one" owner="foreign"/>
+    </object>
+
+    <!-- Атомарный счётчик номеров задач по периоду (period = ключ периода из шаблона номера:
+         'Ym' → помесячно, 'Ymd' → посуточно). value — последний выданный порядковый номер.
+         Инкремент под блокировкой строки (см. TaskService::nextCounter), устойчив к удалению задач. -->
+    <object class="MxBoardCounter" table="mxboard_counter" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="period" dbtype="varchar" precision="20" phptype="string" null="false" default="" index="unique"/>
+        <field key="value" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="period" name="period" primary="false" unique="true" type="BTREE">
+            <column key="period" length="" collation="A" null="false"/>
+        </index>
     </object>
 
 </model>

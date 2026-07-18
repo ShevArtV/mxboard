@@ -78,6 +78,10 @@ $_lang['mxboard_err_column_invalid'] = 'Некорректная колонка 
 $_lang['mxboard_err_column_duplicate'] = 'Повторяющийся ключ колонки.';
 $_lang['mxboard_err_column_invariant'] = 'Нужна ровно одна стартовая и ровно одна финальная колонка.';
 $_lang['mxboard_err_no_template_columns'] = 'Нет шаблона колонок (project_id=0).';
+$_lang['mxboard_err_copy_has_tasks'] = 'Копировать колонки нельзя: в проекте уже есть задачи.';
+$_lang['mxboard_err_copy_source_invalid'] = 'Некорректный источник колонок.';
+$_lang['mxboard_err_copy_source_empty'] = 'В источнике нет колонок для копирования.';
+$_lang['mxboard_err_reorder_mismatch'] = 'Список колонок для переупорядочивания не совпадает с колонками проекта.';
 $_lang['mxboard_err_route_not_found'] = 'Маршрут не найден.';
 
 // v2 (3a): структурный CRUD из менеджера.
@@ -334,15 +338,25 @@ $_lang['mxboard_ui_struct_pick_department'] = 'Выберите отдел';
 // Проекты.
 $_lang['mxboard_ui_struct_new_project'] = 'Новый проект';
 $_lang['mxboard_ui_struct_confirm_remove_project'] = 'Удалить проект «[[+name]]»? Только если в нём нет задач.';
-$_lang['mxboard_ui_struct_columns_from_template'] = 'Колонки будут созданы из шаблона (project_id=0).';
+$_lang['mxboard_ui_struct_columns_from_template'] = 'Свои колонки не заданы — доска показывает дефолтный шаблон. Скопируйте колонки, чтобы настроить свои.';
 
 // Колонки/стадии.
 $_lang['mxboard_ui_struct_pick_project'] = 'Выберите проект';
 $_lang['mxboard_ui_struct_template'] = 'Шаблон новых проектов';
 $_lang['mxboard_ui_struct_new_column'] = 'Новая колонка';
-$_lang['mxboard_ui_struct_move_roles'] = 'Роли перехода (CSV)';
-$_lang['mxboard_ui_struct_move_roles_hint'] = 'author, assignee, any или group:Имя — кто вправе перевести карточку В эту колонку.';
-$_lang['mxboard_ui_struct_stage_key'] = 'Ключ стадии';
+$_lang['mxboard_ui_struct_move_roles'] = 'Кто может двигать карточку сюда';
+$_lang['mxboard_ui_struct_move_roles_hint'] = 'Кто вправе перевести карточку В эту колонку.';
+$_lang['mxboard_ui_struct_move_author'] = 'Только автор';
+$_lang['mxboard_ui_struct_move_assignee'] = 'Только исполнитель';
+$_lang['mxboard_ui_struct_move_both'] = 'Автор и исполнитель';
+$_lang['mxboard_ui_struct_copy_columns'] = 'Копировать колонки';
+$_lang['mxboard_ui_struct_copy_no_sources'] = 'В отделе нет источников для копирования колонок.';
+$_lang['mxboard_ui_struct_copy_source'] = 'Источник колонок';
+$_lang['mxboard_ui_struct_copy_title'] = 'Копирование колонок';
+$_lang['mxboard_ui_struct_copy_hint'] = 'Колонки будут скопированы из выбранного источника. Доступно, пока в проекте нет задач.';
+$_lang['mxboard_ui_struct_source_default'] = 'По умолчанию (дефолтный шаблон)';
+$_lang['mxboard_ui_struct_readonly_hint'] = 'Это дефолтные колонки (только чтение). Скопируйте колонки, чтобы добавлять и менять свои.';
+$_lang['mxboard_ui_struct_reorder_hint'] = 'Перетаскивайте строки, чтобы изменить порядок колонок.';
 $_lang['mxboard_ui_struct_is_initial'] = 'Стартовая';
 $_lang['mxboard_ui_struct_is_final'] = 'Финальная';
 $_lang['mxboard_ui_struct_color'] = 'Цвет';

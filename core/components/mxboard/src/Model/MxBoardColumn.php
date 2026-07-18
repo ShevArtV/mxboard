@@ -11,7 +11,6 @@ use xPDO\xPDO;
  * @property string $name
  * @property integer $position
  * @property string $move_roles
- * @property string $stage_key
  * @property string $color
  * @property boolean $is_initial
  * @property boolean $is_final

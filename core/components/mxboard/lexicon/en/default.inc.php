@@ -78,6 +78,10 @@ $_lang['mxboard_err_column_invalid'] = 'Invalid column (key and name are require
 $_lang['mxboard_err_column_duplicate'] = 'Duplicate column key.';
 $_lang['mxboard_err_column_invariant'] = 'Exactly one initial and exactly one final column are required.';
 $_lang['mxboard_err_no_template_columns'] = 'No column template (project_id=0).';
+$_lang['mxboard_err_copy_has_tasks'] = 'Cannot copy columns: the project already has tasks.';
+$_lang['mxboard_err_copy_source_invalid'] = 'Invalid columns source.';
+$_lang['mxboard_err_copy_source_empty'] = 'The source has no columns to copy.';
+$_lang['mxboard_err_reorder_mismatch'] = 'Reorder list does not match the project columns.';
 $_lang['mxboard_err_route_not_found'] = 'Route not found.';
 
 // v2 (3a): structure CRUD from the manager.
@@ -334,15 +338,25 @@ $_lang['mxboard_ui_struct_pick_department'] = 'Choose a department';
 // Projects.
 $_lang['mxboard_ui_struct_new_project'] = 'New project';
 $_lang['mxboard_ui_struct_confirm_remove_project'] = 'Delete project “[[+name]]”? Only if it has no tasks.';
-$_lang['mxboard_ui_struct_columns_from_template'] = 'Columns will be created from the template (project_id=0).';
+$_lang['mxboard_ui_struct_columns_from_template'] = 'No own columns yet — the board shows the default template. Copy columns to customize.';
 
 // Columns/stages.
 $_lang['mxboard_ui_struct_pick_project'] = 'Choose a project';
 $_lang['mxboard_ui_struct_template'] = 'New-project template';
 $_lang['mxboard_ui_struct_new_column'] = 'New column';
-$_lang['mxboard_ui_struct_move_roles'] = 'Transition roles (CSV)';
-$_lang['mxboard_ui_struct_move_roles_hint'] = 'author, assignee, any or group:Name — who may move a card INTO this column.';
-$_lang['mxboard_ui_struct_stage_key'] = 'Stage key';
+$_lang['mxboard_ui_struct_move_roles'] = 'Who can move a card here';
+$_lang['mxboard_ui_struct_move_roles_hint'] = 'Who may move a card INTO this column.';
+$_lang['mxboard_ui_struct_move_author'] = 'Author only';
+$_lang['mxboard_ui_struct_move_assignee'] = 'Assignee only';
+$_lang['mxboard_ui_struct_move_both'] = 'Author and assignee';
+$_lang['mxboard_ui_struct_copy_columns'] = 'Copy columns';
+$_lang['mxboard_ui_struct_copy_no_sources'] = 'No sources to copy columns from in this department.';
+$_lang['mxboard_ui_struct_copy_source'] = 'Columns source';
+$_lang['mxboard_ui_struct_copy_title'] = 'Copy columns';
+$_lang['mxboard_ui_struct_copy_hint'] = 'Columns will be copied from the selected source. Available while the project has no tasks.';
+$_lang['mxboard_ui_struct_source_default'] = 'Default (built-in template)';
+$_lang['mxboard_ui_struct_readonly_hint'] = 'These are default columns (read-only). Copy columns to add and edit your own.';
+$_lang['mxboard_ui_struct_reorder_hint'] = 'Drag rows to reorder columns.';
 $_lang['mxboard_ui_struct_is_initial'] = 'Initial';
 $_lang['mxboard_ui_struct_is_final'] = 'Final';
 $_lang['mxboard_ui_struct_color'] = 'Color';

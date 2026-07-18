@@ -581,6 +581,7 @@ function removeTask(event) {
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_task_id') }}</span>
                         <span class="mxb-meta-value mxb-meta-id">
+                            <code v-if="task.num" class="mxb-meta-num">{{ task.num }}</code>
                             <code>#{{ task.id }}</code>
                             <Button icon="pi pi-copy" size="small" severity="secondary" text v-tooltip="t('mxboard_ui_copy')" @click="copyId" />
                         </span>

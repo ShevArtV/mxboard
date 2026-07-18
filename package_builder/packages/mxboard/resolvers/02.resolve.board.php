@@ -7,7 +7,8 @@
  *   - группу пользователей MODX «mxBoard» и помечает её как отдел (mxboard_department);
  *   - типы задач bugfix и feature с обязательными полями (тип «рабочий» = ≥1 поле);
  *   - проект default с пятью колонками (инвариант: ровно одна initial, ровно одна final);
- *   - глобальный шаблон колонок (project_id = 0) — из него берутся колонки для новых проектов.
+ *   - глобальный шаблон колонок (project_id = 0) — дефолт для проектов без своих колонок
+ *     (fallback при показе доски) и источник для ручного копирования.
  *
  * Идемпотентен: сущности создаются по ключу один раз, при upgrade не трогаются
  * (пользователь мог переименовать колонки, поля или поменять права переходов).
@@ -161,13 +162,13 @@ foreach ($types as $tPos => $typeData) {
 // Исполнитель назначается при создании — карточка сразу именная, «свободного пула» нет.
 $columns = [
     // Бэклог: новая карточка падает сюда (с уже назначенным исполнителем).
-    ['key' => 'backlog', 'name' => 'Бэклог', 'position' => 0, 'move_roles' => 'assignee,author', 'stage_key' => 'backlog', 'is_initial' => true],
+    ['key' => 'backlog', 'name' => 'Бэклог', 'position' => 0, 'move_roles' => 'assignee,author', 'is_initial' => true],
     // В работе: двигает исполнитель.
-    ['key' => 'in_progress', 'name' => 'В работе', 'position' => 1, 'move_roles' => 'assignee', 'stage_key' => 'in_progress'],
+    ['key' => 'in_progress', 'name' => 'В работе', 'position' => 1, 'move_roles' => 'assignee'],
     // На проверке: потолок исполнителя — дальше только автор.
-    ['key' => 'review', 'name' => 'На проверке', 'position' => 2, 'move_roles' => 'assignee,author', 'stage_key' => 'review'],
+    ['key' => 'review', 'name' => 'На проверке', 'position' => 2, 'move_roles' => 'assignee,author'],
     // Готово: закрывает ТОЛЬКО автор задачи (или менеджер). Исполнитель сюда не дотянется.
-    ['key' => 'done', 'name' => 'Готово', 'position' => 3, 'move_roles' => 'author', 'stage_key' => 'done', 'is_final' => true],
+    ['key' => 'done', 'name' => 'Готово', 'position' => 3, 'move_roles' => 'author', 'is_final' => true],
 ];
 
 $seedColumns = static function (int $projectId) use ($modx, $columns, $now): void {
@@ -180,7 +181,6 @@ $seedColumns = static function (int $projectId) use ($modx, $columns, $now): voi
         $column = $modx->newObject(MxBoardColumn::class);
         $column->fromArray(array_merge([
             'project_id' => $projectId,
-            'stage_key' => '',
             'is_initial' => false,
             'is_final' => false,
             'createdon' => $now,

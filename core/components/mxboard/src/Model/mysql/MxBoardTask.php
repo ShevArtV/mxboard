@@ -21,6 +21,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'parent_id' => 0,
             'type_id' => 0,
             'column_id' => 0,
+            'num' => NULL,
             'title' => '',
             'tor' => NULL,
             'author_id' => 0,
@@ -70,7 +71,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'column_id' => 
+            'column_id' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -80,7 +81,16 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'title' => 
+            'num' =>
+            array (
+                'dbtype' => 'varchar',
+                'precision' => '32',
+                'phptype' => 'string',
+                'null' => true,
+                'default' => NULL,
+                'index' => 'unique',
+            ),
+            'title' =>
             array (
                 'dbtype' => 'varchar',
                 'precision' => '255',
@@ -267,15 +277,15 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'column_id' => 
+            'column_id' =>
             array (
                 'alias' => 'column_id',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
-                'columns' => 
+                'columns' =>
                 array (
-                    'column_id' => 
+                    'column_id' =>
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -283,7 +293,23 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'author_id' => 
+            'num' =>
+            array (
+                'alias' => 'num',
+                'primary' => false,
+                'unique' => true,
+                'type' => 'BTREE',
+                'columns' =>
+                array (
+                    'num' =>
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
+            'author_id' =>
             array (
                 'alias' => 'author_id',
                 'primary' => false,

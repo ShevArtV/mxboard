@@ -7,6 +7,7 @@ namespace MxBoard\Service;
 use MODX\Revolution\modUser;
 use MODX\Revolution\modUserGroupMember;
 use MODX\Revolution\modX;
+use MxBoard\Helpers\Columns;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
@@ -123,8 +124,12 @@ class BoardQuery
      */
     public function columns(int $projectId): array
     {
+        // Fallback: нет своих колонок — показываем глобальный шаблон (project_id = 0).
+        // project_id в выдаче позволяет фронту отличить свои колонки от шаблонных (read-only).
+        $scope = Columns::scope($this->modx, $projectId);
+
         $c = $this->modx->newQuery(MxBoardColumn::class);
-        $c->where(['project_id' => $projectId]);
+        $c->where(['project_id' => $scope]);
         $c->sortby('position', 'ASC');
 
         $out = [];
@@ -132,11 +137,11 @@ class BoardQuery
         foreach ($this->modx->getCollection(MxBoardColumn::class, $c) as $column) {
             $out[] = [
                 'id' => (int) $column->get('id'),
+                'project_id' => (int) $column->get('project_id'),
                 'key' => (string) $column->get('key'),
                 'name' => (string) $column->get('name'),
                 'position' => (int) $column->get('position'),
                 'move_roles' => (string) $column->get('move_roles'),
-                'stage_key' => (string) $column->get('stage_key'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
@@ -193,8 +198,11 @@ class BoardQuery
 
         $columnKey = trim((string) ($filters['column'] ?? ''));
 
+        // Fallback: нет своих колонок — доска показывает глобальный шаблон (project_id = 0).
+        $scope = Columns::scope($this->modx, $projectId);
+
         $cq = $this->modx->newQuery(MxBoardColumn::class);
-        $cq->where($columnKey !== '' ? ['project_id' => $projectId, 'key' => $columnKey] : ['project_id' => $projectId]);
+        $cq->where($columnKey !== '' ? ['project_id' => $scope, 'key' => $columnKey] : ['project_id' => $scope]);
         $cq->sortby('position', 'ASC');
         /** @var MxBoardColumn[] $columns */
         $columns = $this->modx->getCollection(MxBoardColumn::class, $cq);
@@ -215,7 +223,6 @@ class BoardQuery
                 'name' => (string) $column->get('name'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
-                'stage_key' => (string) $column->get('stage_key'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'tasks' => $byColumn[$key] ?? [],
             ];
@@ -438,6 +445,7 @@ class BoardQuery
 
         $c->select([
             'MxBoardTask.id',
+            'MxBoardTask.num',
             'MxBoardTask.title',
             'MxBoardTask.priority',
             'MxBoardTask.assignee_id',
