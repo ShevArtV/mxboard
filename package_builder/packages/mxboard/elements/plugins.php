@@ -12,4 +12,11 @@ return [
             'OnManagerPageBeforeRender',
         ],
     ],
+    'mxBoardKiosk' => [
+        'description' => 'Киоск-режим: рядового (не sudo) члена группы из настройки mxboard.kiosk_usergroups при входе в менеджер редиректит сразу на канбан. По умолчанию настройка пуста — никого не трогает.',
+        'content' => 'file:elements/plugins/plugin.mxboardkiosk.php',
+        'events' => [
+            'OnManagerPageInit',
+        ],
+    ],
 ];
