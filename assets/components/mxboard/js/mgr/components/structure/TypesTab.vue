@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import {
     DataTable, Column, Button, InputText, Dialog, Select, Checkbox, useToast, useConfirm,
 } from 'primevue';
@@ -22,9 +22,17 @@ const types = ref([]);
 const loading = ref(false);
 const saving = ref(false);
 
-// Развёрнутый тип → его поля.
+// Развёрнутый тип → его поля. Раскрыт всегда не более одного типа: поля лежат в
+// общем `fields`, поэтому две открытые строки показывали бы один и тот же список.
 const expandedType = ref(0);
 const fields = ref([]);
+
+// При заданном data-key DataTable ждёт expandedRows ОБЪЕКТОМ `{ <id>: true }`
+// (массив он читает только без data-key — DataTable.vue::toggleRow). Выводим его из
+// `expandedType`, чтобы источник правды остался один: на нём завязаны диалоги полей.
+const expandedRows = computed(() => (
+    expandedType.value ? { [expandedType.value]: true } : {}
+));
 
 const createOpen = ref(false);
 const createForm = ref({ key: '', name: '', description: '', ai_check: false, ai_prompt: '', fields: [] });
@@ -74,15 +82,20 @@ async function loadTypes() {
     }
 }
 
-async function toggleFields(type) {
-    if (expandedType.value === type.id) { expandedType.value = 0; return; }
-    expandedType.value = type.id;
+async function onRowExpand(event) {
+    const type = event.data;
+    expandedType.value = Number(type.id) || 0;
+    fields.value = [];
     try {
         fields.value = listOf(await FieldApi.getList(type.id));
     } catch (e) {
         fields.value = [];
         toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
     }
+}
+function onRowCollapse() {
+    expandedType.value = 0;
+    fields.value = [];
 }
 
 // --- Тип ---
@@ -243,40 +256,47 @@ function removeField(event, field) {
             <Button :label="t('mxboard_ui_refresh')" icon="pi pi-refresh" size="small" severity="secondary" outlined :loading="loading" @click="loadTypes" />
         </div>
 
-        <DataTable :value="types" :loading="loading" size="small" striped-rows>
+        <!-- Поля раскрываются строкой-расширением ПОД своим типом: общий блок под
+             таблицей терял привязку списка к конкретному типу. -->
+        <DataTable
+            :value="types"
+            :loading="loading"
+            size="small"
+            striped-rows
+            data-key="id"
+            :expanded-rows="expandedRows"
+            @row-expand="onRowExpand"
+            @row-collapse="onRowCollapse"
+        >
+            <Column expander style="width: 48px" />
             <Column field="key" :header="t('mxboard_ui_struct_key')" style="width: 160px" />
             <Column field="name" :header="t('mxboard_ui_struct_name')" />
-            <Column style="width: 200px">
-                <template #body="{ data }">
-                    <Button icon="pi pi-list" size="small" severity="secondary" text :label="t('mxboard_ui_struct_type_fields')" @click="toggleFields(data)" />
-                </template>
-            </Column>
             <Column style="width: 110px">
                 <template #body="{ data }">
                     <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="openEdit(data)" />
                     <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeType($event, data)" />
                 </template>
             </Column>
+            <template #expansion="{ data }">
+                <div class="mxb-fields-panel">
+                    <div class="mxb-section-title">
+                        <i class="pi pi-list" />{{ t('mxboard_ui_struct_type_fields') }}
+                        <span class="mxb-toolbar-spacer" />
+                        <Button :label="t('mxboard_ui_struct_add_field')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="openAddField(data.id)" />
+                    </div>
+                    <div v-for="f in fields" :key="f.id" class="mxb-fieldrow">
+                        <span class="mxb-fieldrow-label">{{ f.label }} <code>{{ f.key }}</code></span>
+                        <span class="mxb-chip">{{ f.type }}</span>
+                        <span v-if="f.required" class="mxb-req">*</span>
+                        <span class="mxb-toolbar-spacer" />
+                        <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="openEditField(f)" />
+                        <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeField($event, f)" />
+                    </div>
+                    <div v-if="!fields.length" class="mxb-empty">{{ t('mxboard_ui_struct_empty') }}</div>
+                </div>
+            </template>
             <template #empty><div class="mxb-empty">{{ t('mxboard_ui_struct_empty') }}</div></template>
         </DataTable>
-
-        <!-- Поля развёрнутого типа -->
-        <div v-if="expandedType" class="mxb-fields-panel">
-            <div class="mxb-section-title">
-                <i class="pi pi-list" />{{ t('mxboard_ui_struct_type_fields') }}
-                <span class="mxb-toolbar-spacer" />
-                <Button :label="t('mxboard_ui_struct_add_field')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="openAddField(expandedType)" />
-            </div>
-            <div v-for="f in fields" :key="f.id" class="mxb-fieldrow">
-                <span class="mxb-fieldrow-label">{{ f.label }} <code>{{ f.key }}</code></span>
-                <span class="mxb-chip">{{ f.type }}</span>
-                <span v-if="f.required" class="mxb-req">*</span>
-                <span class="mxb-toolbar-spacer" />
-                <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="openEditField(f)" />
-                <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeField($event, f)" />
-            </div>
-            <div v-if="!fields.length" class="mxb-empty">{{ t('mxboard_ui_struct_empty') }}</div>
-        </div>
 
         <!-- Новый тип -->
         <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_struct_new_type')" :style="{ width: '680px' }">

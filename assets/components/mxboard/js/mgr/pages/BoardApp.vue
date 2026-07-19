@@ -1691,6 +1691,15 @@ function openNotif(n) {
     font-weight: 400;
 }
 
+/* Рабочая область «Структуры» скроллится сама: фрейм менеджера MODX страницу не
+   прокручивает, и длинный список уходил под нижний край без доступа к прокрутке.
+   Тот же приём, что у колонки канбана (.mxb-column) — offset с запасом. */
+.mxb-struct-scroll {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
 .mxb-fields-panel {
     margin-top: 12px;
     padding: 12px;

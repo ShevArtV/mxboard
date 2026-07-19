@@ -20,11 +20,15 @@ const sub = ref('departments');
             <Tab value="projects">{{ t('mxboard_ui_struct_projects') }}</Tab>
             <Tab value="columns">{{ t('mxboard_ui_struct_columns') }}</Tab>
         </TabList>
-        <TabPanels>
-            <TabPanel value="departments"><DepartmentsTab /></TabPanel>
-            <TabPanel value="types"><TypesTab /></TabPanel>
-            <TabPanel value="projects"><ProjectsTab /></TabPanel>
-            <TabPanel value="columns"><ColumnsTab /></TabPanel>
-        </TabPanels>
+        <!-- Свой скролл рабочей области: фрейм менеджера страницу не прокручивает,
+             поэтому длинная таблица (и раскрытые поля) иначе уходит под нижний край. -->
+        <div class="mxb-struct-scroll">
+            <TabPanels>
+                <TabPanel value="departments"><DepartmentsTab /></TabPanel>
+                <TabPanel value="types"><TypesTab /></TabPanel>
+                <TabPanel value="projects"><ProjectsTab /></TabPanel>
+                <TabPanel value="columns"><ColumnsTab /></TabPanel>
+            </TabPanels>
+        </div>
     </Tabs>
 </template>
