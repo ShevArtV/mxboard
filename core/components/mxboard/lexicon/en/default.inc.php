@@ -373,3 +373,13 @@ $_lang['mxboard_ui_profile_created'] = 'Issued';
 $_lang['mxboard_ui_profile_confirm_regen'] = 'Reissue the token? The previous one will stop working.';
 $_lang['mxboard_ui_profile_save_first'] = 'Save the user first, then issue a token.';
 $_lang['mxboard_ui_profile_copied'] = 'Token copied';
+
+// In-app notifications (SSE): panel title, empty state and per-type labels.
+$_lang['mxboard_notify_title'] = 'Notifications';
+$_lang['mxboard_notify_empty'] = 'No notifications yet';
+$_lang['mxboard_notify_create'] = 'New task';
+$_lang['mxboard_notify_move'] = 'Stage change';
+$_lang['mxboard_notify_comment'] = 'Comment';
+$_lang['mxboard_notify_close'] = 'Task closed';
+$_lang['mxboard_notify_deadline_dispute'] = 'Deadline disputed';
+$_lang['mxboard_notify_deadline_resolve'] = 'Deadline resolved';

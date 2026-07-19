@@ -41,6 +41,7 @@ const PR = P + 'Project\\';
 const TY = P + 'Type\\';
 const C = P + 'Column\\';
 const K = P + 'Token\\';
+const N = P + 'Notification\\';
 
 /**
  * Текст ошибки из проваленного вызова useApi. Тело ответа MODX — в err.data:
@@ -176,6 +177,13 @@ export const TokenApi = {
     getList: (params = {}) => post(K + 'GetList', params),
     create: (user_id, name) => post(K + 'Create', { user_id, name }),
     remove: (id) => post(K + 'Remove', { id }),
+};
+
+// Уведомления: первичная лента (счётчик непрочитанных) и отметка прочитанного.
+// Живой поток идёт по SSE (sse.php), см. utils/useNotifications.js.
+export const NotificationApi = {
+    getList: (limit = 50) => post(N + 'GetList', { limit }),
+    markSeen: (ids = []) => post(N + 'MarkSeen', { ids }),
 };
 
 export const boardConfig = cfg;

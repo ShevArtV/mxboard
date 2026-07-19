@@ -1001,6 +1001,14 @@ class TaskService
             // Кривой плагин интегратора не должен ронять работу доски.
             $this->modx->log(modX::LOG_LEVEL_ERROR, "[mxBoard] Событие {$event}: " . $e->getMessage());
         }
+
+        // In-app уведомления (SSE) — своя, встроенная реакция доски на то же событие.
+        // Обёрнуто отдельно: сбой уведомлений не должен мешать внешним плагинам и наоборот.
+        try {
+            (new NotificationService($this->modx))->emit($event, $task, $user, $extra);
+        } catch (\Throwable $e) {
+            $this->modx->log(modX::LOG_LEVEL_ERROR, "[mxBoard] Уведомление {$event}: " . $e->getMessage());
+        }
     }
 
     /** @return array{success: bool, message: string, object: array<string, mixed>|null} */

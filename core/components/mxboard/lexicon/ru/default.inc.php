@@ -373,3 +373,13 @@ $_lang['mxboard_ui_profile_created'] = 'Выдан';
 $_lang['mxboard_ui_profile_confirm_regen'] = 'Перевыпустить токен? Прежний перестанет работать.';
 $_lang['mxboard_ui_profile_save_first'] = 'Сначала сохраните пользователя, затем выдайте токен.';
 $_lang['mxboard_ui_profile_copied'] = 'Токен скопирован';
+
+// In-app уведомления (SSE): заголовок панели, пустое состояние и подписи типов.
+$_lang['mxboard_notify_title'] = 'Уведомления';
+$_lang['mxboard_notify_empty'] = 'Пока нет уведомлений';
+$_lang['mxboard_notify_create'] = 'Новая задача';
+$_lang['mxboard_notify_move'] = 'Смена стадии';
+$_lang['mxboard_notify_comment'] = 'Комментарий';
+$_lang['mxboard_notify_close'] = 'Задача закрыта';
+$_lang['mxboard_notify_deadline_dispute'] = 'Дедлайн оспорен';
+$_lang['mxboard_notify_deadline_resolve'] = 'Дедлайн урегулирован';

@@ -1,10 +1,12 @@
 <script setup>
 import { ref } from 'vue';
-import { Toast, ConfirmPopup, Tabs, TabList, Tab, TabPanels, TabPanel } from 'primevue';
+import { Toast, ConfirmPopup, Tabs, TabList, Tab, TabPanels, TabPanel, Popover, Button, Badge } from 'primevue';
 import BoardView from './BoardView.vue';
 import TokensView from './TokensView.vue';
 import StructureView from './StructureView.vue';
 import { t } from '../utils/i18n.js';
+import { useNotifications } from '../utils/useNotifications.js';
+import { fmtDate } from '../utils/format.js';
 
 // Гейты вкладок (UI лишь прячет; финальную проверку делают процессоры/плагин):
 // «Структура» — менеджеру (sudo/супер отдела); «Токены агентов» — только sudo.
@@ -12,12 +14,71 @@ const cfg = window.MxBoardConfig || {};
 const isManager = !!cfg.is_manager;
 const isSudo = !!cfg.is_sudo;
 const tab = ref('board');
+
+// Уведомления: живой SSE-поток + тосты внутри useNotifications, здесь — колокольчик и список.
+const { state: notif, markAllSeen, summary, detail, typeLabel } = useNotifications();
+const notifPanel = ref(null);
+
+function toggleNotif(e) {
+    notifPanel.value?.toggle(e);
+}
+
+// Открытие панели = «прочитано»: сбрасываем счётчик непрочитанных.
+function onNotifShow() {
+    markAllSeen();
+}
+
+// Навигация к задаче — через hash, как в BoardView (он слушает hashchange).
+function openNotif(n) {
+    if (n.task_id) window.location.hash = '#task-' + n.task_id;
+    notifPanel.value?.hide();
+}
 </script>
 
 <template>
     <div class="mxb">
         <Toast position="top-right" />
         <ConfirmPopup />
+
+        <div class="mxb-appbar">
+            <button
+                type="button"
+                class="mxb-bell"
+                :aria-label="t('mxboard_notify_title')"
+                @click="toggleNotif"
+            >
+                <i class="pi pi-bell" />
+                <Badge
+                    v-if="notif.unseen > 0"
+                    :value="notif.unseen > 99 ? '99+' : notif.unseen"
+                    severity="danger"
+                    class="mxb-bell-badge"
+                />
+            </button>
+        </div>
+
+        <Popover ref="notifPanel" @show="onNotifShow">
+            <div class="mxb-notif">
+                <div class="mxb-notif-head">{{ t('mxboard_notify_title') }}</div>
+                <div v-if="!notif.items.length" class="mxb-notif-empty">
+                    <i class="pi pi-inbox" /> {{ t('mxboard_notify_empty') }}
+                </div>
+                <ul v-else class="mxb-notif-list">
+                    <li
+                        v-for="n in notif.items"
+                        :key="n.id"
+                        class="mxb-notif-item"
+                        :class="{ 'mxb-notif-item--unseen': !n.seen }"
+                        @click="openNotif(n)"
+                    >
+                        <span class="mxb-notif-type">{{ typeLabel(n) }}</span>
+                        <span class="mxb-notif-summary">{{ summary(n) }}</span>
+                        <span class="mxb-notif-detail">{{ detail(n) }}</span>
+                        <span class="mxb-notif-time">{{ fmtDate(n.createdon) }}</span>
+                    </li>
+                </ul>
+            </div>
+        </Popover>
 
         <Tabs v-model:value="tab">
             <TabList>
@@ -98,6 +159,159 @@ const tab = ref('board');
 
 .mxb-tab-icon {
     margin-right: 6px;
+}
+
+/* Колокольчик уведомлений — в правом верхнем углу над табами. */
+.mxb-appbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.mxb-bell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: var(--mxb-radius-pill);
+    background: var(--p-surface-0, #fff);
+    color: var(--mxb-ink-muted);
+    cursor: pointer;
+    transition: color 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.mxb-bell:hover {
+    color: var(--p-primary-color, #10b981);
+    border-color: color-mix(in srgb, var(--p-primary-400, #34d399) 55%, var(--p-content-border-color, #e2e5e9));
+    box-shadow: var(--mxb-shadow-1);
+}
+
+.mxb-bell:focus-visible {
+    outline: none;
+    box-shadow: var(--mxb-focus);
+}
+
+.mxb-bell .pi-bell {
+    font-size: 17px;
+}
+
+.mxb-bell-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+}
+
+/* Панель уведомлений (Popover). */
+.mxb-notif {
+    width: 340px;
+    max-width: 88vw;
+}
+
+.mxb-notif-head {
+    font-weight: 700;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--mxb-ink-muted);
+    padding: 2px 4px 10px;
+}
+
+.mxb-notif-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 22px 12px;
+    color: var(--mxb-ink-muted);
+    font-size: 13px;
+}
+
+.mxb-notif-empty .pi {
+    font-size: 24px;
+    color: var(--p-surface-300, #cbd5e1);
+}
+
+.mxb-notif-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.mxb-notif-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+        'type summary time'
+        'detail detail detail';
+    gap: 2px 8px;
+    align-items: baseline;
+    padding: 9px 8px;
+    border-radius: var(--mxb-radius-sm);
+    cursor: pointer;
+    transition: background 0.12s ease;
+}
+
+.mxb-notif-item:hover {
+    background: var(--p-surface-50, #f6f7f9);
+}
+
+/* Непрочитанное — мягкий фон + точка слева, без «фирменной» толстой боковой границы. */
+.mxb-notif-item--unseen {
+    background: color-mix(in srgb, var(--p-primary-500, #10b981) 7%, transparent);
+}
+
+.mxb-notif-item--unseen .mxb-notif-type::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: var(--p-primary-500, #10b981);
+    vertical-align: middle;
+}
+
+.mxb-notif-type {
+    grid-area: type;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--p-primary-700, #047857);
+    white-space: nowrap;
+}
+
+.mxb-notif-summary {
+    grid-area: summary;
+    font-weight: 600;
+    font-size: 13px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--p-text-color, #1f2733);
+}
+
+.mxb-notif-detail {
+    grid-area: detail;
+    font-size: 12px;
+    color: var(--mxb-ink-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mxb-notif-time {
+    grid-area: time;
+    font-size: 11px;
+    color: var(--mxb-ink-muted);
+    white-space: nowrap;
 }
 
 .mxb-toolbar {

@@ -355,6 +355,84 @@ class BoardQuery
     }
 
     /**
+     * Инкрементальная лента журнала с курсором по id — для внешних интеграций
+     * (локальный Jarvis-поллер): вернуть события позже $sinceId, обогащённые полями
+     * задачи (num/title/project/автор/исполнитель) и именем актора, чтобы потребителю
+     * хватило одной выборки без N+1 дозагрузок.
+     *
+     * Права здесь НЕ проверяются — это делает вызывающий (REST-роут, только менеджеру).
+     *
+     * @return array{events: list<array<string, mixed>>, cursor: int}
+     */
+    public function events(int $sinceId, int $limit = 100): array
+    {
+        $limit = max(1, min(500, $limit));
+
+        $c = $this->modx->newQuery(MxBoardLog::class);
+        $c->innerJoin(MxBoardTask::class, 'Task', 'Task.id = MxBoardLog.task_id');
+        $c->leftJoin(MxBoardProject::class, 'Project', 'Project.id = Task.project_id');
+        $c->leftJoin(modUser::class, 'Actor', 'Actor.id = MxBoardLog.user_id');
+        $c->where(['MxBoardLog.id:>' => $sinceId]);
+        // ВНИМАНИЕ: алиасы `from`/`to` — зарезервированные слова SQL; `... AS from` роняет
+        // запрос синтаксически (та же ловушка, что RANK в ORDER BY). Поэтому алиасим в
+        // безопасные from_column/to_column, а наружу отдаём ключи from/to (см. ниже).
+        $c->select([
+            'id' => 'MxBoardLog.id',
+            'action' => 'MxBoardLog.action',
+            'from_column' => 'MxBoardLog.from_column',
+            'to_column' => 'MxBoardLog.to_column',
+            'note' => 'MxBoardLog.note',
+            'channel' => 'MxBoardLog.channel',
+            'createdon' => 'MxBoardLog.createdon',
+            'actor_id' => 'MxBoardLog.user_id',
+            'actor' => 'Actor.username',
+            'task_id' => 'Task.id',
+            'num' => 'Task.num',
+            'title' => 'Task.title',
+            'project_id' => 'Task.project_id',
+            'author_id' => 'Task.author_id',
+            'assignee_id' => 'Task.assignee_id',
+            'project_key' => 'Project.key',
+        ]);
+        $c->sortby('MxBoardLog.id', 'ASC');
+        $c->limit($limit);
+
+        $rows = [];
+        $c->prepare();
+        if ($c->stmt && $c->stmt->execute()) {
+            $rows = (array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+
+        // Типизация и курсор: cursor = id последнего события (или входной, если пусто).
+        $cursor = $sinceId;
+        $out = [];
+        foreach ($rows as $r) {
+            $id = (int) $r['id'];
+            $cursor = max($cursor, $id);
+            $out[] = [
+                'id' => $id,
+                'action' => (string) $r['action'],
+                'from' => (string) ($r['from_column'] ?? ''),
+                'to' => (string) ($r['to_column'] ?? ''),
+                'note' => (string) ($r['note'] ?? ''),
+                'channel' => (string) $r['channel'],
+                'createdon' => (int) $r['createdon'],
+                'actor_id' => (int) $r['actor_id'],
+                'actor' => (string) ($r['actor'] ?? ''),
+                'task_id' => (int) $r['task_id'],
+                'num' => (string) ($r['num'] ?? ''),
+                'title' => (string) ($r['title'] ?? ''),
+                'project_id' => (int) $r['project_id'],
+                'project_key' => (string) ($r['project_key'] ?? ''),
+                'author_id' => (int) $r['author_id'],
+                'assignee_id' => (int) $r['assignee_id'],
+            ];
+        }
+
+        return ['events' => $out, 'cursor' => $cursor];
+    }
+
+    /**
      * Схема типа: встроенные обязательные поля (title, deadline) + поля типа.
      *
      * @return array<string, mixed>|null null — тип не найден в отделе проекта

@@ -52,6 +52,20 @@ final class Router
             return $this->ok($this->query->projects());
         }
 
+        // GET /events?since=<log_id>&limit=<n> — инкрементальная лента журнала для внешних
+        // интеграций (напр. локальный Jarvis-поллер): один курсор по id, задачи обогащены.
+        // Только менеджеру отдела — это глобальный поток по всем задачам, а не «свои».
+        if ($method === 'GET' && $resource === 'events' && !isset($seg[1])) {
+            if (!\MxBoard\Helpers\Transitions::isAnyDepartmentManager($this->modx, $this->user)) {
+                return $this->fail('mxboard_err_move_denied', 403);
+            }
+
+            return $this->ok($this->query->events(
+                (int) ($query['since'] ?? 0),
+                (int) ($query['limit'] ?? 100)
+            ));
+        }
+
         // GET /board?project=key
         if ($method === 'GET' && $resource === 'board' && !isset($seg[1])) {
             $project = $this->resolveProject((string) ($query['project'] ?? ''));

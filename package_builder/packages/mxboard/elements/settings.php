@@ -83,6 +83,28 @@ return [
         'area' => 'mxboard_main',
     ],
 
+    // --- In-app уведомления (SSE) ---
+    // Живой поток уведомлений доски в админку через Server-Sent Events. Выключение
+    // гасит и генерацию строк уведомлений (NotificationService), и SSE-эндпоинт.
+    'mxboard.sse_enabled' => [
+        'xtype' => 'combo-boolean',
+        'value' => '1',
+        'area' => 'mxboard_main',
+    ],
+    // Время жизни одного SSE-соединения, сек (клиент переподключается сам с Last-Event-ID).
+    // Держим коротким: на shared-хостинге долгие запросы рвут прокси/FPM.
+    'mxboard.sse_lifetime' => [
+        'xtype' => 'numberfield',
+        'value' => '25',
+        'area' => 'mxboard_main',
+    ],
+    // Интервал опроса новых уведомлений внутри соединения, сек.
+    'mxboard.sse_poll_interval' => [
+        'xtype' => 'numberfield',
+        'value' => '3',
+        'area' => 'mxboard_main',
+    ],
+
     // --- ИИ-проверка полноты постановки задач ---
     // Базовый URL OpenAI-совместимого эндпоинта (клиент добавит /chat/completions).
     // Работает с любым провайдером: mimo, OpenAI, DeepSeek, локальные vLLM/Ollama.

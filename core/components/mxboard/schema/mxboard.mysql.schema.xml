@@ -365,4 +365,31 @@
         </index>
     </object>
 
+    <!-- Очередь in-app уведомлений на получателя. SSE в PHP без состояния — событие
+         (create/move/comment/…) материализуется здесь одной строкой на получателя, а
+         эндпоинт assets/components/mxboard/sse.php стримит непрочитанные по возрастанию id.
+         user_id — кому; actor_id — кто сделал; payload — JSON (num, title, from/to, preview). -->
+    <object class="MxBoardNotification" table="mxboard_notification" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="actor_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- create | move | comment | close | deadline_dispute | deadline_resolve -->
+        <field key="type" dbtype="varchar" precision="32" phptype="string" null="false" default="" index="index"/>
+        <field key="payload" dbtype="text" phptype="string" null="true"/>
+        <field key="seen" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0" index="index"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+
+        <index alias="user_seen" name="user_seen" primary="false" unique="false" type="BTREE">
+            <column key="user_id" length="" collation="A" null="false"/>
+            <column key="seen" length="" collation="A" null="false"/>
+            <column key="id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="task_id" name="task_id" primary="false" unique="false" type="BTREE">
+            <column key="task_id" length="" collation="A" null="false"/>
+        </index>
+
+        <aggregate alias="Task" class="MxBoard\Model\MxBoardTask" local="task_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Actor" class="MODX\Revolution\modUser" local="actor_id" foreign="id" cardinality="one" owner="foreign"/>
+    </object>
+
 </model>

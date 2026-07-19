@@ -51,6 +51,7 @@ $classes = [
     \MxBoard\Model\MxBoardToken::class,
     \MxBoard\Model\MxBoardAttachment::class,
     \MxBoard\Model\MxBoardCounter::class,
+    \MxBoard\Model\MxBoardNotification::class,
 ];
 
 $manager = $modx->getManager();
