@@ -828,6 +828,84 @@ class StructureService
     }
 
     /**
+     * Сбросить колонки проекта к дефолтным: удалить собственные колонки, вернув проект
+     * на глобальный шаблон (project_id = 0). Сам шаблон сбросить нельзя (project_id = 0).
+     *
+     * В отличие от удаления одной колонки, задачи не осиротеют: карточки, стоящие в
+     * собственных колонках проекта, переносятся на одноимённую (по ключу) колонку шаблона,
+     * а при отсутствии такого ключа — на стартовую колонку шаблона. Всё в транзакции.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function resetColumns(modUser $user, int $projectId): array
+    {
+        if ($projectId <= 0) {
+            return $this->fail('mxboard_err_reset_template');
+        }
+        $error = $this->columnScopeGate($user, $projectId);
+        if ($error !== null) {
+            return $this->fail($error);
+        }
+
+        /** @var array<int, MxBoardColumn> $own id => column */
+        $own = [];
+        foreach ($this->modx->getCollection(MxBoardColumn::class, ['project_id' => $projectId]) as $col) {
+            $own[(int) $col->get('id')] = $col;
+        }
+        if ($own === []) {
+            return $this->fail('mxboard_err_reset_no_own');
+        }
+
+        // Шаблон: key => id + стартовая колонка (fallback для несовпавших ключей).
+        $tplByKey = [];
+        $tplInitial = 0;
+        foreach ($this->modx->getCollection(MxBoardColumn::class, ['project_id' => 0]) as $t) {
+            $tplByKey[(string) $t->get('key')] = (int) $t->get('id');
+            if ((bool) $t->get('is_initial')) {
+                $tplInitial = (int) $t->get('id');
+            }
+        }
+        if ($tplByKey === [] || $tplInitial <= 0) {
+            return $this->fail('mxboard_err_reset_no_template');
+        }
+
+        // id собственной колонки → её ключ (для переноса задач на шаблон).
+        $keyById = [];
+        foreach ($own as $id => $col) {
+            $keyById[$id] = (string) $col->get('key');
+        }
+
+        $this->modx->beginTransaction();
+
+        // Перенос задач проекта, стоящих в собственных колонках, на шаблон по ключу.
+        foreach ($this->modx->getCollection(MxBoardTask::class, ['project_id' => $projectId]) as $task) {
+            $cid = (int) $task->get('column_id');
+            if (!isset($keyById[$cid])) {
+                continue; // задача уже на шаблонной/чужой колонке — не трогаем
+            }
+            $task->set('column_id', $tplByKey[$keyById[$cid]] ?? $tplInitial);
+            if (!$task->save()) {
+                $this->modx->rollback();
+
+                return $this->fail('mxboard_err_save');
+            }
+        }
+
+        // Снести собственные колонки — проект вернётся на fallback-шаблон.
+        foreach ($own as $col) {
+            if (!$col->remove()) {
+                $this->modx->rollback();
+
+                return $this->fail('mxboard_err_save');
+            }
+        }
+
+        $this->modx->commit();
+
+        return $this->ok(['project_id' => $projectId, 'reset' => true]);
+    }
+
+    /**
      * Источники для копирования колонок в проект: глобальный шаблон (если не пуст) +
      * проекты того же отдела, у которых есть свои колонки (кроме самого целевого).
      * Фронт: если источник ровно один — копирует без диалога выбора.

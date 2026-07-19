@@ -114,6 +114,8 @@ export const ColumnApi = {
     copy: (projectId, sourceId) => post(C + 'Copy', { project_id: projectId, source_id: sourceId }),
     // Переупорядочить: order — массив id в новом порядке (drag-n-drop).
     reorder: (projectId, order) => post(C + 'Reorder', withJson({ project_id: projectId, order }, ['order'])),
+    // Сбросить свои колонки проекта → вернуться к дефолтному шаблону (задачи переносятся по ключу).
+    reset: (projectId) => post(C + 'Reset', { project_id: projectId }),
 };
 
 // Задача. Модель v2: исполнитель назначается при создании (пула/захвата нет),

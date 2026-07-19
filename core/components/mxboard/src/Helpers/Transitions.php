@@ -33,9 +33,6 @@ class Transitions
     /** Роль: тот, кто взял задачу в работу. */
     public const ROLE_ASSIGNEE = 'assignee';
 
-    /** Роль: любой пользователь, имеющий доступ к доске. */
-    public const ROLE_ANY = 'any';
-
     /** Право «двигать что угодно куда угодно» — обходит правила колонки. */
     public const PERMISSION_MOVE_ANY = 'mxboard_move_any';
 
@@ -81,7 +78,6 @@ class Transitions
 
         foreach (self::roles($target) as $role) {
             $ok = match ($role) {
-                self::ROLE_ANY => true,
                 self::ROLE_AUTHOR => $isAuthor,
                 self::ROLE_ASSIGNEE => $isAssignee,
                 default => self::inGroup($modx, $user, $role),

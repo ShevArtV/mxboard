@@ -40,23 +40,6 @@ function openNotif(n) {
         <Toast position="top-right" />
         <ConfirmPopup />
 
-        <div class="mxb-appbar">
-            <button
-                type="button"
-                class="mxb-bell"
-                :aria-label="t('mxboard_notify_title')"
-                @click="toggleNotif"
-            >
-                <i class="pi pi-bell" />
-                <Badge
-                    v-if="notif.unseen > 0"
-                    :value="notif.unseen > 99 ? '99+' : notif.unseen"
-                    severity="danger"
-                    class="mxb-bell-badge"
-                />
-            </button>
-        </div>
-
         <Popover ref="notifPanel" @show="onNotifShow">
             <div class="mxb-notif">
                 <div class="mxb-notif-head">{{ t('mxboard_notify_title') }}</div>
@@ -81,11 +64,27 @@ function openNotif(n) {
         </Popover>
 
         <Tabs v-model:value="tab">
-            <TabList>
-                <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
-                <Tab v-if="isManager" value="structure"><i class="pi pi-sitemap mxb-tab-icon" /> {{ t('mxboard_ui_structure') }}</Tab>
-                <Tab v-if="isSudo" value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
-            </TabList>
+            <div class="mxb-tabbar">
+                <TabList>
+                    <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
+                    <Tab v-if="isManager" value="structure"><i class="pi pi-sitemap mxb-tab-icon" /> {{ t('mxboard_ui_structure') }}</Tab>
+                    <Tab v-if="isSudo" value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
+                </TabList>
+                <button
+                    type="button"
+                    class="mxb-bell"
+                    :aria-label="t('mxboard_notify_title')"
+                    @click="toggleNotif"
+                >
+                    <i class="pi pi-bell" />
+                    <Badge
+                        v-if="notif.unseen > 0"
+                        :value="notif.unseen > 99 ? '99+' : notif.unseen"
+                        severity="danger"
+                        class="mxb-bell-badge"
+                    />
+                </button>
+            </div>
             <TabPanels>
                 <TabPanel value="board">
                     <BoardView />
@@ -161,12 +160,30 @@ function openNotif(n) {
     margin-right: 6px;
 }
 
-/* Колокольчик уведомлений — в правом верхнем углу над табами. */
-.mxb-appbar {
+/* Общая панель: строка с табами слева и колокольчиком уведомлений справа.
+   Фон/граница живут на всём ряду, а не только под табами, — иначе колокольчик
+   справа «выпадает» из белой полосы TabList на серый фон страницы. */
+.mxb-tabbar {
     display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-bottom: 4px;
+    align-items: flex-end;
+    gap: var(--mxb-space-3);
+    background: var(--p-surface-0, #fff);
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+    padding-right: var(--mxb-space-2);
+}
+
+.mxb-tabbar > .p-tabs-tablist,
+.mxb-tabbar > .p-tablist {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Граница теперь у всего ряда — убираем собственную у TabList, чтобы линия
+       шла под всей полосой, включая зону колокольчика, и не задваивалась. */
+    border-bottom: none;
+}
+
+.mxb-tabbar > .mxb-bell {
+    flex: none;
+    align-self: center;
 }
 
 .mxb-bell {
@@ -462,6 +479,7 @@ function openNotif(n) {
 }
 
 .mxb-card {
+    position: relative;
     background: var(--p-surface-0, #fff);
     border: 1px solid var(--p-content-border-color, #e2e5e9);
     border-radius: var(--mxb-radius-sm);
@@ -469,6 +487,47 @@ function openNotif(n) {
     cursor: pointer;
     transition: box-shadow 0.16s ease, transform 0.16s ease, border-color 0.16s ease;
     box-shadow: var(--mxb-shadow-1);
+}
+
+/* Иконка удаления в правом верхнем углу карточки: появляется на hover/фокусе,
+   на тач-экранах видна всегда (там hover не срабатывает). */
+.mxb-card-del {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mxb-ink-muted, #6c757d);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.mxb-card:hover .mxb-card-del,
+.mxb-card:focus-within .mxb-card-del,
+.mxb-card-del:focus-visible {
+    opacity: 1;
+}
+
+.mxb-card-del:hover,
+.mxb-card-del:focus-visible {
+    background: color-mix(in srgb, var(--p-red-500, #ef4444) 14%, transparent);
+    color: var(--p-red-500, #ef4444);
+}
+
+@media (hover: none) {
+    .mxb-card-del {
+        opacity: 1;
+    }
 }
 
 .mxb-card:hover {

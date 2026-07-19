@@ -27,7 +27,7 @@ const copyOpen = ref(false);
 const copySources = ref([]);
 const copySourceId = ref(null);
 
-// Кто может двигать карточку В колонку — 4 понятных варианта вместо CSV-синтаксиса.
+// Кто может двигать карточку В колонку — понятные варианты вместо CSV-синтаксиса.
 // На бэке остаётся move_roles (CSV): радио лишь собирает/парсит его.
 const MOVE_OPTIONS = computed(() => [
     { value: 'both', label: t('mxboard_ui_struct_move_both') },
@@ -39,8 +39,8 @@ function modeToRoles(mode) {
 }
 function rolesToMode(roles) {
     const parts = String(roles || '').split(',').map((x) => x.trim()).filter(Boolean);
-    const a = parts.includes('author') || parts.includes('any');
-    const s = parts.includes('assignee') || parts.includes('any');
+    const a = parts.includes('author');
+    const s = parts.includes('assignee');
     if (a && s) return 'both';
     if (a) return 'author';
     if (s) return 'assignee';
@@ -183,6 +183,30 @@ function removeColumn(event, col) {
     });
 }
 
+// Сброс колонок проекта к дефолтным: удаляем свои колонки, задачи переносятся на
+// шаблон по ключу (несовпавшие — в стартовую стадию). Всё делает сервис в транзакции.
+function resetColumns(event) {
+    confirm.require({
+        target: event.currentTarget,
+        message: t('mxboard_ui_struct_reset_confirm'),
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: t('mxboard_ui_struct_reset'),
+        rejectLabel: t('mxboard_ui_cancel'),
+        acceptProps: { severity: 'danger', size: 'small' },
+        rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
+        accept: async () => {
+            try {
+                await ColumnApi.reset(projectId.value);
+                toast.add({ severity: 'success', summary: t('mxboard_ui_struct_removed'), life: 3000 });
+                load();
+                bumpColumns();
+            } catch (e) {
+                toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+            }
+        },
+    });
+}
+
 // Drag-n-drop переупорядочивание: оптимистично применяем и шлём новый порядок id.
 async function onRowReorder(e) {
     const prev = columns.value;
@@ -240,13 +264,16 @@ async function doCopy(sourceId) {
             <Select v-model="projectId" :options="projectOptions" option-label="name" option-value="id" :placeholder="t('mxboard_ui_struct_pick_project')" />
             <Button v-if="canEdit" :label="t('mxboard_ui_struct_new_column')" icon="pi pi-plus" size="small" :disabled="projectId === null" @click="openCreate" />
             <Button v-if="canCopy" :label="t('mxboard_ui_struct_copy_columns')" icon="pi pi-copy" size="small" severity="secondary" @click="openCopy" />
+            <Button v-if="canEdit && Number(projectId) > 0" :label="t('mxboard_ui_struct_reset')" icon="pi pi-undo" size="small" severity="danger" outlined @click="resetColumns" />
             <Button :label="t('mxboard_ui_refresh')" icon="pi pi-refresh" size="small" severity="secondary" outlined :loading="loading" @click="load" />
         </div>
 
-        <Message v-if="isFallback" severity="info" :closable="false" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_readonly_hint') }}</Message>
+        <!-- Фича 3: у проекта нет своих колонок — показываем плашку без списка дефолтных
+             (на канбане дефолты остаются как fallback, но в редакторе стадий их не правят). -->
+        <Message v-if="isFallback" severity="info" :closable="false" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_no_own') }}</Message>
         <div v-else class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_flag_transfer') }}<template v-if="canEdit"> · {{ t('mxboard_ui_struct_reorder_hint') }}</template></div>
 
-        <DataTable :value="columns" :loading="loading" size="small" striped-rows @row-reorder="onRowReorder">
+        <DataTable v-if="!isFallback" :value="columns" :loading="loading" size="small" striped-rows @row-reorder="onRowReorder">
             <Column v-if="canEdit" row-reorder style="width: 40px" />
             <Column field="position" :header="t('mxboard_ui_struct_position')" style="width: 80px" />
             <Column field="key" :header="t('mxboard_ui_struct_key')" style="width: 150px" />

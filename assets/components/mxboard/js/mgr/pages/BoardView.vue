@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { Button, Select, useToast } from 'primevue';
+import { Button, Select, useToast, useConfirm } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
@@ -12,6 +12,7 @@ import NewTaskDialog from '../components/NewTaskDialog.vue';
 import TaskPage from './TaskPage.vue';
 
 const toast = useToast();
+const confirm = useConfirm();
 const cfg = window.MxBoardConfig || {};
 const userId = Number(cfg.user_id) || 0;
 
@@ -208,6 +209,30 @@ function openTask(task) {
     openTaskId.value = task.id;
 }
 
+// Удаление задачи прямо с доски (иконка в углу карточки). Права проверяет сервер
+// (TaskService::delete), на клиенте иконка уже скрыта для не-автора/не-менеджера.
+function deleteTask(task, anchorEl) {
+    confirm.require({
+        target: anchorEl,
+        message: t('mxboard_msg_confirm_delete_task'),
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: t('mxboard_ui_delete'),
+        rejectLabel: t('mxboard_ui_cancel'),
+        acceptProps: { severity: 'danger', size: 'small' },
+        rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
+        accept: async () => {
+            try {
+                await TaskApi.remove(task.id);
+                toast.add({ severity: 'success', summary: t('mxboard_msg_task_deleted'), life: 3000 });
+                if (openTaskId.value === task.id) openTaskId.value = 0;
+                await load();
+            } catch (e) {
+                toast.add({ severity: 'error', summary: t('mxboard_err_remove_failed'), detail: errorMessage(e), life: 8000 });
+            }
+        },
+    });
+}
+
 // Задача открыта напрямую по хэшу (перезагрузка) — доска ещё не выбрала проект/отдел.
 // Восстанавливаем их из project_id задачи, чтобы работали список исполнителей и
 // создание подзадачи. Список проектов грузится асинхронно — если ещё пуст, запомним
@@ -395,6 +420,7 @@ async function onDrop(column) {
                         :task="task"
                         :dragging="dragTaskKey === String(task.id)"
                         @open="openTask(task)"
+                        @delete="deleteTask(task, $event)"
                         @dragstart="onDragStart(task, column, $event)"
                         @dragend="onDragEnd"
                     />

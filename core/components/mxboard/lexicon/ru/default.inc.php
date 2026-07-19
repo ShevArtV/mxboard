@@ -383,3 +383,11 @@ $_lang['mxboard_notify_comment'] = 'Комментарий';
 $_lang['mxboard_notify_close'] = 'Задача закрыта';
 $_lang['mxboard_notify_deadline_dispute'] = 'Дедлайн оспорен';
 $_lang['mxboard_notify_deadline_resolve'] = 'Дедлайн урегулирован';
+
+// Сброс колонок проекта к дефолтным
+$_lang['mxboard_err_reset_template'] = 'Дефолтные колонки сбросить нельзя — это общий шаблон.';
+$_lang['mxboard_err_reset_no_own'] = 'У проекта нет собственных колонок — сбрасывать нечего.';
+$_lang['mxboard_err_reset_no_template'] = 'Нет дефолтного шаблона колонок, некуда сбрасывать.';
+$_lang['mxboard_ui_struct_reset'] = 'Сбросить к дефолтным';
+$_lang['mxboard_ui_struct_reset_confirm'] = 'Удалить собственные колонки проекта и вернуться к дефолтным? Задачи перейдут на одноимённые дефолтные стадии.';
+$_lang['mxboard_ui_struct_no_own'] = 'У проекта нет собственных колонок — используются дефолтные. Нажмите «Копировать колонки», чтобы создать свои и настраивать их.';

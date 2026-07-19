@@ -383,3 +383,11 @@ $_lang['mxboard_notify_comment'] = 'Comment';
 $_lang['mxboard_notify_close'] = 'Task closed';
 $_lang['mxboard_notify_deadline_dispute'] = 'Deadline disputed';
 $_lang['mxboard_notify_deadline_resolve'] = 'Deadline resolved';
+
+// Reset project columns to defaults
+$_lang['mxboard_err_reset_template'] = 'Default columns cannot be reset — this is the shared template.';
+$_lang['mxboard_err_reset_no_own'] = 'The project has no own columns — nothing to reset.';
+$_lang['mxboard_err_reset_no_template'] = 'There is no default column template to reset to.';
+$_lang['mxboard_ui_struct_reset'] = 'Reset to defaults';
+$_lang['mxboard_ui_struct_reset_confirm'] = 'Delete the project own columns and fall back to defaults? Tasks will move to the matching default stages.';
+$_lang['mxboard_ui_struct_no_own'] = 'The project has no own columns — defaults are used. Click “Copy columns” to create your own and customize them.';
