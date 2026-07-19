@@ -27,8 +27,13 @@ use MxBoard\Model\MxBoardTaskType;
  */
 class StructureService
 {
-    /** Допустимые типы полей. Тип `files` — файловая зона задачи (вложения, не хранится в fields). */
-    private const FIELD_TYPES = ['textarea', 'url', 'number', 'date', 'user', 'files'];
+    /**
+     * Допустимые типы полей. Тип `files` — файловая зона задачи (вложения, не хранится в fields).
+     *
+     * `text` обязан быть в списке: `normalizeFields()` подставляет его как тип по умолчанию,
+     * и без него поле, созданное без явного `type`, не проходило собственную валидацию.
+     */
+    private const FIELD_TYPES = ['text', 'textarea', 'url', 'number', 'date', 'select', 'user', 'files'];
 
     public function __construct(private modX $modx)
     {

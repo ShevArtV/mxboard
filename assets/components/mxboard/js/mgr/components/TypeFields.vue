@@ -90,6 +90,18 @@ async function onFieldFile(key, event) {
             @input="set(field.key, $event.target.value)"
         />
 
+        <!-- Список: варианты заданы на поле типа (options). Без них выбирать не из чего,
+             поэтому пустой список падает в обычный ввод ниже. -->
+        <Select
+            v-else-if="field.type === 'select' && Array.isArray(field.options) && field.options.length"
+            :model-value="model[field.key] ?? ''"
+            :options="field.options"
+            :placeholder="field.label"
+            show-clear
+            fluid
+            @update:model-value="set(field.key, $event)"
+        />
+
         <!-- Файл: загрузка в задачу (значение поля — URL вложения). -->
         <div v-else-if="field.type === 'file'" class="mxb-filefield">
             <a v-if="model[field.key]" :href="model[field.key]" target="_blank" rel="noopener" download class="mxb-fieldrow-link mxb-filefield-current">

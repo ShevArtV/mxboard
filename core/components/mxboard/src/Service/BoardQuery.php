@@ -372,6 +372,10 @@ class BoardQuery
         $c->innerJoin(MxBoardTask::class, 'Task', 'Task.id = MxBoardLog.task_id');
         $c->leftJoin(MxBoardProject::class, 'Project', 'Project.id = Task.project_id');
         $c->leftJoin(modUser::class, 'Actor', 'Actor.id = MxBoardLog.user_id');
+        // Текущая стадия карточки. У события `move` стадия видна по from/to, но у `create`
+        // и `comment` её нет вовсе — а внешней автоматизации она нужна, чтобы решать,
+        // будить ли исполнителя (комментарий к карточке в бэклоге работу не открывает).
+        $c->leftJoin(MxBoardColumn::class, 'Stage', 'Stage.id = Task.column_id');
         $c->where(['MxBoardLog.id:>' => $sinceId]);
         // ВНИМАНИЕ: алиасы `from`/`to` — зарезервированные слова SQL; `... AS from` роняет
         // запрос синтаксически (та же ловушка, что RANK в ORDER BY). Поэтому алиасим в
@@ -393,6 +397,7 @@ class BoardQuery
             'author_id' => 'Task.author_id',
             'assignee_id' => 'Task.assignee_id',
             'project_key' => 'Project.key',
+            'task_stage' => 'Stage.key',
         ]);
         $c->sortby('MxBoardLog.id', 'ASC');
         $c->limit($limit);
@@ -424,6 +429,7 @@ class BoardQuery
                 'title' => (string) ($r['title'] ?? ''),
                 'project_id' => (int) $r['project_id'],
                 'project_key' => (string) ($r['project_key'] ?? ''),
+                'task_stage' => (string) ($r['task_stage'] ?? ''),
                 'author_id' => (int) $r['author_id'],
                 'assignee_id' => (int) $r['assignee_id'],
             ];

@@ -222,7 +222,7 @@ final class Server
                 'description' => ['type' => 'string'],
                 'fields' => [
                     'type' => 'array',
-                    'description' => 'Поля: [{key, label, type(textarea|url|number|date|user|file), required(bool), options?}]. Минимум одно.',
+                    'description' => 'Поля: [{key, label, type(text|textarea|url|number|date|select|user|files), required(bool), options?}]. `options` — только для select. Минимум одно.',
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name', 'fields']),

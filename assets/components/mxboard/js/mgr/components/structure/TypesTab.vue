@@ -33,7 +33,20 @@ const editOpen = ref(false);
 const editForm = ref({ id: 0, name: '', description: '', active: true, ai_check: false, ai_prompt: '' });
 
 const fieldOpen = ref(false);
-const fieldForm = ref({ id: 0, task_type_id: 0, key: '', label: '', type: 'text', required: false });
+const fieldForm = ref({ id: 0, task_type_id: 0, key: '', label: '', type: 'text', required: false, options: '' });
+
+// Варианты select'а редактируются одной строкой через `|` — и в диалоге поля, и в
+// строке-конструкторе при создании типа. Разделитель один на оба места, чтобы не
+// заводить два формата ввода для одного и того же поля модели.
+const OPTIONS_SEPARATOR = '|';
+function optionsToText(value) {
+    return Array.isArray(value) ? value.join(OPTIONS_SEPARATOR) : '';
+}
+function optionsToList(text, type) {
+    if (type !== 'select') return null;
+    const list = String(text || '').split(OPTIONS_SEPARATOR).map((s) => s.trim()).filter(Boolean);
+    return list.length ? list : null;
+}
 
 onMounted(async () => {
     try {
@@ -81,7 +94,7 @@ function openCreate() {
     createOpen.value = true;
 }
 function addCreateField() {
-    createForm.value.fields.push({ key: '', label: '', type: 'text', required: false });
+    createForm.value.fields.push({ key: '', label: '', type: 'text', required: false, options: '' });
 }
 function removeCreateField(i) {
     createForm.value.fields.splice(i, 1);
@@ -98,7 +111,7 @@ async function create() {
             description: createForm.value.description,
             ai_check: createForm.value.ai_check ? 1 : 0,
             ai_prompt: createForm.value.ai_prompt,
-            fields: createForm.value.fields,
+            fields: createForm.value.fields.map((f) => ({ ...f, options: optionsToList(f.options, f.type) })),
         });
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_created'), life: 3000 });
         createOpen.value = false;
@@ -161,7 +174,7 @@ function removeType(event, type) {
 
 // --- Поле существующего типа ---
 function openAddField(typeId) {
-    fieldForm.value = { id: 0, task_type_id: typeId, key: '', label: '', type: 'text', required: false };
+    fieldForm.value = { id: 0, task_type_id: typeId, key: '', label: '', type: 'text', required: false, options: '' };
     fieldOpen.value = true;
 }
 function openEditField(field) {
@@ -169,6 +182,7 @@ function openEditField(field) {
         id: field.id, task_type_id: expandedType.value, key: field.key,
         label: field.label || '', type: field.type || 'text',
         required: field.required === true || field.required === 1,
+        options: optionsToText(field.options),
     };
     fieldOpen.value = true;
 }
@@ -179,12 +193,14 @@ async function saveField() {
         if (fieldForm.value.id) {
             await FieldApi.update(fieldForm.value.id, {
                 label: fieldForm.value.label, type: fieldForm.value.type, required: fieldForm.value.required ? 1 : 0,
+                options: optionsToList(fieldForm.value.options, fieldForm.value.type),
             });
         } else {
             if (!fieldForm.value.key.trim()) { saving.value = false; return; }
             await FieldApi.create({
                 task_type_id: fieldForm.value.task_type_id, key: fieldForm.value.key.trim(),
                 label: fieldForm.value.label.trim(), type: fieldForm.value.type, required: fieldForm.value.required ? 1 : 0,
+                options: optionsToList(fieldForm.value.options, fieldForm.value.type),
             });
         }
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
@@ -292,13 +308,16 @@ function removeField(event, field) {
                 <span class="mxb-toolbar-spacer" />
                 <Button :label="t('mxboard_ui_struct_add_field')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="addCreateField" />
             </div>
-            <div v-for="(f, i) in createForm.fields" :key="i" class="mxb-field-editrow">
-                <InputText v-model="f.key" :placeholder="t('mxboard_ui_struct_field_key')" />
-                <InputText v-model="f.label" :placeholder="t('mxboard_ui_struct_field_label')" />
-                <Select v-model="f.type" :options="FIELD_TYPE_OPTIONS" option-label="label" option-value="value" />
-                <label class="mxb-check"><Checkbox v-model="f.required" :binary="true" /> {{ t('mxboard_ui_struct_field_required') }}</label>
-                <Button icon="pi pi-times" size="small" severity="danger" text @click="removeCreateField(i)" />
-            </div>
+            <template v-for="(f, i) in createForm.fields" :key="i">
+                <div class="mxb-field-editrow">
+                    <InputText v-model="f.key" :placeholder="t('mxboard_ui_struct_field_key')" />
+                    <InputText v-model="f.label" :placeholder="t('mxboard_ui_struct_field_label')" />
+                    <Select v-model="f.type" :options="FIELD_TYPE_OPTIONS" option-label="label" option-value="value" />
+                    <label class="mxb-check"><Checkbox v-model="f.required" :binary="true" /> {{ t('mxboard_ui_struct_field_required') }}</label>
+                    <Button icon="pi pi-times" size="small" severity="danger" text @click="removeCreateField(i)" />
+                </div>
+                <InputText v-if="f.type === 'select'" v-model="f.options" :placeholder="t('mxboard_ui_struct_field_options_hint')" fluid />
+            </template>
 
             <template #footer>
                 <div class="mxb-dialog-actions">
@@ -351,6 +370,10 @@ function removeField(event, field) {
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_field_type') }}</label>
                 <Select v-model="fieldForm.type" :options="FIELD_TYPE_OPTIONS" option-label="label" option-value="value" fluid />
+            </div>
+            <div v-if="fieldForm.type === 'select'" class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_field_options') }}</label>
+                <InputText v-model="fieldForm.options" :placeholder="t('mxboard_ui_struct_field_options_hint')" fluid />
             </div>
             <div class="mxb-field mxb-check">
                 <Checkbox v-model="fieldForm.required" :binary="true" input-id="field-required" />

@@ -16,7 +16,7 @@ class Update extends ServiceProcessor
 {
     protected function handle(modUser $user)
     {
-        $data = $this->presentProperties(['label', 'type', 'required', 'position']);
+        $data = $this->presentProperties(['label', 'type', 'required', 'position', 'options']);
 
         if ($this->getProperty('options') !== null) {
             $data['options'] = $this->jsonProperty('options');

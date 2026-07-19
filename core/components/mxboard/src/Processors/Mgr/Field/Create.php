@@ -15,7 +15,7 @@ class Create extends ServiceProcessor
 {
     protected function handle(modUser $user)
     {
-        $data = $this->presentProperties(['task_type_id', 'key', 'label', 'type', 'required', 'position']);
+        $data = $this->presentProperties(['task_type_id', 'key', 'label', 'type', 'required', 'position', 'options']);
 
         $options = $this->jsonProperty('options');
         if ($options !== null) {
