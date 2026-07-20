@@ -51,10 +51,15 @@ if (!$department) {
 }
 $departmentId = (int) $department->get('id');
 
-// Типы, которые реально уходят ИИ-исполнителю и могут конкурировать за топик проекта.
-// Остальные (layout, content, promo_pricing, seo, configuration, update, integration)
-// пока ведут люди — добавить их можно, дописав ключ в этот список и перезапустив скрипт.
-$targetTypes = ['bugfix', 'feature', 'research'];
+// ВСЕ типы отдела, а не фиксированный список. Раньше поле сеялось только в bugfix/feature/
+// research («ИИ ведёт только их»), но исполнителем-агентом может оказаться задача любого
+// типа, а типы на стенде заводятся и руками (user_add в схеме пакета отсутствует). Список
+// в коде тут же отставал бы от доски, поэтому источник — сама БД.
+$targetTypes = [];
+foreach ($modx->getIterator(MxBoardTaskType::class, ['department_id' => $departmentId]) as $type) {
+    $targetTypes[] = (string) $type->get('key');
+}
+sort($targetTypes);
 
 // type `text`, а не `number`: thread_id — идентификатор, а не величина. Плюс `number`
 // в UI даёт спиннер и локальное форматирование, из-за которого в поле может уехать
