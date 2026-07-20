@@ -11,10 +11,14 @@
  * Запуск на стенде:
  *   /usr/local/php/php-8.3/bin/php scripts/stand/seed-manager-types.php
  *
+ * Состав типов НЕ объявлен здесь: он лежит в core/components/mxboard/schema/task-types.php,
+ * общем с резолвером пакета. Раньше списка было два и они разъехались.
+ *
  * Идемпотентен: существующие типы и поля не дублирует, значения задач не теряет.
- * Заодно чинит два расхождения, накопившихся на стенде:
+ * Заодно чинит расхождения, накопившиеся на стенде:
  *   - research.promt → prompt (опечатка в ключе; значения переносятся в fields задач);
- *   - bugfix.file (тип `file`, которого нет в FIELD_TYPES) → files.
+ *   - bugfix.file (тип `file`, которого нет в FIELD_TYPES) → files;
+ *   - bugfix.file → attachments (единый ключ вложений во всех типах).
  */
 
 use MODX\Revolution\modX;
@@ -93,115 +97,23 @@ foreach ($modx->getIterator(MxBoardField::class, ['type' => 'file']) as $field) 
     echo "  migrate: поле #{$field->get('id')} ({$field->get('key')}) type file → files\n";
 }
 
+// Ключ `file` остался от мёртвого типа поля. Единый ключ вложений во всех типах —
+// `attachments` (как в feature), иначе на каждый тип свой синоним одного и того же.
+$renameField('bugfix', 'file', 'attachments');
+
 /* --- 2. Типы менеджерского процесса ----------------------------------------- */
 
-// Состав по knowledge-base/manager/task-workflow.md §1. Типы bugfix/feature/research
-// уже создаёт резолвер пакета — здесь только доборные поля к ним.
-$types = [
-    'bugfix' => [
-        'name' => 'Багфикс',
-        'fields' => [
-            ['key' => 'environment', 'label' => 'Окружение', 'type' => 'text', 'required' => true],
-            ['key' => 'severity', 'label' => 'Severity', 'type' => 'select', 'required' => true,
-                'options' => ['critical', 'major', 'minor', 'cosmetic']],
-        ],
-    ],
-    'feature' => [
-        'name' => 'Фича',
-        'fields' => [
-            ['key' => 'implementation', 'label' => 'Описание реализации', 'type' => 'textarea', 'required' => true],
-            ['key' => 'reference', 'label' => 'Ссылка на аналог', 'type' => 'url', 'required' => false],
-            ['key' => 'contexts', 'label' => 'Страны/контексты', 'type' => 'text', 'required' => true],
-            ['key' => 'dependencies', 'label' => 'Зависимости', 'type' => 'textarea', 'required' => true],
-        ],
-    ],
-    'integration' => [
-        'name' => 'Интеграция',
-        'description' => 'Внешний сервис: API, платёжка, webhook. Часть полей заполняет разработчик на триаже.',
-        'fields' => [
-            ['key' => 'goal', 'label' => 'Что хотим получить', 'type' => 'textarea', 'required' => true],
-            ['key' => 'service', 'label' => 'Сторонний сервис', 'type' => 'text', 'required' => true],
-            ['key' => 'support', 'label' => 'Контакты техподдержки', 'type' => 'text', 'required' => true],
-            ['key' => 'contract', 'label' => 'Договор/тариф', 'type' => 'textarea', 'required' => false],
-            // Ниже — триаж разработчика: на постановке их ещё неоткуда взять, поэтому не required.
-            ['key' => 'api_docs', 'label' => 'Документация API', 'type' => 'url', 'required' => false],
-            ['key' => 'protocol', 'label' => 'Протокол', 'type' => 'select', 'required' => false,
-                'options' => ['REST', 'SOAP', 'GraphQL', 'SDK']],
-            ['key' => 'integration_type', 'label' => 'Тип интеграции', 'type' => 'select', 'required' => false,
-                'options' => ['API', 'webhook', 'iFrame']],
-            ['key' => 'data_flow', 'label' => 'Что передаём/получаем', 'type' => 'textarea', 'required' => false],
-            ['key' => 'sandbox', 'label' => 'Доступы к тесту', 'type' => 'textarea', 'required' => false],
-            ['key' => 'prod_access', 'label' => 'Prod-доступы (где хранятся)', 'type' => 'textarea', 'required' => false],
-            ['key' => 'errors', 'label' => 'Обработка ошибок', 'type' => 'textarea', 'required' => false],
-            ['key' => 'complexity', 'label' => 'Сложность', 'type' => 'select', 'required' => false,
-                'options' => ['S', 'M', 'L', 'XL']],
-        ],
-    ],
-    'layout' => [
-        'name' => 'Вёрстка',
-        'description' => 'Лендинг, баннер, вёрстка по макету.',
-        'fields' => [
-            ['key' => 'mockup', 'label' => 'Ссылка на макет', 'type' => 'url', 'required' => true],
-            ['key' => 'copy', 'label' => 'Текст', 'type' => 'textarea', 'required' => true],
-            ['key' => 'deadline_note', 'label' => 'Срок', 'type' => 'text', 'required' => true],
-            ['key' => 'placement', 'label' => 'Где разместить', 'type' => 'text', 'required' => true],
-            ['key' => 'approver', 'label' => 'Кто утверждает', 'type' => 'user', 'required' => true],
-        ],
-    ],
-    'content' => [
-        'name' => 'Контент',
-        'description' => 'Тексты, фото, медиа.',
-        'fields' => [
-            ['key' => 'target', 'label' => 'Что меняем', 'type' => 'text', 'required' => true],
-            ['key' => 'old_text', 'label' => 'Старый текст', 'type' => 'textarea', 'required' => true],
-            ['key' => 'new_text', 'label' => 'Новый текст', 'type' => 'textarea', 'required' => true],
-            ['key' => 'source', 'label' => 'Где взять', 'type' => 'text', 'required' => true],
-            ['key' => 'seo', 'label' => 'SEO-требования', 'type' => 'textarea', 'required' => false],
-        ],
-    ],
-    'promo_pricing' => [
-        'name' => 'Акции и цены',
-        'description' => 'Скидки, промокоды, изменение цен.',
-        'fields' => [
-            ['key' => 'promo_type', 'label' => 'Тип', 'type' => 'select', 'required' => true,
-                'options' => ['скидка %', 'фиксированная цена', 'промокод', 'товар недели']],
-            ['key' => 'amount', 'label' => 'Размер скидки', 'type' => 'text', 'required' => true],
-            ['key' => 'period', 'label' => 'Сроки (start — end, таймзона)', 'type' => 'text', 'required' => true],
-            ['key' => 'contexts', 'label' => 'Страны/контексты', 'type' => 'text', 'required' => true],
-            ['key' => 'products', 'label' => 'Товары (SKU/артикулы)', 'type' => 'textarea', 'required' => true],
-            ['key' => 'conditions', 'label' => 'Условия', 'type' => 'textarea', 'required' => false],
-        ],
-    ],
-    'configuration' => [
-        'name' => 'Настройка',
-        'description' => 'Параметры сайта, сервера, модуля.',
-        'fields' => [
-            ['key' => 'what', 'label' => 'Что настроить', 'type' => 'text', 'required' => true],
-            ['key' => 'where', 'label' => 'Где', 'type' => 'text', 'required' => true],
-            ['key' => 'values', 'label' => 'Значения', 'type' => 'textarea', 'required' => true],
-            ['key' => 'expected', 'label' => 'Ожидаемый результат', 'type' => 'textarea', 'required' => true],
-        ],
-    ],
-    'seo' => [
-        'name' => 'SEO и оптимизация',
-        'fields' => [
-            ['key' => 'goal', 'label' => 'Цель', 'type' => 'textarea', 'required' => true],
-            ['key' => 'metrics_before', 'label' => 'Текущие метрики', 'type' => 'textarea', 'required' => true],
-            ['key' => 'metrics_after', 'label' => 'Ожидаемый эффект', 'type' => 'textarea', 'required' => true],
-            ['key' => 'verify', 'label' => 'Метод проверки', 'type' => 'textarea', 'required' => true],
-        ],
-    ],
-    'update' => [
-        'name' => 'Обновление',
-        'description' => 'Правка существующего кода или данных.',
-        'fields' => [
-            ['key' => 'what', 'label' => 'Что меняется', 'type' => 'text', 'required' => true],
-            ['key' => 'reason', 'label' => 'Причина изменения', 'type' => 'textarea', 'required' => true],
-            ['key' => 'regression_risk', 'label' => 'Риск регрессии', 'type' => 'textarea', 'required' => true],
-            ['key' => 'reviewer', 'label' => 'Кто проверяет', 'type' => 'user', 'required' => true],
-        ],
-    ],
-];
+// Состав по knowledge-base/manager/task-workflow.md §1 — читается из общего файла
+// core/components/mxboard/schema/task-types.php, который же использует резолвер пакета.
+// Берём оба набора: `core` доберёт недостающие поля к типам из поставки
+// (bugfix.severity, feature.implementation…), `manager` создаст наши доменные типы.
+$schemaFile = $corePath . 'schema/task-types.php';
+if (!is_file($schemaFile)) {
+    exit("Не найден {$schemaFile} — сначала выкатите пакет.\n");
+}
+$schema = require $schemaFile;
+$types = ($schema['core'] ?? []) + ($schema['manager'] ?? []);
+
 
 $position = 10;
 foreach ($types as $key => $data) {
@@ -233,7 +145,29 @@ foreach ($types as $key => $data) {
     }
 
     foreach ($data['fields'] as $fieldData) {
-        if ($modx->getObject(MxBoardField::class, ['task_type_id' => $typeId, 'key' => $fieldData['key']])) {
+        /** @var MxBoardField|null $existingField */
+        $existingField = $modx->getObject(MxBoardField::class, ['task_type_id' => $typeId, 'key' => $fieldData['key']]);
+        if ($existingField) {
+            // Поле есть — подтягиваем его описание к схеме. Иначе стенд снова разъедется
+            // с поставкой: так, после переименования bugfix.file → attachments подпись
+            // осталась «Файл», хотя в схеме давно «Материалы».
+            // Поля вне схемы (execution_thread) не трогаем — их тут просто нет.
+            $changed = [];
+            foreach (['label', 'type', 'required'] as $prop) {
+                if ($existingField->get($prop) != $fieldData[$prop]) {
+                    $existingField->set($prop, $fieldData[$prop]);
+                    $changed[] = $prop;
+                }
+            }
+            $options = $fieldData['options'] ?? null;
+            if ($existingField->get('options') != $options) {
+                $existingField->set('options', $options);
+                $changed[] = 'options';
+            }
+            if ($changed) {
+                $existingField->save();
+                echo "    sync {$key}.{$fieldData['key']}: " . implode(', ', $changed) . "\n";
+            }
             continue;
         }
         /** @var MxBoardField $field */

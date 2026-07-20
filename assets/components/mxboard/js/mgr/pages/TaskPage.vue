@@ -485,10 +485,6 @@ function removeTask(event) {
                             <span class="mxb-fieldrow-label">{{ f.label }}:</span>
                             <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
                         </template>
-                        <template v-else-if="f.type === 'file'">
-                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                            <a :href="f.value" target="_blank" rel="noopener" download class="mxb-fieldrow-link"><i class="pi pi-paperclip" /> {{ t('mxboard_ui_download') }}</a>
-                        </template>
                         <template v-else>
                             <span class="mxb-fieldrow-label">{{ f.label }}:</span>
                             <span class="mxb-fieldrow-value">{{ f.value }}</span>
@@ -641,7 +637,7 @@ function removeTask(event) {
                         <label>{{ t('mxboard_ui_assignee') }}</label>
                         <Select v-model="form.assignee_id" :options="users" option-label="username" option-value="id" filter fluid />
                     </div>
-                    <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" :task-id="taskId" />
+                    <TypeFields v-if="schema" v-model="form.fields" :fields="schema.fields" :users="users" />
                     <div class="mxb-dialog-actions">
                         <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="editing = false" />
                         <Button :label="t('mxboard_ui_save')" icon="pi pi-check" size="small" :loading="busy" @click="saveEdit" />

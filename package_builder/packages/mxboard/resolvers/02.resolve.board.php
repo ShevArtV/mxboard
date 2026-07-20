@@ -93,42 +93,20 @@ $departmentId = (int) $department->get('id');
 
 /* --- Типы задач с полями ---------------------------------------------------- */
 
-$types = [
-    [
-        'key' => 'bugfix',
-        'name' => 'Багфикс',
-        'description' => 'Исправление ошибки: где, что, как воспроизвести и как должно быть.',
-        'fields' => [
-            ['key' => 'where', 'label' => 'Где сломалось', 'type' => 'text', 'required' => true],
-            ['key' => 'what', 'label' => 'Что сломалось', 'type' => 'textarea', 'required' => true],
-            ['key' => 'steps', 'label' => 'Как воспроизвести', 'type' => 'textarea', 'required' => true],
-            ['key' => 'expected', 'label' => 'Как должно быть', 'type' => 'textarea', 'required' => true],
-        ],
-    ],
-    [
-        'key' => 'feature',
-        'name' => 'Фича',
-        'description' => 'Новая функциональность: цель и критерии приёмки.',
-        'fields' => [
-            ['key' => 'goal', 'label' => 'Цель', 'type' => 'textarea', 'required' => true],
-            ['key' => 'criteria', 'label' => 'Критерии приёмки', 'type' => 'textarea', 'required' => true],
-        ],
-    ],
-    [
-        'key' => 'research',
-        'name' => 'Ресёрч',
-        'description' => 'Изучить вопрос и вернуть ответ: что выяснить и в каком виде отдать результат.',
-        'fields' => [
-            ['key' => 'prompt', 'label' => 'Что выяснить', 'type' => 'textarea', 'required' => true],
-            ['key' => 'result_format', 'label' => 'Формат результата', 'type' => 'textarea', 'required' => false],
-        ],
-    ],
-];
+// Состав типов объявлен один раз — в core/components/mxboard/schema/task-types.php,
+// оттуда же его читает стендовый сид. Два независимых списка успели разъехаться
+// (у резолвера не было ни `severity`, ни `environment`), поэтому источник теперь один.
+// Ставим только набор `core`: доменные типы менеджерского процесса (акции, SEO,
+// вёрстка) — стандарт конкретного отдела, навязывать их установке с modstore незачем.
+$schemaFile = $corePath . 'schema/task-types.php';
+$types = file_exists($schemaFile) ? (require $schemaFile)['core'] ?? [] : [];
 
-foreach ($types as $tPos => $typeData) {
+$tPos = 0;
+foreach ($types as $typeKey => $typeData) {
     /** @var MxBoardTaskType|null $type */
-    $type = $modx->getObject(MxBoardTaskType::class, ['department_id' => $departmentId, 'key' => $typeData['key']]);
+    $type = $modx->getObject(MxBoardTaskType::class, ['department_id' => $departmentId, 'key' => $typeKey]);
     if ($type) {
+        $tPos++;
         continue;
     }
 
@@ -136,11 +114,11 @@ foreach ($types as $tPos => $typeData) {
     $type = $modx->newObject(MxBoardTaskType::class);
     $type->fromArray([
         'department_id' => $departmentId,
-        'key' => $typeData['key'],
+        'key' => $typeKey,
         'name' => $typeData['name'],
-        'description' => $typeData['description'],
+        'description' => $typeData['description'] ?? '',
         'active' => true,
-        'position' => $tPos,
+        'position' => $tPos++,
         'createdon' => $now,
     ]);
     if (!$type->save()) {
@@ -157,7 +135,9 @@ foreach ($types as $tPos => $typeData) {
             'type' => $fieldData['type'],
             'required' => $fieldData['required'],
             'position' => $fPos,
-            'options' => null,
+            // options нужны `select`-полям (severity): без них поле придёт в форму
+            // пустым списком и не отрисуется.
+            'options' => $fieldData['options'] ?? null,
             'createdon' => $now,
         ]);
         $field->save();
