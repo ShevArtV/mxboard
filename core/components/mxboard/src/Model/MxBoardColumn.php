@@ -9,6 +9,7 @@ use xPDO\xPDO;
  * @property integer $project_id
  * @property string $key
  * @property string $name
+ * @property string $description
  * @property integer $position
  * @property string $move_roles
  * @property string $color

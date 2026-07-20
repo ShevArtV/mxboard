@@ -237,6 +237,26 @@ final class Server
                     'items' => ['type' => 'object'],
                 ],
             ], ['department_id', 'key', 'name']),
+            $this->tool('stage_create', 'Создать стадию проекта (менеджер).', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+                'project_id' => ['type' => 'integer', 'description' => 'ID проекта; 0 — шаблон новых проектов (только sudo).'],
+                'key' => ['type' => 'string', 'description' => 'Ключ стадии.'],
+                'name' => ['type' => 'string', 'description' => 'Название стадии.'],
+                'description' => ['type' => 'string', 'description' => 'Описание стадии. Может быть пустым.'],
+                'move_roles' => ['type' => 'string', 'description' => 'CSV ролей: author, assignee, group:Name.'],
+                'color' => ['type' => 'string', 'description' => 'Цвет #RRGGBB.'],
+                'position' => ['type' => 'integer', 'description' => 'Позиция сортировки.'],
+            ], ['key', 'name']),
+            $this->tool('stage_update', 'Правка стадии проекта (менеджер).', [
+                'stage_id' => ['type' => 'integer', 'description' => 'ID стадии.'],
+                'name' => ['type' => 'string', 'description' => 'Название стадии.'],
+                'description' => ['type' => 'string', 'description' => 'Описание стадии. Может быть пустым.'],
+                'move_roles' => ['type' => 'string', 'description' => 'CSV ролей: author, assignee, group:Name.'],
+                'color' => ['type' => 'string', 'description' => 'Цвет #RRGGBB.'],
+                'position' => ['type' => 'integer', 'description' => 'Позиция сортировки.'],
+                'is_initial' => ['type' => 'boolean', 'description' => 'true переносит флаг стартовой стадии сюда.'],
+                'is_final' => ['type' => 'boolean', 'description' => 'true переносит флаг финальной стадии сюда.'],
+            ], ['stage_id']),
         ];
     }
 
@@ -287,6 +307,8 @@ final class Server
             'department_register' => $this->result($this->structure->registerDepartment($this->user, $this->structureArgs($args))),
             'type_create' => $this->result($this->structure->createType($this->user, $this->structureArgs($args))),
             'project_create' => $this->result($this->structure->createProject($this->user, $this->structureArgs($args))),
+            'stage_create' => $this->stageCreate($args),
+            'stage_update' => $this->stageUpdate($args),
             default => throw new \InvalidArgumentException('Unknown tool: ' . $name),
         };
     }
@@ -374,7 +396,11 @@ final class Server
             if ($col['is_final']) {
                 $flags[] = 'финальная';
             }
-            $out[] = '  [' . $col['key'] . '] ' . $col['name'] . ($flags ? ' (' . implode(', ', $flags) . ')' : '');
+            $line = '  [' . $col['key'] . '] ' . $col['name'] . ($flags ? ' (' . implode(', ', $flags) . ')' : '');
+            if (!empty($col['description'])) {
+                $line .= ' — ' . (string) $col['description'];
+            }
+            $out[] = $line;
         }
 
         return $this->content(implode("\n", $out));
@@ -415,6 +441,9 @@ final class Server
             $tasks = $column['tasks'];
             $out[] = '[' . $column['key'] . '] ' . $column['name'] . ' — ' . count($tasks)
                 . ($flags ? ' (' . implode(', ', $flags) . ')' : '');
+            if (!empty($column['description'])) {
+                $out[] = '  ' . (string) $column['description'];
+            }
 
             if (!$tasks) {
                 $out[] = '  пусто';
@@ -800,6 +829,79 @@ final class Server
         }
 
         return $this->content('Карточка #' . $taskId . ' удалена.');
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function stageCreate(array $args): array
+    {
+        $projectId = $this->stageProjectId($args);
+        if ($projectId === null) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
+        }
+
+        $data = [
+            'project_id' => $projectId,
+            'key' => $this->str($args['key'] ?? null),
+            'name' => $this->str($args['name'] ?? null),
+        ];
+        foreach (['description', 'move_roles', 'color'] as $key) {
+            if (array_key_exists($key, $args)) {
+                $data[$key] = $this->str($args[$key]);
+            }
+        }
+        if (array_key_exists('position', $args)) {
+            $data['position'] = $this->int($args['position']);
+        }
+
+        return $this->result($this->structure->createColumn($this->user, $data));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function stageUpdate(array $args): array
+    {
+        $stageId = $this->int($args['stage_id'] ?? null);
+        if ($stageId <= 0) {
+            return $this->content($this->lex('mxboard_err_column_not_found'), true);
+        }
+
+        $data = [];
+        foreach (['name', 'description', 'move_roles', 'color'] as $key) {
+            if (array_key_exists($key, $args)) {
+                $data[$key] = $this->str($args[$key]);
+            }
+        }
+        if (array_key_exists('position', $args)) {
+            $data['position'] = $this->int($args['position']);
+        }
+        foreach (['is_initial', 'is_final'] as $key) {
+            if (array_key_exists($key, $args)) {
+                $data[$key] = !empty($args[$key]);
+            }
+        }
+
+        return $this->result($this->structure->updateColumn($this->user, $stageId, $data));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     */
+    private function stageProjectId(array $args): ?int
+    {
+        if (array_key_exists('project_id', $args) && is_numeric($args['project_id'])) {
+            return (int) $args['project_id'];
+        }
+
+        $project = $this->resolveProject($this->str($args['project'] ?? null));
+
+        return $project ? (int) $project->get('id') : null;
     }
 
     /**

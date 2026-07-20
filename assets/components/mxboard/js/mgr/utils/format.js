@@ -149,6 +149,7 @@ export function normalizeBoard(res) {
     const normalized = columns.map((c) => ({
         key: String(c.key ?? ''),
         name: String(c.name ?? c.key ?? ''),
+        description: String(c.description ?? ''),
         color: String(c.color ?? '') || '#6c757d',
         is_initial: !!Number(c.is_initial),
         is_final: !!Number(c.is_final),

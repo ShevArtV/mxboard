@@ -1,3 +1,15 @@
+2.6.0-pl
+==============
+- NEW: У стадий/колонок появилось необязательное описание (`description`).
+  Поле сохраняется через общий StructureService и доступно во всех каналах:
+  UI редактора стадий, manager connector, REST и MCP.
+- NEW: REST получил публичные manager-эндпоинты для стадий:
+  `POST /projects/{id}/columns` и `PATCH /columns/{id}`. MCP получил manager-tools
+  `stage_create` и `stage_update`; `stage_list` и `board_list` показывают описание,
+  если оно заполнено.
+- BUILD: Схема и upgrade-resolver добавляют `mxboard_column.description` как `TEXT NULL`,
+  поэтому существующие установки обновляются без обязательного заполнения.
+
 2.5.0-pl
 ==============
 - NEW: Состав типов задач и их полей объявлен в одном месте — core/components/mxboard/schema/task-types.php.

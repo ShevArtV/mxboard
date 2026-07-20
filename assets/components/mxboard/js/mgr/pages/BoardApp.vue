@@ -442,6 +442,10 @@ function openNotif(n) {
     font-size: 13px;
 }
 
+.mxb-muted {
+    color: var(--mxb-ink-muted);
+}
+
 /* Осмысленное пустое состояние: приглушённая иконка + строка, а не голый серый текст. */
 .mxb-empty--rich {
     display: flex;

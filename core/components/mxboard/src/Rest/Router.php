@@ -112,6 +112,16 @@ final class Router
         if ($method === 'GET' && $resource === 'projects' && isset($seg[1]) && ($seg[2] ?? '') === 'columns') {
             return $this->ok($this->query->columns((int) $seg[1]));
         }
+        // POST /projects/{id}/columns — создать стадию проекта
+        if ($method === 'POST' && $resource === 'projects' && isset($seg[1]) && ($seg[2] ?? '') === 'columns') {
+            $body['project_id'] = (int) $seg[1];
+
+            return $this->result($this->structure->createColumn($this->user, $body), 201);
+        }
+        // PATCH /columns/{id} — правка стадии
+        if ($method === 'PATCH' && $resource === 'columns' && isset($seg[1]) && !isset($seg[2])) {
+            return $this->result($this->structure->updateColumn($this->user, (int) $seg[1], $body));
+        }
 
         // /tasks ...
         if ($resource === 'tasks') {

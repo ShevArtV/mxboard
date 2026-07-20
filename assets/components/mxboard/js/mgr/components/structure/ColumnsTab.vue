@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import {
-    DataTable, Column, Button, InputText, Dialog, Select, Checkbox, RadioButton, Tag, Message, useToast, useConfirm,
+    DataTable, Column, Button, InputText, Textarea, Dialog, Select, Checkbox, RadioButton, Tag, Message, useToast, useConfirm,
 } from 'primevue';
 import {
     ProjectApi, ColumnApi, errorMessage, listOf,
@@ -19,9 +19,9 @@ const loading = ref(false);
 const saving = ref(false);
 
 const createOpen = ref(false);
-const createForm = ref({ key: '', name: '', move_mode: 'both', color: '#6c757d' });
+const createForm = ref({ key: '', name: '', description: '', move_mode: 'both', color: '#6c757d' });
 const editOpen = ref(false);
-const editForm = ref({ id: 0, name: '', move_mode: 'both', color: '#6c757d', position: 0, is_initial: false, is_final: false });
+const editForm = ref({ id: 0, name: '', description: '', move_mode: 'both', color: '#6c757d', position: 0, is_initial: false, is_final: false });
 
 const copyOpen = ref(false);
 const copySources = ref([]);
@@ -103,7 +103,7 @@ async function load() {
 }
 
 function openCreate() {
-    createForm.value = { key: '', name: '', move_mode: 'both', color: '#6c757d' };
+    createForm.value = { key: '', name: '', description: '', move_mode: 'both', color: '#6c757d' };
     createOpen.value = true;
 }
 async function create() {
@@ -114,6 +114,7 @@ async function create() {
             project_id: projectId.value,
             key: createForm.value.key.trim(),
             name: createForm.value.name.trim(),
+            description: createForm.value.description,
             move_roles: modeToRoles(createForm.value.move_mode),
             color: createForm.value.color,
         });
@@ -131,6 +132,7 @@ async function create() {
 function openEdit(col) {
     editForm.value = {
         id: col.id, name: col.name || '', move_mode: rolesToMode(col.move_roles),
+        description: col.description || '',
         color: col.color || '#6c757d',
         position: Number(col.position) || 0,
         is_initial: col.is_initial === true || col.is_initial === 1,
@@ -144,6 +146,7 @@ async function saveEdit() {
         // is_initial/is_final = 1 переносит флаг; снять в 0 напрямую нельзя (сервер игнорит falsy).
         const data = {
             name: editForm.value.name,
+            description: editForm.value.description,
             move_roles: modeToRoles(editForm.value.move_mode),
             color: editForm.value.color,
             position: editForm.value.position,
@@ -278,6 +281,12 @@ async function doCopy(sourceId) {
             <Column field="position" :header="t('mxboard_ui_struct_position')" style="width: 80px" />
             <Column field="key" :header="t('mxboard_ui_struct_key')" style="width: 150px" />
             <Column field="name" :header="t('mxboard_ui_struct_name')" />
+            <Column field="description" :header="t('mxboard_ui_struct_description')">
+                <template #body="{ data }">
+                    <span v-if="data.description" class="mxb-muted">{{ data.description }}</span>
+                    <span v-else class="mxb-muted">—</span>
+                </template>
+            </Column>
             <Column :header="t('mxboard_ui_struct_move_roles')" style="width: 180px">
                 <template #body="{ data }">{{ moveLabel(data.move_roles) }}</template>
             </Column>
@@ -314,6 +323,10 @@ async function doCopy(sourceId) {
                 </div>
             </div>
             <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_description') }}</label>
+                <Textarea v-model="createForm.description" rows="3" auto-resize fluid />
+            </div>
+            <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_move_roles') }}</label>
                 <div class="mxb-radio-group">
                     <div v-for="opt in MOVE_OPTIONS" :key="opt.value" class="mxb-radio-item">
@@ -343,6 +356,10 @@ async function doCopy(sourceId) {
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />
+            </div>
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_struct_description') }}</label>
+                <Textarea v-model="editForm.description" rows="3" auto-resize fluid />
             </div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_move_roles') }}</label>

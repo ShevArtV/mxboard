@@ -61,6 +61,7 @@ $manager = $modx->getManager();
 // не разворачивается (дал бы MxBoardTask_type), поэтому маппим напрямую.
 $migrations = [
     \MxBoard\Model\MxBoardColumn::class => [
+        'ADD COLUMN `description` TEXT NULL AFTER `name`',
         'ADD COLUMN `color` VARCHAR(7) NOT NULL DEFAULT \'#6c757d\' AFTER `move_roles`',
         // stage_key убран: тег стадии нигде не использовался (см. фичу «колонки v2»).
         'DROP COLUMN `stage_key`',

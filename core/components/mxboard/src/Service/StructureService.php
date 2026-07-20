@@ -257,6 +257,7 @@ class StructureService
                 'project_id' => $projectId,
                 'key' => $col['key'],
                 'name' => $col['name'],
+                'description' => $col['description'],
                 'position' => $pos,
                 'move_roles' => $col['move_roles'],
                 'color' => $col['color'],
@@ -634,7 +635,7 @@ class StructureService
      * Флаги is_initial/is_final здесь игнорируются: у проекта они уже стоят на других
      * колонках (инвариант «ровно одна»), перенос — через updateColumn.
      *
-     * @param array<string, mixed> $data project_id + key/name/move_roles/color/position
+     * @param array<string, mixed> $data project_id + key/name/description/move_roles/color/position
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
@@ -666,6 +667,7 @@ class StructureService
             'project_id' => $projectId,
             'key' => $key,
             'name' => $name,
+            'description' => (string) ($data['description'] ?? ''),
             'position' => $position,
             'move_roles' => trim((string) ($data['move_roles'] ?? '')),
             'color' => trim((string) ($data['color'] ?? '#6c757d')),
@@ -682,7 +684,7 @@ class StructureService
     }
 
     /**
-     * Правка колонки: name, move_roles, color, position; `key` не меняется
+     * Правка колонки: name, description, move_roles, color, position; `key` не меняется
      * (он в журнале переходов). is_initial/is_final = 1 ПЕРЕНОСИТ флаг с прежней
      * колонки-носителя — инвариант «ровно одна» сохраняется сам собой; снять флаг
      * в 0 напрямую нельзя (falsy-значения игнорируются).
@@ -709,6 +711,9 @@ class StructureService
                 return $this->fail('mxboard_err_column_invalid');
             }
             $column->set('name', $name);
+        }
+        if (array_key_exists('description', $data)) {
+            $column->set('description', (string) $data['description']);
         }
         if (array_key_exists('move_roles', $data)) {
             $column->set('move_roles', trim((string) $data['move_roles']));
@@ -814,6 +819,7 @@ class StructureService
                 'project_id' => $targetProjectId,
                 'key' => $col['key'],
                 'name' => $col['name'],
+                'description' => $col['description'],
                 'position' => $pos,
                 'move_roles' => $col['move_roles'],
                 'color' => $col['color'],
@@ -1128,6 +1134,7 @@ class StructureService
             $out[] = [
                 'key' => $key,
                 'name' => $name,
+                'description' => (string) ($raw['description'] ?? ''),
                 'move_roles' => trim((string) ($raw['move_roles'] ?? '')),
                 'color' => trim((string) ($raw['color'] ?? '#6c757d')),
                 'is_initial' => $isInitial,
@@ -1160,6 +1167,7 @@ class StructureService
             $out[] = [
                 'key' => (string) $column->get('key'),
                 'name' => (string) $column->get('name'),
+                'description' => (string) $column->get('description'),
                 'move_roles' => (string) $column->get('move_roles'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),

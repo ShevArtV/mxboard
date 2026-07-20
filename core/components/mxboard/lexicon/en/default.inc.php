@@ -362,6 +362,7 @@ $_lang['mxboard_ui_struct_reorder_hint'] = 'Drag rows to reorder columns.';
 $_lang['mxboard_ui_struct_is_initial'] = 'Initial';
 $_lang['mxboard_ui_struct_is_final'] = 'Final';
 $_lang['mxboard_ui_struct_color'] = 'Color';
+$_lang['mxboard_ui_struct_description'] = 'Description';
 $_lang['mxboard_ui_struct_flag_transfer'] = 'The initial/final flag is moved from the previous column — there is always exactly one of each.';
 $_lang['mxboard_ui_struct_confirm_remove_column'] = 'Delete column “[[+name]]”? Not allowed for initial/final or a non-empty column.';
 

@@ -140,6 +140,7 @@ class BoardQuery
                 'project_id' => (int) $column->get('project_id'),
                 'key' => (string) $column->get('key'),
                 'name' => (string) $column->get('name'),
+                'description' => (string) $column->get('description'),
                 'position' => (int) $column->get('position'),
                 'move_roles' => (string) $column->get('move_roles'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
@@ -221,6 +222,7 @@ class BoardQuery
             $cols[] = [
                 'key' => $key,
                 'name' => (string) $column->get('name'),
+                'description' => (string) $column->get('description'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),

@@ -18,7 +18,7 @@ class Create extends ServiceProcessor
     {
         return $this->fromResult((new StructureService($this->modx))->createColumn(
             $user,
-            $this->presentProperties(['project_id', 'key', 'name', 'move_roles', 'color', 'position'])
+            $this->presentProperties(['project_id', 'key', 'name', 'description', 'move_roles', 'color', 'position'])
         ));
     }
 }

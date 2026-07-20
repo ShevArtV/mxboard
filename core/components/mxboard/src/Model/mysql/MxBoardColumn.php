@@ -20,6 +20,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'project_id' => 0,
             'key' => '',
             'name' => '',
+            'description' => NULL,
             'position' => 0,
             'move_roles' => '',
             'color' => '#6c757d',
@@ -55,6 +56,12 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'phptype' => 'string',
                 'null' => false,
                 'default' => '',
+            ),
+            'description' =>
+            array (
+                'dbtype' => 'text',
+                'phptype' => 'string',
+                'null' => true,
             ),
             'position' => 
             array (

@@ -75,10 +75,12 @@
         <field key="project_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
         <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="description" dbtype="text" phptype="string" null="true"/>
         <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто вправе переводить карточку В эту колонку. CSV ролей: author, assignee
              и/или группы как group:Name. Пусто = только обладатель права mxboard_move_any. -->
         <field key="move_roles" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
+        <field key="color" dbtype="varchar" precision="7" phptype="string" null="false" default="#6c757d"/>
         <!-- Колонка, в которую попадает новая карточка. Инвариант: ровно одна на проект. -->
         <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <!-- Терминальная колонка: вход в неё = закрытие карточки. Инвариант: ровно одна на проект. -->
