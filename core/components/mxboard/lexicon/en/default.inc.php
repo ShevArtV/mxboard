@@ -120,6 +120,55 @@ $_lang['mxboard_task_subtasks'] = 'Subtasks';
 $_lang['mxboard_deadline_disputed'] = 'Deadline disputed';
 $_lang['mxboard_plan_disputed'] = 'Planned time disputed';
 
+// MODX system settings.
+$_lang['area_mxboard_main'] = 'Main';
+$_lang['area_mxboard_api'] = 'API';
+$_lang['area_mxboard_rights'] = 'Permissions';
+$_lang['area_mxboard_ai'] = 'AI review';
+
+$_lang['setting_mxboard.task_num_format'] = 'Task number format';
+$_lang['setting_mxboard.task_num_format_desc'] = 'Human-readable task number template. Supports {Y}, {y}, {m}, {d}, {num}; the counter reset period is derived from the smallest date placeholder.';
+$_lang['setting_mxboard.default_project'] = 'Default project';
+$_lang['setting_mxboard.default_project_desc'] = 'Project key used when a client does not specify a project explicitly.';
+$_lang['setting_mxboard.default_board'] = 'Default board';
+$_lang['setting_mxboard.default_board_desc'] = 'Legacy setting from early mxBoard versions. Kept for correct display on stands where it already exists in the database; current versions use mxboard.default_project.';
+$_lang['setting_mxboard.api_enabled'] = 'Enable REST API';
+$_lang['setting_mxboard.api_enabled_desc'] = 'Allows the mxBoard REST API for agents and external clients.';
+$_lang['setting_mxboard.mcp_enabled'] = 'Enable MCP endpoint';
+$_lang['setting_mxboard.mcp_enabled_desc'] = 'Allows the mxBoard JSON-RPC MCP endpoint for AI agents.';
+$_lang['setting_mxboard.allow_self_close'] = 'Allow self-closing tasks';
+$_lang['setting_mxboard.allow_self_close_desc'] = 'Allows closing a card where the author and assignee are the same user.';
+$_lang['setting_mxboard.wip_limit'] = 'Assignee WIP limit';
+$_lang['setting_mxboard.wip_limit_desc'] = 'How many tasks one assignee may keep in progress at the same time. 0 means no limit.';
+$_lang['setting_mxboard.group_admin_authority'] = 'Department manager authority threshold';
+$_lang['setting_mxboard.group_admin_authority_desc'] = 'Authority threshold at which a department group member is treated as its manager. In MODX, lower authority means more rights; 1 means only the top-level role, 0 disables it.';
+$_lang['setting_mxboard.kiosk_usergroups'] = 'Kiosk-mode groups';
+$_lang['setting_mxboard.kiosk_usergroups_desc'] = 'CSV list of MODX user group names whose regular non-sudo members are redirected straight to the board when entering the manager. Empty disables the behavior.';
+$_lang['setting_mxboard.media_source'] = 'Attachment media source';
+$_lang['setting_mxboard.media_source_desc'] = 'MODX media source ID for task attachments, comment attachments, and file fields. 0 means the default source.';
+$_lang['setting_mxboard.upload_max_size'] = 'Maximum attachment size';
+$_lang['setting_mxboard.upload_max_size_desc'] = 'Maximum size of one attachment in bytes. 0 means mxBoard adds no separate limit; media source and MODX limits still apply.';
+$_lang['setting_mxboard.upload_max_files'] = 'Maximum files per batch';
+$_lang['setting_mxboard.upload_max_files_desc'] = 'How many files can be attached in one drag-and-drop or file picker batch. 0 means no limit.';
+$_lang['setting_mxboard.upload_extensions'] = 'Allowed attachment extensions';
+$_lang['setting_mxboard.upload_extensions_desc'] = 'Comma-separated list of allowed extensions. Empty means mxBoard does not restrict extensions, but media source and upload_files still apply.';
+$_lang['setting_mxboard.sse_enabled'] = 'Enable SSE notifications';
+$_lang['setting_mxboard.sse_enabled_desc'] = 'Enables live board notifications in the manager via Server-Sent Events.';
+$_lang['setting_mxboard.sse_lifetime'] = 'SSE connection lifetime';
+$_lang['setting_mxboard.sse_lifetime_desc'] = 'Lifetime of one SSE connection in seconds. The client reconnects automatically.';
+$_lang['setting_mxboard.sse_poll_interval'] = 'SSE poll interval';
+$_lang['setting_mxboard.sse_poll_interval_desc'] = 'Interval for polling new notifications inside an SSE connection, in seconds.';
+$_lang['setting_mxboard.ai_base_url'] = 'AI API URL';
+$_lang['setting_mxboard.ai_base_url_desc'] = 'Base URL of an OpenAI-compatible endpoint. The client appends /chat/completions.';
+$_lang['setting_mxboard.ai_api_key'] = 'AI API key';
+$_lang['setting_mxboard.ai_api_key_desc'] = 'Bearer access key for the AI provider. Empty disables AI review.';
+$_lang['setting_mxboard.ai_model'] = 'AI model';
+$_lang['setting_mxboard.ai_model_desc'] = 'Model name used for AI review of task statements.';
+$_lang['setting_mxboard.ai_check_mode'] = 'AI review mode';
+$_lang['setting_mxboard.ai_check_mode_desc'] = 'strict blocks incomplete task creation; soft shows a warning and allows creation.';
+$_lang['setting_mxboard.ai_check_prompt'] = 'AI review prompt';
+$_lang['setting_mxboard.ai_check_prompt_desc'] = 'Global prompt template for task-statement completeness review. A task type can override it with its own ai_prompt.';
+
 $_lang['mxboard_token'] = 'Token';
 $_lang['mxboard_token_created'] = 'Token created. Copy it now — it will not be shown again.';
 

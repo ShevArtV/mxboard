@@ -120,6 +120,55 @@ $_lang['mxboard_task_subtasks'] = 'Подзадачи';
 $_lang['mxboard_deadline_disputed'] = 'Дедлайн оспорен';
 $_lang['mxboard_plan_disputed'] = 'Плановое время оспорено';
 
+// Системные настройки MODX.
+$_lang['area_mxboard_main'] = 'Основные';
+$_lang['area_mxboard_api'] = 'API';
+$_lang['area_mxboard_rights'] = 'Права';
+$_lang['area_mxboard_ai'] = 'ИИ-проверка';
+
+$_lang['setting_mxboard.task_num_format'] = 'Шаблон номера задачи';
+$_lang['setting_mxboard.task_num_format_desc'] = 'Шаблон человекочитаемого номера задачи. Поддерживает плейсхолдеры {Y}, {y}, {m}, {d}, {num}; период сброса счётчика определяется самым мелким date-плейсхолдером.';
+$_lang['setting_mxboard.default_project'] = 'Проект по умолчанию';
+$_lang['setting_mxboard.default_project_desc'] = 'Ключ проекта, который используется, когда клиент не указал проект явно.';
+$_lang['setting_mxboard.default_board'] = 'Доска по умолчанию';
+$_lang['setting_mxboard.default_board_desc'] = 'Устаревшая настройка ранних версий mxBoard. Оставлена для корректного отображения на стендах, где она уже есть в БД; в актуальной версии используется mxboard.default_project.';
+$_lang['setting_mxboard.api_enabled'] = 'Включить REST API';
+$_lang['setting_mxboard.api_enabled_desc'] = 'Разрешает REST API mxBoard для агентов и внешних клиентов.';
+$_lang['setting_mxboard.mcp_enabled'] = 'Включить MCP endpoint';
+$_lang['setting_mxboard.mcp_enabled_desc'] = 'Разрешает JSON-RPC MCP endpoint mxBoard для ИИ-агентов.';
+$_lang['setting_mxboard.allow_self_close'] = 'Разрешить самозакрытие задач';
+$_lang['setting_mxboard.allow_self_close_desc'] = 'Позволяет закрывать карточку, где автор и исполнитель — один и тот же пользователь.';
+$_lang['setting_mxboard.wip_limit'] = 'WIP-лимит исполнителя';
+$_lang['setting_mxboard.wip_limit_desc'] = 'Сколько задач один исполнитель может держать в работе одновременно. 0 — без лимита.';
+$_lang['setting_mxboard.group_admin_authority'] = 'Порог менеджера отдела';
+$_lang['setting_mxboard.group_admin_authority_desc'] = 'Порог authority роли, при котором член группы отдела считается её менеджером. В MODX меньше authority означает больше прав; 1 — только роль верхнего уровня, 0 — выключить.';
+$_lang['setting_mxboard.kiosk_usergroups'] = 'Группы киоск-режима';
+$_lang['setting_mxboard.kiosk_usergroups_desc'] = 'CSV имён групп MODX, чьих рядовых не-sudo пользователей при входе в менеджер нужно перенаправлять сразу на доску. Пусто — выключено.';
+$_lang['setting_mxboard.media_source'] = 'Media source вложений';
+$_lang['setting_mxboard.media_source_desc'] = 'ID media source MODX для вложений задач, комментариев и файловых полей. 0 — источник по умолчанию.';
+$_lang['setting_mxboard.upload_max_size'] = 'Максимальный размер вложения';
+$_lang['setting_mxboard.upload_max_size_desc'] = 'Максимальный размер одного вложения в байтах. 0 — без отдельного лимита mxBoard, действуют лимиты media source и MODX.';
+$_lang['setting_mxboard.upload_max_files'] = 'Максимум файлов за раз';
+$_lang['setting_mxboard.upload_max_files_desc'] = 'Сколько файлов можно приложить за один batch drag-and-drop или выбора файлов. 0 — без лимита.';
+$_lang['setting_mxboard.upload_extensions'] = 'Разрешённые расширения вложений';
+$_lang['setting_mxboard.upload_extensions_desc'] = 'Список разрешённых расширений через запятую. Пусто — mxBoard не ограничивает расширения, но media source и системная настройка upload_files всё равно применяются.';
+$_lang['setting_mxboard.sse_enabled'] = 'Включить SSE-уведомления';
+$_lang['setting_mxboard.sse_enabled_desc'] = 'Включает живой поток уведомлений доски в админке через Server-Sent Events.';
+$_lang['setting_mxboard.sse_lifetime'] = 'Время жизни SSE-соединения';
+$_lang['setting_mxboard.sse_lifetime_desc'] = 'Время жизни одного SSE-соединения в секундах. Клиент переподключается автоматически.';
+$_lang['setting_mxboard.sse_poll_interval'] = 'Интервал опроса SSE';
+$_lang['setting_mxboard.sse_poll_interval_desc'] = 'Интервал опроса новых уведомлений внутри SSE-соединения в секундах.';
+$_lang['setting_mxboard.ai_base_url'] = 'URL AI API';
+$_lang['setting_mxboard.ai_base_url_desc'] = 'Базовый URL OpenAI-совместимого endpoint. Клиент добавляет /chat/completions.';
+$_lang['setting_mxboard.ai_api_key'] = 'Ключ AI API';
+$_lang['setting_mxboard.ai_api_key_desc'] = 'Bearer-ключ доступа к AI-провайдеру. Пусто — ИИ-проверка выключена.';
+$_lang['setting_mxboard.ai_model'] = 'AI-модель';
+$_lang['setting_mxboard.ai_model_desc'] = 'Имя модели для ИИ-проверки постановки задачи.';
+$_lang['setting_mxboard.ai_check_mode'] = 'Режим ИИ-проверки';
+$_lang['setting_mxboard.ai_check_mode_desc'] = 'strict — неполную задачу создать нельзя; soft — показать предупреждение и разрешить создание.';
+$_lang['setting_mxboard.ai_check_prompt'] = 'Промпт ИИ-проверки';
+$_lang['setting_mxboard.ai_check_prompt_desc'] = 'Глобальный промпт-шаблон проверки полноты постановки задачи. Тип задачи может переопределить его своим ai_prompt.';
+
 $_lang['mxboard_token'] = 'Токен';
 $_lang['mxboard_token_created'] = 'Токен создан. Скопируйте его сейчас — второй раз он не покажется.';
 
