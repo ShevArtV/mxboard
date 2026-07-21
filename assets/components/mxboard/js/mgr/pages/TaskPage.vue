@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 import { Button, InputText, Select, Tag, useToast, useConfirm } from 'primevue';
 import {
     TaskApi, TypeApi, ColumnApi, DepartmentApi, AttachmentApi, errorMessage, listOf,
@@ -11,6 +11,7 @@ import {
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import { capFiles } from '../utils/upload.js';
+import { liveEvents } from '../utils/bus.js';
 import TypeFields from '../components/TypeFields.vue';
 import Attachments from '../components/Attachments.vue';
 import FileDrop from '../components/FileDrop.vue';
@@ -168,8 +169,10 @@ watch(() => props.taskId, (id) => {
     if (id) load(id);
 }, { immediate: true });
 
-async function load(id) {
-    loading.value = true;
+async function load(id, options = {}) {
+    const preserveDraft = !!options.preserveDraft;
+    const silent = !!options.silent;
+    if (!silent) loading.value = true;
     try {
         const res = await TaskApi.get(id);
         const obj = res.object ?? {};
@@ -184,17 +187,22 @@ async function load(id) {
             comments: Array.isArray(obj.comments) ? obj.comments : [],
             log: Array.isArray(obj.log) ? obj.log : [],
         };
-        comment.value = '';
-        pendingFiles.value = [];
-        editing.value = false;
-        disputeOpen.value = false;
-        scrollChatToBottom();
+        if (!preserveDraft) {
+            comment.value = '';
+            pendingFiles.value = [];
+            editing.value = false;
+            disputeOpen.value = false;
+            planDisputeOpen.value = false;
+            scrollChatToBottom();
+        } else if (!comment.value.trim() && pendingFiles.value.length === 0 && !editing.value) {
+            scrollChatToBottom();
+        }
         loadContext();
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_task_load'), detail: errorMessage(e), life: 8000 });
         emit('back');
     } finally {
-        loading.value = false;
+        if (!silent) loading.value = false;
     }
 }
 
@@ -224,6 +232,26 @@ function reload() {
     load(props.taskId);
     emit('changed');
 }
+
+let liveReloadTimer = 0;
+function scheduleLiveReload() {
+    if (liveReloadTimer) window.clearTimeout(liveReloadTimer);
+    liveReloadTimer = window.setTimeout(() => {
+        liveReloadTimer = 0;
+        load(props.taskId, { preserveDraft: true, silent: true });
+        emit('changed');
+    }, 250);
+}
+
+watch(() => liveEvents.seq, () => {
+    const event = liveEvents.last;
+    if (!event || Number(event.task_id) !== Number(props.taskId)) return;
+    scheduleLiveReload();
+});
+
+onUnmounted(() => {
+    if (liveReloadTimer) window.clearTimeout(liveReloadTimer);
+});
 
 // Обёртка действия: сервер — источник истины по правам, отказ показываем тостом.
 async function act(fn, okMessage) {

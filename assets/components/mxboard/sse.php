@@ -100,9 +100,31 @@ while (ob_get_level() > 0) {
 /* ---------- Курсор ---------- */
 
 // Last-Event-ID (после реконнекта) приоритетнее query-параметра ?lastId.
-$lastId = (int) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? 0);
+function mxb_sse_cursor(int $notificationId, int $logId): string
+{
+    return 'n' . max(0, $notificationId) . ':l' . max(0, $logId);
+}
+
+function mxb_sse_parse_cursor(string $raw): array
+{
+    if (preg_match('/^n(\d+):l(\d+)$/', $raw, $m)) {
+        return [(int) $m[1], (int) $m[2]];
+    }
+
+    // Backward compatibility: older clients sent only notification id.
+    if (ctype_digit($raw)) {
+        return [(int) $raw, 0];
+    }
+
+    return [0, 0];
+}
+
+[$lastId, $lastLogId] = mxb_sse_parse_cursor((string) ($_SERVER['HTTP_LAST_EVENT_ID'] ?? ''));
 if ($lastId <= 0) {
     $lastId = (int) ($_GET['lastId'] ?? 0);
+}
+if ($lastLogId <= 0) {
+    $lastLogId = (int) ($_GET['lastLogId'] ?? 0);
 }
 
 $lifetime = max(5, min(120, (int) $modx->getOption('mxboard.sse_lifetime', null, 25)));
@@ -110,6 +132,10 @@ $poll = max(1, min(10, (int) $modx->getOption('mxboard.sse_poll_interval', null,
 $retryMs = $poll * 1000;
 
 $service = new \MxBoard\Service\NotificationService($modx);
+$query = new \MxBoard\Service\BoardQuery($modx);
+if ($lastLogId <= 0) {
+    $lastLogId = $query->latestLogId();
+}
 
 echo 'retry: ' . $retryMs . "\n\n";
 @flush();
@@ -124,13 +150,21 @@ while (time() < $deadline) {
     $items = $service->sinceId($userId, $lastId, 50);
     foreach ($items as $item) {
         $lastId = max($lastId, (int) $item['id']);
-        echo 'id: ' . (int) $item['id'] . "\n";
+        echo 'id: ' . mxb_sse_cursor($lastId, $lastLogId) . "\n";
         echo 'event: notification' . "\n";
         echo 'data: ' . json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
     }
 
+    $events = $query->liveEvents($user, $lastLogId, 100);
+    foreach ($events as $event) {
+        $lastLogId = max($lastLogId, (int) $event['id']);
+        echo 'id: ' . mxb_sse_cursor($lastId, $lastLogId) . "\n";
+        echo 'event: board-event' . "\n";
+        echo 'data: ' . json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n\n";
+    }
+
     // Комментарий-пинг держит соединение живым сквозь прокси в тихие периоды.
-    if (!$items) {
+    if (!$items && !$events) {
         echo ': ping ' . time() . "\n\n";
     }
     @flush();

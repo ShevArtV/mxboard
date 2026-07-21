@@ -2,6 +2,7 @@ import { reactive, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue';
 import { NotificationApi, boardConfig } from '../api/connector.js';
 import { t } from './i18n.js';
+import { pushLiveEvent } from './bus.js';
 
 /**
  * Живые in-app уведомления доски.
@@ -86,6 +87,13 @@ export function useNotifications() {
             state.items.unshift(n);
             if (!n.seen) state.unseen += 1;
             pushToast(n);
+        });
+
+        es.addEventListener('board-event', (ev) => {
+            let event;
+            try { event = JSON.parse(ev.data); } catch (e) { return; }
+            if (!event || !event.id || !event.task_id) return;
+            pushLiveEvent(event);
         });
     }
 

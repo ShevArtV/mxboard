@@ -338,12 +338,20 @@ class TaskService
             return $this->fail('mxboard_err_comment_author_only');
         }
 
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, (int) $comment->get('task_id'));
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
         $comment->set('content', $content);
         $comment->set('updatedon', time());
 
         if (!$comment->save()) {
             return $this->fail('mxboard_err_save');
         }
+
+        $this->log($task, $user, 'comment_update', '', '', 'comment#' . $commentId, $channel);
 
         return [
             'success' => true,
@@ -369,6 +377,12 @@ class TaskService
             return $this->fail('mxboard_err_comment_author_only');
         }
 
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, (int) $comment->get('task_id'));
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
         // Вложения сообщения: физфайлы удаляем явно (composite снял бы лишь записи и только
         // по задаче) ДО удаления коммента.
         (new AttachmentService($this->modx))->purgeForComment($commentId);
@@ -376,6 +390,8 @@ class TaskService
         if (!$comment->remove()) {
             return $this->fail('mxboard_err_save');
         }
+
+        $this->log($task, $user, 'comment_delete', '', '', 'comment#' . $commentId, $channel);
 
         return ['success' => true, 'message' => '', 'object' => null];
     }

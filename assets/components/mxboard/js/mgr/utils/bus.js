@@ -11,6 +11,8 @@ import { reactive } from 'vue';
  */
 export const revisions = reactive({ projects: 0, columns: 0 });
 
+export const liveEvents = reactive({ seq: 0, last: null });
+
 /** Проекты изменились (создан/переименован/удалён) — обновить списки проектов. */
 export function bumpProjects() {
     revisions.projects += 1;
@@ -19,4 +21,10 @@ export function bumpProjects() {
 /** Колонки проекта изменились (состав/порядок/цвет/копирование) — перечитать доску. */
 export function bumpColumns() {
     revisions.columns += 1;
+}
+
+/** Событие из SSE-журнала задач: доска/карточка сами решают, нужно ли перечитываться. */
+export function pushLiveEvent(event) {
+    liveEvents.last = event || null;
+    liveEvents.seq += 1;
 }

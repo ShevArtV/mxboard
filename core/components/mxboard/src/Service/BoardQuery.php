@@ -8,6 +8,7 @@ use MODX\Revolution\modUser;
 use MODX\Revolution\modUserGroupMember;
 use MODX\Revolution\modX;
 use MxBoard\Helpers\Columns;
+use MxBoard\Helpers\Transitions;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardComment;
@@ -440,6 +441,99 @@ class BoardQuery
         }
 
         return ['events' => $out, 'cursor' => $cursor];
+    }
+
+    /**
+     * Инкрементальная лента событий для живого UI в менеджере.
+     *
+     * Это не замена персональным уведомлениям: события идут из mxboard_log и нужны
+     * только для инвалидации открытой доски/карточки. Payload намеренно краткий,
+     * полные данные UI перечитывает обычными процессорами с их проверками прав.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function liveEvents(modUser $user, int $sinceId, int $limit = 100): array
+    {
+        $userId = (int) $user->get('id');
+        if ($userId <= 0) {
+            return [];
+        }
+
+        $limit = max(1, min(500, $limit));
+        $manager = Transitions::isAnyDepartmentManager($this->modx, $user);
+
+        $c = $this->modx->newQuery(MxBoardLog::class);
+        $c->innerJoin(MxBoardTask::class, 'Task', 'Task.id = MxBoardLog.task_id');
+        $c->leftJoin(MxBoardProject::class, 'Project', 'Project.id = Task.project_id');
+        $c->leftJoin(MxBoardColumn::class, 'Stage', 'Stage.id = Task.column_id');
+        $c->where(['MxBoardLog.id:>' => $sinceId]);
+        if (!$manager) {
+            $c->where([[
+                'Task.author_id' => $userId,
+                'OR:Task.assignee_id:=' => $userId,
+            ]]);
+        }
+        $c->select([
+            'id' => 'MxBoardLog.id',
+            'action' => 'MxBoardLog.action',
+            'from_column' => 'MxBoardLog.from_column',
+            'to_column' => 'MxBoardLog.to_column',
+            'channel' => 'MxBoardLog.channel',
+            'createdon' => 'MxBoardLog.createdon',
+            'actor_id' => 'MxBoardLog.user_id',
+            'task_id' => 'Task.id',
+            'num' => 'Task.num',
+            'title' => 'Task.title',
+            'project_id' => 'Task.project_id',
+            'project_key' => 'Project.key',
+            'task_stage' => 'Stage.key',
+            'author_id' => 'Task.author_id',
+            'assignee_id' => 'Task.assignee_id',
+        ]);
+        $c->sortby('MxBoardLog.id', 'ASC');
+        $c->limit($limit);
+
+        $rows = [];
+        $c->prepare();
+        if ($c->stmt && $c->stmt->execute()) {
+            $rows = (array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+
+        $out = [];
+        foreach ($rows as $r) {
+            $out[] = [
+                'id' => (int) $r['id'],
+                'action' => (string) $r['action'],
+                'from' => (string) ($r['from_column'] ?? ''),
+                'to' => (string) ($r['to_column'] ?? ''),
+                'channel' => (string) $r['channel'],
+                'createdon' => (int) $r['createdon'],
+                'actor_id' => (int) $r['actor_id'],
+                'task_id' => (int) $r['task_id'],
+                'num' => (string) ($r['num'] ?? ''),
+                'title' => (string) ($r['title'] ?? ''),
+                'project_id' => (int) $r['project_id'],
+                'project_key' => (string) ($r['project_key'] ?? ''),
+                'task_stage' => (string) ($r['task_stage'] ?? ''),
+                'author_id' => (int) $r['author_id'],
+                'assignee_id' => (int) $r['assignee_id'],
+            ];
+        }
+
+        return $out;
+    }
+
+    /** Текущий хвост журнала для стартового SSE-курсора живого UI. */
+    public function latestLogId(): int
+    {
+        $c = $this->modx->newQuery(MxBoardLog::class);
+        $c->select('MAX(MxBoardLog.id)');
+        $c->prepare();
+        if (!$c->stmt || !$c->stmt->execute()) {
+            return 0;
+        }
+
+        return (int) $c->stmt->fetchColumn();
     }
 
     /**

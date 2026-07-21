@@ -1,11 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Button, Select, useToast, useConfirm } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
 } from '../api/connector.js';
 import { normalizeBoard, normalizeTask, PRIORITIES } from '../utils/format.js';
-import { revisions } from '../utils/bus.js';
+import { liveEvents, revisions } from '../utils/bus.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
@@ -126,6 +126,9 @@ const projectsInDepartment = computed(
 );
 
 onMounted(init);
+onUnmounted(() => {
+    if (liveReloadTimer) window.clearTimeout(liveReloadTimer);
+});
 
 async function init() {
     try {
@@ -171,12 +174,13 @@ function onDepartmentChange() {
     if (projectKey.value) load();
 }
 
-async function load() {
+async function load(options = {}) {
     if (!projectKey.value) {
         columns.value = [];
         return;
     }
-    loading.value = true;
+    const silent = !!options.silent;
+    if (!silent) loading.value = true;
     try {
         const res = await BoardApi.get({
             project: projectKey.value,
@@ -188,7 +192,7 @@ async function load() {
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_board_load'), detail: errorMessage(e), life: 8000 });
     } finally {
-        loading.value = false;
+        if (!silent) loading.value = false;
     }
 }
 
@@ -203,6 +207,21 @@ async function reloadProjects() {
 watch(() => revisions.projects, reloadProjects);
 watch(() => revisions.columns, () => {
     if (projectKey.value) load();
+});
+
+let liveReloadTimer = 0;
+function scheduleLiveReload() {
+    if (liveReloadTimer) window.clearTimeout(liveReloadTimer);
+    liveReloadTimer = window.setTimeout(() => {
+        liveReloadTimer = 0;
+        load({ silent: true });
+    }, 250);
+}
+
+watch(() => liveEvents.seq, () => {
+    const event = liveEvents.last;
+    if (!event || !projectKey.value || event.project_key !== projectKey.value) return;
+    scheduleLiveReload();
 });
 
 function openTask(task) {
