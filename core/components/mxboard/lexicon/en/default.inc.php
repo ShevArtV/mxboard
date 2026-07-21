@@ -44,6 +44,7 @@ $_lang['mxboard_err_user_not_found'] = 'User not found.';
 $_lang['mxboard_err_project_not_found'] = 'Project not found.';
 $_lang['mxboard_err_parent_not_found'] = 'Parent task not found.';
 $_lang['mxboard_err_parent_other_project'] = 'A subtask must belong to the same project as its parent.';
+$_lang['mxboard_err_parent_final'] = 'Cannot create a subtask for a task in a final stage.';
 $_lang['mxboard_err_subtask_denied'] = 'Only the author or assignee of the parent task can create a subtask.';
 $_lang['mxboard_err_title_too_long'] = 'Title exceeds 250 characters.';
 $_lang['mxboard_err_deadline_required'] = 'A valid deadline is required.';
@@ -201,6 +202,7 @@ $_lang['mxboard_ui_deadline_disputed_hint'] = 'Deadline disputed';
 
 $_lang['mxboard_ui_new_subtask'] = 'New subtask';
 $_lang['mxboard_ui_subtask_for'] = 'Subtask of';
+$_lang['mxboard_ui_parent_final_no_subtask'] = 'Cannot create subtasks for a final task';
 $_lang['mxboard_ui_task_type'] = 'Task type';
 $_lang['mxboard_ui_select_type'] = 'Choose a type';
 $_lang['mxboard_ui_no_types'] = 'The department has no task types — create them on the “Structure” tab.';

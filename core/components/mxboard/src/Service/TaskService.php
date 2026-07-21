@@ -43,7 +43,7 @@ class TaskService
      * title непустой ≤250, deadline > 0, обязательные поля типа заполнены. Плановое
      * время (plan_hours) — необязательное: 0/пусто значит «не оценивали». Если задан
      * parent_id — это подзадача: родитель обязан существовать, быть в том же проекте,
-     * а создающий — его автором или исполнителем.
+     * быть не в финальной стадии, а создающий — его автором или исполнителем.
      *
      * @param array<string, mixed> $data
      *
@@ -67,6 +67,11 @@ class TaskService
             }
             if ((int) $parent->get('project_id') !== (int) $project->get('id')) {
                 return $this->fail('mxboard_err_parent_other_project');
+            }
+            /** @var MxBoardColumn|null $parentColumn */
+            $parentColumn = $this->modx->getObject(MxBoardColumn::class, (int) $parent->get('column_id'));
+            if ($parentColumn && (bool) $parentColumn->get('is_final')) {
+                return $this->fail('mxboard_err_parent_final');
             }
             $uid = (int) $user->get('id');
             $isParentParty = $uid === (int) $parent->get('author_id') || $uid === (int) $parent->get('assignee_id');

@@ -92,6 +92,17 @@ const stageName = computed(() => {
     const col = columns.value.find((c) => c.key === key);
     return col?.name || key || '';
 });
+const currentColumn = computed(() => {
+    const key = task.value?.column_key;
+    return columns.value.find((c) => c.key === key) || null;
+});
+const taskIsFinal = computed(() => !!currentColumn.value?.is_final);
+const parentLabel = computed(() => {
+    const parent = detail.value.parent;
+    if (!parent) return '';
+    const num = parent.num ? `${parent.num} · ` : '';
+    return `${num}${parent.title || `#${parent.id}`}`;
+});
 
 // Комментарии как лента чата: «свои»/«чужие» + группировка подряд идущих сообщений
 // одного автора в пределах 5 минут (шапка с именем/аватаром — только у первого в группе).
@@ -488,6 +499,14 @@ function removeTask(event) {
         },
     });
 }
+
+function openSubtaskDialog() {
+    if (taskIsFinal.value) {
+        toast.add({ severity: 'warn', summary: t('mxboard_ui_parent_final_no_subtask'), life: 4000 });
+        return;
+    }
+    subtaskOpen.value = true;
+}
 </script>
 
 <template>
@@ -520,11 +539,6 @@ function removeTask(event) {
         <div v-else-if="task" class="mxb-task-body">
             <!-- ЛЕВАЯ КОЛОНКА: описание + мета (свой скролл) -->
             <div class="mxb-task-left">
-                <!-- Родитель -->
-                <div v-if="detail.parent" class="mxb-parent-link" @click="emit('open-task', detail.parent.id)">
-                    <i class="pi pi-arrow-up-right" /> {{ t('mxboard_ui_parent') }}: <strong>{{ detail.parent.title }}</strong>
-                </div>
-
                 <h2 class="mxb-task-title">{{ task.title }}</h2>
 
                 <!-- Описание: собранные текстовые поля типа — первым блоком, длинный текст под катом. -->
@@ -561,6 +575,19 @@ function removeTask(event) {
 
                 <!-- Мета-карточка -->
                 <div class="mxb-meta-card">
+                    <div v-if="detail.parent" class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_parent') }}</span>
+                        <span class="mxb-meta-value">
+                            <button
+                                type="button"
+                                class="mxb-parent-link"
+                                @click="emit('open-task', detail.parent.id)"
+                            >
+                                <i class="pi pi-arrow-up-right" />
+                                <span>{{ parentLabel }}</span>
+                            </button>
+                        </span>
+                    </div>
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_priority') }}</span>
                         <span class="mxb-meta-value">
@@ -789,7 +816,16 @@ function removeTask(event) {
                             <i class="pi pi-sitemap" />{{ t('mxboard_ui_subtasks') }}
                             <span class="mxb-column-count">{{ detail.subtasks.length }}</span>
                             <span class="mxb-toolbar-spacer" />
-                            <Button :label="t('mxboard_ui_subtask')" icon="pi pi-plus" size="small" severity="secondary" outlined @click="subtaskOpen = true" />
+                            <Button
+                                :label="t('mxboard_ui_subtask')"
+                                icon="pi pi-plus"
+                                size="small"
+                                severity="secondary"
+                                outlined
+                                :disabled="taskIsFinal"
+                                v-tooltip="taskIsFinal ? t('mxboard_ui_parent_final_no_subtask') : ''"
+                                @click="openSubtaskDialog"
+                            />
                         </div>
                         <div
                             v-for="s in detail.subtasks"

@@ -1559,9 +1559,23 @@ function openNotif(n) {
 }
 
 .mxb-parent-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
     cursor: pointer;
     color: var(--p-primary-700, #047857);
+    font: inherit;
     font-weight: 600;
+    text-align: left;
+}
+
+.mxb-parent-link span {
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .mxb-parent-link:hover {

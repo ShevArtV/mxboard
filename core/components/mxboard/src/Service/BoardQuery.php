@@ -267,7 +267,11 @@ class BoardQuery
             /** @var MxBoardTask|null $parent */
             $parent = $this->modx->getObject(MxBoardTask::class, $parentId);
             $out['parent'] = $parent
-                ? ['id' => $parentId, 'title' => (string) $parent->get('title')]
+                ? [
+                    'id' => $parentId,
+                    'num' => (string) $parent->get('num'),
+                    'title' => (string) $parent->get('title'),
+                ]
                 : null;
         } else {
             $out['parent'] = null;
