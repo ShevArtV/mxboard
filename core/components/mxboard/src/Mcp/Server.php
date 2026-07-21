@@ -867,7 +867,9 @@ final class Server
             $data['priority'] = $this->int($args['priority']);
         }
         if (array_key_exists('deadline', $args)) {
-            $data['deadline'] = $this->deadline($args['deadline']);
+            // Сырым, как в taskCreate(): разбор даты централизован в TaskService::normalizeDeadline().
+            // Приводить здесь нельзя — (int) "2026-12-31" дал бы 2026 (эпоха 1970-х).
+            $data['deadline'] = $args['deadline'];
         }
         if (array_key_exists('plan_hours', $args)) {
             $data['plan_hours'] = $args['plan_hours'];

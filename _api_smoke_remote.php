@@ -18,8 +18,10 @@ use MODX\Revolution\modX;
 use MxBoard\Mcp\Server;
 use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardProject;
+use MxBoard\Model\MxBoardTask;
 use MxBoard\Model\MxBoardToken;
 use MxBoard\Rest\Router;
+use MxBoard\Service\BoardQuery;
 
 define('MODX_API_MODE', true);
 
@@ -136,7 +138,18 @@ $token->fromArray([
 $token->save();
 
 $DEADLINE = time() + 7 * 86400;
-$BUG = ['where' => 'checkout', 'what' => 'падает', 'steps' => 'открыть', 'expected' => 'ок'];
+
+// Обязательные поля типа берём из живой схемы, а не из захардкоженного списка: набор
+// полей у bugfix на стенде меняется (2026-07: добавились environment и severity), и
+// фиксированный массив тихо ронял create с «Заполнены не все обязательные поля типа»,
+// утаскивая за собой все зависимые проверки.
+$BUG = [];
+foreach ((new BoardQuery($modx))->typeSchema($project, 'bugfix')['fields'] ?? [] as $f) {
+    if ($f['required']) {
+        $BUG[$f['key']] = 'smoke';
+    }
+}
+check('схема типа bugfix прочитана (обязательных полей > 0)', $BUG !== [], implode(',', array_keys($BUG)));
 
 /* --- MCP: фильтрация tools/list --------------------------------------------- */
 
@@ -209,6 +222,47 @@ check('REST GET /tasks/{id} с деталями', $r['status'] === 200 && (int) 
 
 $r = $workerRest->dispatch('POST', ['tasks', (string) $taskId, 'comment'], [], ['content' => 'из REST']);
 check('REST POST /tasks/{id}/comment', $r['status'] === 200 && $r['body']['success'], (string) $r['body']['message']);
+
+/* --- MCP task_update: дедлайн (регресс карточки #66) -------------------------- */
+
+// Читаем deadlineon из БД, а не из объекта: xPDO кэширует экземпляры по PK, и
+// getObject мог бы вернуть тот, который правил сервис, — тогда тест проверял бы
+// сам себя, а не факт записи.
+$deadlineOf = static function (modX $modx, int $id): int {
+    $table = $modx->getTableName(MxBoardTask::class);
+    $stmt = $modx->prepare("SELECT deadlineon FROM {$table} WHERE id = :id");
+    $stmt->execute(['id' => $id]);
+
+    return (int) ($stmt->fetchColumn() ?: 0);
+};
+
+// worker создал карточку через REST → он автор, значит вправе её править.
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'deadline' => '2026-12-31']);
+check('MCP task_update: дедлайн YYYY-MM-DD принят', empty($r['result']['isError']),
+    json_encode($r['result'] ?? $r['error'] ?? [], JSON_UNESCAPED_UNICODE));
+check('MCP task_update: YYYY-MM-DD сохранён как дата, а не обрезан в (int)',
+    $deadlineOf($modx, $taskId) === (int) strtotime('2026-12-31'),
+    'в БД ' . $deadlineOf($modx, $taskId) . ', ожидали ' . (int) strtotime('2026-12-31'));
+
+$unix = time() + 30 * 86400;
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'deadline' => $unix]);
+check('MCP task_update: unix timestamp принят', empty($r['result']['isError']),
+    json_encode($r['result'] ?? $r['error'] ?? [], JSON_UNESCAPED_UNICODE));
+check('MCP task_update: unix сохранён как есть', $deadlineOf($modx, $taskId) === $unix,
+    'в БД ' . $deadlineOf($modx, $taskId) . ', ожидали ' . $unix);
+
+// Мусор — это штатная ошибка канала (isError + текст лексикона), а НЕ JSON-RPC -32603.
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'deadline' => 'не дата']);
+check('MCP task_update: битый дедлайн → isError, без Internal error',
+    !empty($r['result']['isError']) && !isset($r['error']),
+    json_encode($r, JSON_UNESCAPED_UNICODE));
+check('MCP task_update: битый дедлайн не затирает сохранённый', $deadlineOf($modx, $taskId) === $unix);
+
+// Паритет с REST: тот же дедлайн строкой через PATCH /tasks/{id}.
+$r = $workerRest->dispatch('PATCH', ['tasks', (string) $taskId], [], ['deadline' => '2027-01-15']);
+check('REST PATCH /tasks/{id} с дедлайном не сломан', $r['status'] === 200 && $r['body']['success'],
+    (string) ($r['body']['message'] ?? ''));
+check('REST PATCH: дата сохранена корректно', $deadlineOf($modx, $taskId) === (int) strtotime('2027-01-15'));
 
 // Структура: worker запрещено, mgr можно.
 $r = $workerRest->dispatch('POST', ['types'], [], ['department_id' => $departmentId, 'key' => 'y', 'name' => 'Y', 'fields' => [['key' => 'a', 'label' => 'A']]]);
