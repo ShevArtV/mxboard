@@ -30,7 +30,7 @@ const saving = ref(false);
 const aiVerdict = ref(null);
 const aiCanOverride = ref(false);
 
-const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} });
+const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
 // Файлы, приложенные ДО создания задачи: копятся в памяти, грузятся после успешного create.
 const pendingFiles = ref([]);
 // Файловая зона показывается, только если у выбранного типа есть поле `files` (лейбл = его заголовок).
@@ -39,7 +39,7 @@ const filesField = computed(() => (schema.value?.fields || []).find((f) => f.typ
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
     if (!open) return;
-    form.value = { type: '', title: '', tor: '', priority: 1, deadline: '', assignee_id: 0, fields: {} };
+    form.value = { type: '', title: '', tor: '', priority: 1, deadline: '', plan_hours: null, assignee_id: 0, fields: {} };
     pendingFiles.value = [];
     aiVerdict.value = null;
     aiCanOverride.value = false;
@@ -109,6 +109,7 @@ async function save(override = false) {
             tor: form.value.tor,
             priority: form.value.priority,
             deadline: form.value.deadline,
+            plan_hours: Number(form.value.plan_hours) || 0,
             assignee_id: form.value.assignee_id,
             fields: form.value.fields,
             ai_override: override ? 1 : 0,
@@ -187,6 +188,10 @@ function removeStaged(idx) {
             <div class="mxb-field mxb-col">
                 <label>{{ t('mxboard_ui_deadline') }}</label>
                 <input v-model="form.deadline" type="date" class="mxb-input" />
+            </div>
+            <div class="mxb-field mxb-col">
+                <label>{{ t('mxboard_ui_plan') }}</label>
+                <input v-model="form.plan_hours" type="number" min="0" step="1" class="mxb-input" :placeholder="t('mxboard_ui_plan_hint')" />
             </div>
             <div class="mxb-field mxb-col">
                 <label>{{ t('mxboard_ui_priority') }}</label>

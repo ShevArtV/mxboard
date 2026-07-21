@@ -263,6 +263,7 @@ class StructureService
                 'color' => $col['color'],
                 'is_initial' => $col['is_initial'],
                 'is_final' => $col['is_final'],
+                'is_start' => $col['is_start'] ?? false,
                 'createdon' => $now,
             ]);
             if (!$column->save()) {
@@ -632,8 +633,8 @@ class StructureService
     /**
      * Добавить колонку в проект (или в глобальный шаблон при project_id = 0).
      *
-     * Флаги is_initial/is_final здесь игнорируются: у проекта они уже стоят на других
-     * колонках (инвариант «ровно одна»), перенос — через updateColumn.
+     * Флаги is_initial/is_final/is_start здесь игнорируются: у проекта они уже стоят на
+     * других колонках (инвариант «ровно одна»), перенос — через updateColumn.
      *
      * @param array<string, mixed> $data project_id + key/name/description/move_roles/color/position
      *
@@ -673,6 +674,7 @@ class StructureService
             'color' => trim((string) ($data['color'] ?? '#6c757d')),
             'is_initial' => false,
             'is_final' => false,
+            'is_start' => false,
             'createdon' => time(),
         ]);
 
@@ -685,9 +687,9 @@ class StructureService
 
     /**
      * Правка колонки: name, description, move_roles, color, position; `key` не меняется
-     * (он в журнале переходов). is_initial/is_final = 1 ПЕРЕНОСИТ флаг с прежней
-     * колонки-носителя — инвариант «ровно одна» сохраняется сам собой; снять флаг
-     * в 0 напрямую нельзя (falsy-значения игнорируются).
+     * (он в журнале переходов). is_initial/is_final/is_start = 1 ПЕРЕНОСИТ флаг с прежней
+     * колонки-носителя — инвариант «ровно одна» сохраняется сам собой; снять в 0 нельзя
+     * (falsy-значения игнорируются) — кроме необязательного is_start.
      *
      * @param array<string, mixed> $data
      *
@@ -725,10 +727,25 @@ class StructureService
             $column->set('position', (int) $data['position']);
         }
 
-        foreach (['is_initial', 'is_final'] as $flag) {
+        // Начальная стадия — это «ещё не работа», отсчёт факта от неё дал бы время
+        // лежания в бэклоге. Поэтому носителем обоих флагов одна стадия быть не может.
+        $wantsStart = !empty($data['is_start']);
+        $wantsInitial = !empty($data['is_initial']);
+        if (($wantsStart && ($wantsInitial || (bool) $column->get('is_initial')))
+            || ($wantsInitial && (bool) $column->get('is_start'))) {
+            return $this->fail('mxboard_err_start_is_initial');
+        }
+
+        foreach (['is_initial', 'is_final', 'is_start'] as $flag) {
             if (!empty($data[$flag]) && !(bool) $column->get($flag)) {
                 $this->transferFlag($flag, $column);
             }
+        }
+
+        // is_start, в отличие от initial/final, снимается явным нулём: он необязателен,
+        // и проект вправе просто отказаться от замера, не назначая носителя заново.
+        if (array_key_exists('is_start', $data) && !$wantsStart) {
+            $column->set('is_start', false);
         }
 
         if (!$column->save()) {
@@ -825,6 +842,7 @@ class StructureService
                 'color' => $col['color'],
                 'is_initial' => $col['is_initial'],
                 'is_final' => $col['is_final'],
+                'is_start' => $col['is_start'] ?? false,
                 'createdon' => $now,
             ]);
             if (!$column->save()) {
@@ -1044,7 +1062,7 @@ class StructureService
             : 'mxboard_err_structure_denied';
     }
 
-    /** Перенести is_initial/is_final на $column: снять с прежних носителей в том же проекте. */
+    /** Перенести is_initial/is_final/is_start на $column: снять с прежних носителей того же проекта. */
     private function transferFlag(string $flag, MxBoardColumn $column): void
     {
         $table = $this->modx->getTableName(MxBoardColumn::class);
@@ -1100,7 +1118,8 @@ class StructureService
     }
 
     /**
-     * Нормализовать колонки и проверить инвариант (одна initial / одна final).
+     * Нормализовать колонки и проверить инвариант (одна initial / одна final / не более
+     * одной start).
      *
      * @param array<int, mixed> $input
      *
@@ -1112,6 +1131,7 @@ class StructureService
         $seen = [];
         $initial = 0;
         $final = 0;
+        $start = 0;
         foreach ($input as $raw) {
             if (!is_array($raw)) {
                 return [[], 'mxboard_err_column_invalid'];
@@ -1128,8 +1148,12 @@ class StructureService
 
             $isInitial = !empty($raw['is_initial']);
             $isFinal = !empty($raw['is_final']);
+            // Стартовая — точка отсчёта факта, а начальная стадия работой не является:
+            // совмещение флагов дало бы «замер с момента постановки».
+            $isStart = !empty($raw['is_start']) && !$isInitial;
             $initial += $isInitial ? 1 : 0;
             $final += $isFinal ? 1 : 0;
+            $start += $isStart ? 1 : 0;
 
             $out[] = [
                 'key' => $key,
@@ -1139,10 +1163,12 @@ class StructureService
                 'color' => trim((string) ($raw['color'] ?? '#6c757d')),
                 'is_initial' => $isInitial,
                 'is_final' => $isFinal,
+                'is_start' => $isStart,
             ];
         }
 
-        if ($initial !== 1 || $final !== 1) {
+        // Стартовая необязательна (без неё факт просто не считается), но двух не бывает.
+        if ($initial !== 1 || $final !== 1 || $start > 1) {
             return [[], 'mxboard_err_column_invariant'];
         }
 
@@ -1172,6 +1198,7 @@ class StructureService
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
+                'is_start' => (bool) $column->get('is_start'),
             ];
         }
 

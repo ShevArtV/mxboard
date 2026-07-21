@@ -146,6 +146,7 @@ class BoardQuery
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
+                'is_start' => (bool) $column->get('is_start'),
             ];
         }
 
@@ -225,6 +226,7 @@ class BoardQuery
                 'description' => (string) $column->get('description'),
                 'is_initial' => (bool) $column->get('is_initial'),
                 'is_final' => (bool) $column->get('is_final'),
+                'is_start' => (bool) $column->get('is_start'),
                 'color' => (string) ($column->get('color') ?: '#6c757d'),
                 'tasks' => $byColumn[$key] ?? [],
             ];
@@ -539,6 +541,9 @@ class BoardQuery
             'MxBoardTask.parent_id',
             'MxBoardTask.deadlineon',
             'MxBoardTask.deadline_disputed',
+            'MxBoardTask.plan_hours',
+            'MxBoardTask.plan_disputed',
+            'MxBoardTask.startedon',
             'MxBoardTask.closedon',
             'column_key' => 'Column.key',
             'type_key' => 'Type.key',

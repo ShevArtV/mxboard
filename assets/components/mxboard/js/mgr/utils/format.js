@@ -99,6 +99,24 @@ export function deadlineTone(task) {
     return days <= 2 ? 'soon' : 'normal';
 }
 
+/**
+ * Фактическое время в часах: от входа в стартовую стадию (startedon) до закрытия,
+ * а у незакрытой — до «сейчас». 0 = замера нет (стартовая стадия не помечена либо
+ * карточку вернули в бэклог и отсчёт сброшен).
+ */
+export function factHours(task) {
+    const started = Number(task?.startedon) || 0;
+    if (!started) return 0;
+    const closed = Number(task?.closedon) || 0;
+    const until = closed > 0 ? closed : Math.floor(Date.now() / 1000);
+    return Math.max(0, Math.round((until - started) / 3600));
+}
+
+/** Идёт ли замер прямо сейчас — карточка в работе и не закрыта. */
+export function factRunning(task) {
+    return (Number(task?.startedon) || 0) > 0 && !(Number(task?.closedon) || 0);
+}
+
 /** Инициалы из имени (аватар). Общий помощник для чата и карточек. */
 export function initials(name) {
     const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
@@ -153,6 +171,7 @@ export function normalizeBoard(res) {
         color: String(c.color ?? '') || '#6c757d',
         is_initial: !!Number(c.is_initial),
         is_final: !!Number(c.is_final),
+        is_start: !!Number(c.is_start),
         tasks: (Array.isArray(c.tasks) ? c.tasks : []).map(normalizeTask),
     }));
 
@@ -173,6 +192,10 @@ export function normalizeTask(t) {
         deadlineon: Number(t.deadlineon) || 0,
         deadline_disputed: !!Number(t.deadline_disputed),
         deadline_proposed: Number(t.deadline_proposed) || 0,
+        plan_hours: Number(t.plan_hours) || 0,
+        plan_disputed: !!Number(t.plan_disputed),
+        plan_proposed: Number(t.plan_proposed) || 0,
+        startedon: Number(t.startedon) || 0,
         closedon: Number(t.closedon) || 0,
         column_key: String(t.column_key ?? t.column ?? ''),
     };

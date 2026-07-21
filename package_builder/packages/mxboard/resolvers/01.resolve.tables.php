@@ -65,6 +65,8 @@ $migrations = [
         'ADD COLUMN `color` VARCHAR(7) NOT NULL DEFAULT \'#6c757d\' AFTER `move_roles`',
         // stage_key убран: тег стадии нигде не использовался (см. фичу «колонки v2»).
         'DROP COLUMN `stage_key`',
+        // Стартовая стадия: с неё идёт отсчёт фактического времени задачи.
+        'ADD COLUMN `is_start` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 AFTER `is_final`',
     ],
     \MxBoard\Model\MxBoardComment::class => [
         'ADD COLUMN `updatedon` INT(20) UNSIGNED NOT NULL DEFAULT 0 AFTER `createdon`',
@@ -78,6 +80,11 @@ $migrations = [
         // Человекочитаемый номер (num): nullable под unique (много NULL допустимо), бэкофилл ниже.
         'ADD COLUMN `num` VARCHAR(32) NULL DEFAULT NULL AFTER `column_id`',
         'ADD UNIQUE INDEX `num` (`num`)',
+        // Учёт времени: план в целых часах (0 = не оценивали) + оспаривание оценки.
+        // Факт отдельным полем не хранится — он считается из startedon/closedon.
+        'ADD COLUMN `plan_hours` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `deadline_proposed`',
+        'ADD COLUMN `plan_disputed` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 AFTER `plan_hours`',
+        'ADD COLUMN `plan_proposed` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `plan_disputed`',
     ],
 ];
 

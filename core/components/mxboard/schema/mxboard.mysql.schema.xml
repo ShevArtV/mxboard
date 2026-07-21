@@ -85,6 +85,10 @@
         <field key="is_initial" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <!-- Терминальная колонка: вход в неё = закрытие карточки. Инвариант: ровно одна на проект. -->
         <field key="is_final" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <!-- Стартовая колонка: вход в неё (или в любую правее по position) запускает отсчёт
+             фактического времени. Возврат левее — сброс отсчёта. Инвариант: ровно одна на проект,
+             но необязательна: без неё факт не считается вовсе. -->
+        <field key="is_start" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
 
         <index alias="project_id" name="project_id" primary="false" unique="false" type="BTREE">
@@ -187,6 +191,11 @@
         <field key="deadlineon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="deadline_disputed" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <field key="deadline_proposed" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <!-- Плановое время в целых часах. 0 = не задано: в отличие от дедлайна поле необязательное.
+             Задаёт автор, исполнитель оспаривает (plan_disputed/plan_proposed) — меняет только автор. -->
+        <field key="plan_hours" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="plan_disputed" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
+        <field key="plan_proposed" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <!-- Формализованный контент задачи по типу: {field_key: value}. -->
         <field key="fields" dbtype="mediumtext" phptype="json" null="true"/>
         <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).

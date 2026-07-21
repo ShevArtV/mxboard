@@ -26,6 +26,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
             'color' => '#6c757d',
             'is_initial' => 0,
             'is_final' => 0,
+            'is_start' => 0,
             'createdon' => 0,
         ),
         'fieldMeta' => 
@@ -98,7 +99,7 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => false,
                 'default' => 0,
             ),
-            'is_final' => 
+            'is_final' =>
             array (
                 'dbtype' => 'tinyint',
                 'precision' => '1',
@@ -107,7 +108,16 @@ class MxBoardColumn extends \MxBoard\Model\MxBoardColumn
                 'null' => false,
                 'default' => 0,
             ),
-            'createdon' => 
+            'is_start' =>
+            array (
+                'dbtype' => 'tinyint',
+                'precision' => '1',
+                'attributes' => 'unsigned',
+                'phptype' => 'boolean',
+                'null' => false,
+                'default' => 0,
+            ),
+            'createdon' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',

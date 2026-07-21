@@ -20,6 +20,9 @@ use xPDO\xPDO;
  * @property integer $deadlineon
  * @property boolean $deadline_disputed
  * @property integer $deadline_proposed
+ * @property integer $plan_hours
+ * @property boolean $plan_disputed
+ * @property integer $plan_proposed
  * @property array $fields
  * @property array $meta
  * @property array $ai_verdict

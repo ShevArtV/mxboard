@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Tag } from 'primevue';
 import {
     priorityMeta, userName, fmtRelativeDay, fmtDay, deadlineTone, initials, avatarStyle, isOverdue,
+    factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 
@@ -26,6 +27,22 @@ const overdue = computed(() => isOverdue(props.task));
 const deadlineRel = computed(() => fmtRelativeDay(props.task.deadlineon));
 const deadlineAbs = computed(() => fmtDay(props.task.deadlineon));
 const deadlineToneClass = computed(() => `mxb-deadline-chip--${deadlineTone(props.task)}`);
+
+// Чип времени: «план/факт» одной пилюлей. Показываем, если есть хоть одно из двух —
+// пустой чип на карточке только шумит.
+const planHours = computed(() => Number(props.task.plan_hours) || 0);
+const timeChip = computed(() => {
+    const started = Number(props.task.startedon) || 0;
+    if (!planHours.value && !started) return '';
+    const h = t('mxboard_ui_hours_short');
+    const plan = planHours.value ? `${planHours.value}${h}` : '—';
+    const fact = started ? `${factHours(props.task)}${h}` : '—';
+    return `${plan} / ${fact}`;
+});
+const timeChipTitle = computed(
+    () => `${t('mxboard_ui_plan_label')} / ${t('mxboard_ui_fact_label')}`
+        + (factRunning(props.task) ? ` · ${t('mxboard_ui_fact_running')}` : ''),
+);
 
 // Клик по карточке открывает задачу, но клик по иконке удаления — нет. Не глушим
 // событие через stop: PrimeVue ConfirmPopup делает первичное позиционирование в
@@ -76,12 +93,17 @@ function onCardClick(event) {
             <span v-if="task.type_key" class="mxb-chip mxb-chip--type">{{ task.type_key }}</span>
         </div>
 
-        <div v-if="assignee || deadlineRel" class="mxb-card-foot">
+        <div v-if="assignee || deadlineRel || timeChip" class="mxb-card-foot">
             <span v-if="assignee" class="mxb-card-assignee">
                 <span class="mxb-avatar mxb-avatar--sm" :style="avatarStyle(task.assignee_id)">{{ initials(assignee) }}</span>
                 <span class="mxb-card-assignee-name">{{ assignee }}</span>
             </span>
             <span class="mxb-toolbar-spacer" />
+            <span v-if="timeChip" class="mxb-time-chip" :class="{ 'mxb-time-chip--running': factRunning(task) }" :title="timeChipTitle">
+                <i class="pi pi-clock" />
+                {{ timeChip }}
+                <i v-if="task.plan_disputed" class="pi pi-flag-fill mxb-flag" :title="t('mxboard_ui_plan_disputed_hint')" />
+            </span>
             <span
                 v-if="deadlineRel"
                 class="mxb-deadline-chip"

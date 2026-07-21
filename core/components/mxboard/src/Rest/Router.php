@@ -217,6 +217,14 @@ final class Router
                     self::CHANNEL
                 )),
                 'resolve-deadline' => $this->result($this->tasks->resolveDeadline($this->user, $taskId, !empty($body['accept']), self::CHANNEL)),
+                'dispute-plan' => $this->result($this->tasks->disputePlan(
+                    $this->user,
+                    $taskId,
+                    is_numeric($body['proposed_hours'] ?? null) ? (int) round((float) $body['proposed_hours']) : 0,
+                    (string) ($body['reason'] ?? ''),
+                    self::CHANNEL
+                )),
+                'resolve-plan' => $this->result($this->tasks->resolvePlan($this->user, $taskId, !empty($body['accept']), self::CHANNEL)),
                 default => $this->fail('mxboard_err_route_not_found', 404),
             };
         }

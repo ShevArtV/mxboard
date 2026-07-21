@@ -9,7 +9,7 @@ use MxBoard\Processors\Mgr\ServiceProcessor;
 use MxBoard\Service\TaskService;
 
 /**
- * Правка карточки (автор/менеджер): title, tor, priority, deadline, тип, поля,
+ * Правка карточки (автор/менеджер): title, tor, priority, deadline, план в часах, тип, поля,
  * переназначение исполнителя. column_id здесь НЕ меняется сознательно: движение —
  * только через Move, где работают правила переходов и пишется журнал.
  */
@@ -19,7 +19,7 @@ class Update extends ServiceProcessor
     {
         $data = $this->presentProperties([
             'title', 'tor', 'priority',
-            'deadline', 'assignee', 'assignee_id',
+            'deadline', 'plan_hours', 'assignee', 'assignee_id',
             'type', 'type_id',
         ]);
 

@@ -31,6 +31,9 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'deadlineon' => 0,
             'deadline_disputed' => 0,
             'deadline_proposed' => 0,
+            'plan_hours' => 0,
+            'plan_disputed' => 0,
+            'plan_proposed' => 0,
             'fields' => NULL,
             'meta' => NULL,
             'ai_verdict' => NULL,
@@ -162,7 +165,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'deadline_proposed' => 
+            'deadline_proposed' =>
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',
@@ -171,7 +174,34 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'fields' => 
+            'plan_hours' =>
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+            ),
+            'plan_disputed' =>
+            array (
+                'dbtype' => 'tinyint',
+                'precision' => '1',
+                'attributes' => 'unsigned',
+                'phptype' => 'boolean',
+                'null' => false,
+                'default' => 0,
+            ),
+            'plan_proposed' =>
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+            ),
+            'fields' =>
             array (
                 'dbtype' => 'mediumtext',
                 'phptype' => 'json',

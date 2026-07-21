@@ -32,6 +32,8 @@ final class NotificationService
         'mxbOnTaskComment' => 'comment',
         'mxbOnDeadlineDispute' => 'deadline_dispute',
         'mxbOnDeadlineResolve' => 'deadline_resolve',
+        'mxbOnPlanDispute' => 'plan_dispute',
+        'mxbOnPlanResolve' => 'plan_resolve',
     ];
 
     public function __construct(private modX $modx)

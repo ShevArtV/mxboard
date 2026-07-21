@@ -10,7 +10,7 @@ use MxBoard\Service\StructureService;
 
 /**
  * Правка колонки (name, description, move_roles, color, position; key неизменен).
- * is_initial/is_final = 1 переносит флаг с прежнего носителя — инвариант цел.
+ * is_initial/is_final/is_start = 1 переносит флаг с прежнего носителя — инвариант цел.
  */
 class Update extends ServiceProcessor
 {
@@ -19,7 +19,7 @@ class Update extends ServiceProcessor
         return $this->fromResult((new StructureService($this->modx))->updateColumn(
             $user,
             (int) $this->getProperty('id', 0),
-            $this->presentProperties(['name', 'description', 'move_roles', 'color', 'position', 'is_initial', 'is_final'])
+            $this->presentProperties(['name', 'description', 'move_roles', 'color', 'position', 'is_initial', 'is_final', 'is_start'])
         ));
     }
 }

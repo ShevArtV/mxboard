@@ -6,7 +6,7 @@ import {
 } from '../api/connector.js';
 import {
     PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
-    initials, avatarStyle,
+    initials, avatarStyle, factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
@@ -45,10 +45,12 @@ const composerOver = ref(false); // подсветка drop-зоны компо�
 const editingCommentId = ref(0);
 const editingCommentText = ref('');
 const editing = ref(false);
-const form = ref({ title: '', tor: '', priority: 0, deadline: '', assignee_id: 0, fields: {} });
+const form = ref({ title: '', tor: '', priority: 0, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
 
 const disputeOpen = ref(false);
 const dispute = ref({ date: '', reason: '' });
+const planDisputeOpen = ref(false);
+const planDispute = ref({ hours: null, reason: '' });
 const subtaskOpen = ref(false);
 
 // Кат для собранного описания: прячем длинный текст под max-height и показываем
@@ -64,6 +66,16 @@ const canManage = computed(() => isAuthor.value || props.canMoveAny);
 const priority = computed(() => priorityMeta(task.value?.priority));
 const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
+
+// Факт: замер идёт от стартовой стадии. Пока карточка не дошла до неё (или её вернули
+// в бэклог) показывать нечего — прочерк честнее нуля.
+const planHours = computed(() => Number(task.value?.plan_hours) || 0);
+const factText = computed(() => {
+    if (!task.value || !Number(task.value.startedon)) return '—';
+    const h = factHours(task.value);
+    const suffix = factRunning(task.value) ? ` · ${t('mxboard_ui_fact_running')}` : '';
+    return `${h} ${t('mxboard_ui_hours_short')}${suffix}`;
+});
 
 // Вложения уровня задачи (comment_id=0) — приходят в task.attachments из taskDetail.
 const taskAttachments = computed(() => task.value?.attachments || []);
@@ -359,6 +371,7 @@ async function startEdit() {
         tor: task.value.tor || '',
         priority: Number(task.value.priority) || 0,
         deadline: toDateInput(task.value.deadlineon),
+        plan_hours: Number(task.value.plan_hours) || null,
         assignee_id: Number(task.value.assignee_id) || 0,
         fields: { ...(task.value.fields || {}) },
     };
@@ -372,6 +385,7 @@ async function saveEdit() {
         tor: form.value.tor,
         priority: form.value.priority,
         deadline: form.value.deadline,
+        plan_hours: Number(form.value.plan_hours) || 0,
         assignee_id: form.value.assignee_id,
         fields: form.value.fields,
     }), t('mxboard_msg_saved'));
@@ -399,6 +413,31 @@ async function resolve(accept) {
     const ok = await act(
         () => TaskApi.resolveDeadline(props.taskId, accept),
         accept ? t('mxboard_msg_deadline_accepted') : t('mxboard_msg_deadline_rejected'),
+    );
+    if (ok) reload();
+}
+
+function openPlanDispute() {
+    planDispute.value = { hours: Number(task.value.plan_hours) || null, reason: '' };
+    planDisputeOpen.value = true;
+}
+
+async function sendPlanDispute() {
+    if (!Number(planDispute.value.hours)) {
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_warn_proposed_hours'), life: 4000 });
+        return;
+    }
+    const ok = await act(
+        () => TaskApi.disputePlan(props.taskId, Number(planDispute.value.hours), planDispute.value.reason),
+        t('mxboard_msg_plan_disputed'),
+    );
+    if (ok) reload();
+}
+
+async function resolvePlan(accept) {
+    const ok = await act(
+        () => TaskApi.resolvePlan(props.taskId, accept),
+        accept ? t('mxboard_msg_plan_accepted') : t('mxboard_msg_plan_rejected'),
     );
     if (ok) reload();
 }
@@ -551,6 +590,38 @@ function removeTask(event) {
                         </span>
                     </div>
                     <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_plan_label') }}</span>
+                        <span class="mxb-meta-value mxb-meta-plan">
+                            <strong>{{ planHours ? `${planHours} ${t('mxboard_ui_hours_short')}` : '—' }}</strong>
+                            <span v-if="task.plan_disputed" class="mxb-disputed-badge">
+                                <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ task.plan_proposed }} {{ t('mxboard_ui_hours_short') }}
+                            </span>
+                        </span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_fact_label') }}</span>
+                        <span class="mxb-meta-value">{{ factText }}</span>
+                    </div>
+                    <!-- Действия по плану: разрешение оспаривания / оспорить (только если план задан) -->
+                    <div v-if="(task.plan_disputed && canManage) || (!task.plan_disputed && isAssignee && planHours)" class="mxb-meta-row">
+                        <span class="mxb-meta-label" />
+                        <span class="mxb-meta-value mxb-meta-deadline-actions">
+                            <template v-if="task.plan_disputed && canManage">
+                                <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolvePlan(true)" />
+                                <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolvePlan(false)" />
+                            </template>
+                            <Button
+                                v-else-if="isAssignee"
+                                :label="t('mxboard_ui_dispute_plan')"
+                                icon="pi pi-flag"
+                                size="small"
+                                severity="secondary"
+                                outlined
+                                @click="openPlanDispute"
+                            />
+                        </span>
+                    </div>
+                    <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_stage') }}</span>
                         <span class="mxb-meta-value">
                             <Select
@@ -600,6 +671,22 @@ function removeTask(event) {
                     </div>
                 </div>
 
+                <!-- Форма оспаривания плановой оценки -->
+                <div v-if="planDisputeOpen" class="mxb-inline-form">
+                    <div class="mxb-field">
+                        <label>{{ t('mxboard_ui_proposed_hours') }}</label>
+                        <input v-model="planDispute.hours" type="number" min="1" step="1" class="mxb-input" />
+                    </div>
+                    <div class="mxb-field">
+                        <label>{{ t('mxboard_ui_reason') }}</label>
+                        <InputText v-model="planDispute.reason" fluid :placeholder="t('mxboard_ui_reason_placeholder')" />
+                    </div>
+                    <div class="mxb-dialog-actions">
+                        <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="planDisputeOpen = false" />
+                        <Button :label="t('mxboard_ui_send')" icon="pi pi-send" size="small" :loading="busy" @click="sendPlanDispute" />
+                    </div>
+                </div>
+
                 <!-- Файлы задачи — только если у типа есть поле `files` (его лейбл = заголовок).
                      Видно и в просмотре, и в правке; файлы = вложения задачи (comment_id=0). -->
                 <div v-if="filesField" class="mxb-section">
@@ -627,6 +714,10 @@ function removeTask(event) {
                         <div class="mxb-field mxb-col">
                             <label>{{ t('mxboard_ui_deadline') }}</label>
                             <input v-model="form.deadline" type="date" class="mxb-input" />
+                        </div>
+                        <div class="mxb-field mxb-col">
+                            <label>{{ t('mxboard_ui_plan') }}</label>
+                            <input v-model="form.plan_hours" type="number" min="0" step="1" class="mxb-input" />
                         </div>
                         <div class="mxb-field mxb-col">
                             <label>{{ t('mxboard_ui_priority') }}</label>

@@ -40,7 +40,8 @@ class TaskService
      * Создать карточку. Попадает в initial-колонку проекта.
      *
      * Валидация (встроенные инварианты + поля типа): тип обязателен и «рабочий»,
-     * title непустой ≤250, deadline > 0, обязательные поля типа заполнены. Если задан
+     * title непустой ≤250, deadline > 0, обязательные поля типа заполнены. Плановое
+     * время (plan_hours) — необязательное: 0/пусто значит «не оценивали». Если задан
      * parent_id — это подзадача: родитель обязан существовать, быть в том же проекте,
      * а создающий — его автором или исполнителем.
      *
@@ -159,6 +160,9 @@ class TaskService
             'deadlineon' => $deadline,
             'deadline_disputed' => 0,
             'deadline_proposed' => 0,
+            'plan_hours' => $this->normalizePlan($data['plan_hours'] ?? $data['plan'] ?? null),
+            'plan_disputed' => 0,
+            'plan_proposed' => 0,
             'fields' => $fields,
             'meta' => $this->decodeJson($data['meta'] ?? null),
             'ai_verdict' => $aiVerdict,
@@ -190,6 +194,9 @@ class TaskService
      *
      * Инвариант: в финальную колонку нельзя, пока есть незавершённая подзадача. Это
      * структурная блокировка — она действует и на автора/менеджера, а не только на роли.
+     *
+     * Здесь же ведётся замер фактического времени: вход в стартовую стадию (или правее)
+     * запускает отсчёт, возврат левее — обнуляет его (см. trackTime).
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
@@ -240,6 +247,7 @@ class TaskService
         $task->set('position', $this->nextPosition((int) $target->get('id')));
         $task->set('updatedon', $now);
         $task->set('closedon', $isFinal ? $now : 0);
+        $task->set('startedon', $this->trackTime($project, $task, $target, $now));
 
         if (!$task->save()) {
             return $this->fail('mxboard_err_save');
@@ -454,7 +462,96 @@ class TaskService
     }
 
     /**
-     * Правка карточки автором/менеджером: заголовок, ToR, приоритет, дедлайн, тип, поля.
+     * Оспорить плановое время: исполнитель предлагает свою оценку в часах с причиной.
+     * Меняет план не он — только автор через resolvePlan.
+     *
+     * Оспаривать нечего, пока план не задан: поле необязательное, «оценки не было» —
+     * это не повод для спора, автор просто ещё не оценивал.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function disputePlan(modUser $user, int $taskId, int $proposedHours, string $reason = '', string $channel = 'mcp'): array
+    {
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
+        if ((int) $user->get('id') !== (int) $task->get('assignee_id')) {
+            return $this->fail('mxboard_err_dispute_assignee_only');
+        }
+
+        if ((int) $task->get('plan_hours') <= 0) {
+            return $this->fail('mxboard_err_plan_not_set');
+        }
+
+        if ($proposedHours <= 0) {
+            return $this->fail('mxboard_err_plan_required');
+        }
+
+        $task->fromArray([
+            'plan_disputed' => 1,
+            'plan_proposed' => $proposedHours,
+            'updatedon' => time(),
+        ]);
+
+        if (!$task->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->log($task, $user, 'plan_dispute', '', '', mb_substr($reason, 0, 255), $channel);
+        $this->fireEvent('mxbOnPlanDispute', $task, $user, ['channel' => $channel, 'proposed' => $proposedHours, 'reason' => $reason]);
+
+        return $this->ok($task);
+    }
+
+    /**
+     * Разрешить оспаривание плана: автор/менеджер принимает (план = предложенный)
+     * или отклоняет (остаётся прежний). В обоих случаях флаг и предложение сбрасываются.
+     *
+     * @return array{success: bool, message: string, object: array<string, mixed>|null}
+     */
+    public function resolvePlan(modUser $user, int $taskId, bool $accept, string $channel = 'mgr'): array
+    {
+        /** @var MxBoardTask|null $task */
+        $task = $this->modx->getObject(MxBoardTask::class, $taskId);
+        if (!$task) {
+            return $this->fail('mxboard_err_task_not_found');
+        }
+
+        $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
+        if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
+            return $this->fail('mxboard_err_author_only');
+        }
+
+        if (!(bool) $task->get('plan_disputed')) {
+            return $this->fail('mxboard_err_no_dispute');
+        }
+
+        $proposed = (int) $task->get('plan_proposed');
+        if ($accept && $proposed > 0) {
+            $task->set('plan_hours', $proposed);
+        }
+        $task->fromArray([
+            'plan_disputed' => 0,
+            'plan_proposed' => 0,
+            'updatedon' => time(),
+        ]);
+
+        if (!$task->save()) {
+            return $this->fail('mxboard_err_save');
+        }
+
+        $this->log($task, $user, $accept ? 'plan_accepted' : 'plan_rejected', '', '', '', $channel);
+        $this->fireEvent('mxbOnPlanResolve', $task, $user, ['channel' => $channel, 'accepted' => $accept]);
+
+        return $this->ok($task);
+    }
+
+    /**
+     * Правка карточки автором/менеджером: заголовок, ToR, приоритет, дедлайн,
+     * плановое время, тип, поля.
      *
      * @param array<string, mixed> $data
      *
@@ -512,6 +609,16 @@ class TaskService
                 return $this->fail('mxboard_err_deadline_required');
             }
             $task->set('deadlineon', $deadline);
+        }
+
+        // Плановое время: 0 допустимо (снять оценку). Явная правка автором закрывает спор —
+        // иначе флаг «оспорено» висел бы уже над другой, свежей оценкой.
+        if (array_key_exists('plan_hours', $data) || array_key_exists('plan', $data)) {
+            $task->fromArray([
+                'plan_hours' => $this->normalizePlan($data['plan_hours'] ?? $data['plan']),
+                'plan_disputed' => 0,
+                'plan_proposed' => 0,
+            ]);
         }
 
         // Смена типа (если пришла) валидируется; поля перепроверяются под действующий тип.
@@ -829,6 +936,36 @@ class TaskService
         $log->save();
     }
 
+    /**
+     * Новое значение startedon после перевода карточки в $target — замер фактического времени.
+     *
+     * Точка отсчёта — стадия с is_start: вход в неё ИЛИ в любую правее (по position) запускает
+     * замер, если он ещё не идёт. Возврат левее (в коробке это бэклог) обнуляет замер, а не
+     * ставит на паузу: работа началась заново, прежний отсчёт не имеет смысла.
+     *
+     * Отсчёта нет вовсе, если стартовая стадия у проекта не помечена, — и мы не выдумываем
+     * старт задаче, которую закрыли, минуя работу (startedon = 0 → факт остаётся неизвестен).
+     */
+    private function trackTime(MxBoardProject $project, MxBoardTask $task, MxBoardColumn $target, int $now): int
+    {
+        $started = (int) $task->get('startedon');
+
+        $start = $this->columnBy($project, ['is_start' => true]);
+        if (!$start) {
+            return $started;
+        }
+
+        if ((int) $target->get('position') < (int) $start->get('position')) {
+            return 0;
+        }
+
+        if ($started > 0) {
+            return $started;
+        }
+
+        return (bool) $target->get('is_final') ? 0 : $now;
+    }
+
     /** Есть ли у задачи незавершённые подзадачи (closedon = 0 = не в финальной стадии). */
     private function hasOpenSubtasks(int $taskId): bool
     {
@@ -936,6 +1073,26 @@ class TaskService
         }
 
         return 0;
+    }
+
+    /**
+     * Разобрать плановое время из любого канала. Единица — целые часы: дробный ввод
+     * («2.5», «1,5») округляем по математическим правилам, отрицательное и мусор → 0
+     * («не оценивали»). Централизовано здесь по той же причине, что и дедлайн: фасады
+     * приводить типы не должны, иначе каналы разъедутся.
+     */
+    private function normalizePlan(mixed $value): int
+    {
+        if (is_string($value)) {
+            $value = str_replace(',', '.', trim($value));
+        }
+        if (!is_numeric($value)) {
+            return 0;
+        }
+
+        $hours = (int) round((float) $value);
+
+        return $hours > 0 ? $hours : 0;
     }
 
     /**

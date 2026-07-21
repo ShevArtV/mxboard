@@ -159,6 +159,7 @@ final class Server
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
                 'tor' => ['type' => 'string', 'description' => 'Постановка (ToR) в markdown.'],
                 'priority' => ['type' => 'integer', 'description' => 'Приоритет, больше — важнее.'],
+                'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах. Необязательно; исполнитель вправе оспорить (task_dispute_plan).'],
                 'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя).'],
                 'meta' => ['type' => 'object', 'description' => 'Произвольные метаданные интегратора.'],
             ], ['type', 'title', 'deadline', 'assignee']),
@@ -188,10 +189,11 @@ final class Server
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
                 'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос.'],
             ], ['task_id', 'proposed_date']),
-            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, приоритет, тип, поля, ToR.', [
+            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип, поля, ToR.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'title' => ['type' => 'string'],
                 'deadline' => ['type' => 'string', 'description' => 'YYYY-MM-DD или unix.'],
+                'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах; 0 — снять оценку.'],
                 'priority' => ['type' => 'integer'],
                 'type' => ['type' => 'string', 'description' => 'Новый ключ типа.'],
                 'fields' => ['type' => 'object'],
@@ -200,6 +202,15 @@ final class Server
             $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'accept' => ['type' => 'boolean', 'description' => 'true — принять предложенную дату; false — отклонить.'],
+            ], ['task_id', 'accept']),
+            $this->tool('task_dispute_plan', 'Оспорить плановое время (исполнитель): предложить свою оценку в часах с причиной. Меняет её автор.', [
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
+                'proposed_hours' => ['type' => 'integer', 'description' => 'Предлагаемая оценка в часах.'],
+                'reason' => ['type' => 'string', 'description' => 'Почему оценка не годится.'],
+            ], ['task_id', 'proposed_hours']),
+            $this->tool('task_resolve_plan', 'Разрешить оспаривание планового времени (автор/менеджер): принять или отклонить.', [
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
+                'accept' => ['type' => 'boolean', 'description' => 'true — принять предложенную оценку; false — отклонить.'],
             ], ['task_id', 'accept']),
             $this->tool('task_delete', 'Удалить карточку (автор/менеджер). Подзадачи открепляются, не удаляются.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
@@ -254,8 +265,9 @@ final class Server
                 'move_roles' => ['type' => 'string', 'description' => 'CSV ролей: author, assignee, group:Name.'],
                 'color' => ['type' => 'string', 'description' => 'Цвет #RRGGBB.'],
                 'position' => ['type' => 'integer', 'description' => 'Позиция сортировки.'],
-                'is_initial' => ['type' => 'boolean', 'description' => 'true переносит флаг стартовой стадии сюда.'],
+                'is_initial' => ['type' => 'boolean', 'description' => 'true переносит флаг начальной стадии сюда.'],
                 'is_final' => ['type' => 'boolean', 'description' => 'true переносит флаг финальной стадии сюда.'],
+                'is_start' => ['type' => 'boolean', 'description' => 'Стартовая стадия: с неё идёт отсчёт фактического времени. true переносит флаг сюда, false — снимает (замера не будет). Начальной стадией быть не может.'],
             ], ['stage_id']),
         ];
     }
@@ -303,6 +315,8 @@ final class Server
             'task_dispute_deadline' => $this->taskDispute($args),
             'task_update' => $this->taskUpdate($args),
             'task_resolve_dispute' => $this->taskResolve($args),
+            'task_dispute_plan' => $this->taskDisputePlan($args),
+            'task_resolve_plan' => $this->taskResolvePlan($args),
             'task_delete' => $this->taskDelete($args),
             'department_register' => $this->result($this->structure->registerDepartment($this->user, $this->structureArgs($args))),
             'type_create' => $this->result($this->structure->createType($this->user, $this->structureArgs($args))),
@@ -391,7 +405,10 @@ final class Server
         foreach ($columns as $col) {
             $flags = [];
             if ($col['is_initial']) {
-                $flags[] = 'старт';
+                $flags[] = 'начальная';
+            }
+            if (!empty($col['is_start'])) {
+                $flags[] = 'стартовая: отсюда идёт отсчёт факта';
             }
             if ($col['is_final']) {
                 $flags[] = 'финальная';
@@ -517,6 +534,9 @@ final class Server
             . ' · исполнитель ' . ($detail['assignee'] ?: 'свободна');
         $out[] = 'Дедлайн: ' . ($detail['deadlineon'] ? date('Y-m-d', (int) $detail['deadlineon']) : '—')
             . (!empty($detail['deadline_disputed']) ? ' (оспорен → ' . date('Y-m-d', (int) $detail['deadline_proposed']) . ')' : '');
+        $out[] = 'План: ' . ((int) ($detail['plan_hours'] ?? 0) > 0 ? (int) $detail['plan_hours'] . ' ч' : '—')
+            . (!empty($detail['plan_disputed']) ? ' (оспорен → ' . (int) $detail['plan_proposed'] . ' ч)' : '')
+            . ' · факт: ' . $this->factHours($detail);
         if (!empty($detail['parent'])) {
             $out[] = 'Родитель: #' . $detail['parent']['id'] . ' ' . $detail['parent']['title'];
         }
@@ -545,6 +565,26 @@ final class Server
         }
 
         return $this->content(implode("\n", $out));
+    }
+
+    /**
+     * Фактическое время карточки словами: замер идёт от входа в стартовую стадию до
+     * закрытия. Незакрытая — «идёт», без замера — прочерк (стартовая стадия не помечена
+     * либо карточку вернули в бэклог).
+     *
+     * @param array<string, mixed> $detail
+     */
+    private function factHours(array $detail): string
+    {
+        $started = (int) ($detail['startedon'] ?? 0);
+        if ($started <= 0) {
+            return '—';
+        }
+
+        $closed = (int) ($detail['closedon'] ?? 0);
+        $hours = (int) round((($closed > 0 ? $closed : time()) - $started) / 3600);
+
+        return $closed > 0 ? $hours . ' ч' : 'идёт, ' . $hours . ' ч';
     }
 
     /**
@@ -593,6 +633,7 @@ final class Server
             'fields' => isset($args['fields']) && is_array($args['fields']) ? $args['fields'] : null,
             'tor' => $this->str($args['tor'] ?? null),
             'priority' => $this->int($args['priority'] ?? null),
+            'plan_hours' => $args['plan_hours'] ?? null,
             'parent_id' => $this->int($args['parent_id'] ?? null),
             'meta' => isset($args['meta']) && is_array($args['meta']) ? $args['meta'] : null,
         ], self::CHANNEL);
@@ -757,6 +798,57 @@ final class Server
      *
      * @return array<string, mixed>
      */
+    private function taskDisputePlan(array $args): array
+    {
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
+        }
+        $taskId = (int) $task->get('id');
+
+        $proposed = $args['proposed_hours'] ?? null;
+
+        $result = $this->tasks->disputePlan(
+            $this->user,
+            $taskId,
+            is_numeric($proposed) ? (int) round((float) $proposed) : 0,
+            $this->str($args['reason'] ?? null),
+            self::CHANNEL
+        );
+        if (!$result['success']) {
+            return $this->content($result['message'], true);
+        }
+
+        return $this->content('Плановое время карточки #' . $taskId . ' оспорено, ждёт решения автора.');
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function taskResolvePlan(array $args): array
+    {
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
+        }
+        $taskId = (int) $task->get('id');
+
+        $accept = !empty($args['accept']);
+        $result = $this->tasks->resolvePlan($this->user, $taskId, $accept, self::CHANNEL);
+        if (!$result['success']) {
+            return $this->content($result['message'], true);
+        }
+
+        return $this->content('Оспаривание плана карточки #' . $taskId . ($accept ? ' принято.' : ' отклонено.'));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
     private function taskUpdate(array $args): array
     {
         $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
@@ -776,6 +868,9 @@ final class Server
         }
         if (array_key_exists('deadline', $args)) {
             $data['deadline'] = $this->deadline($args['deadline']);
+        }
+        if (array_key_exists('plan_hours', $args)) {
+            $data['plan_hours'] = $args['plan_hours'];
         }
         if (array_key_exists('fields', $args) && is_array($args['fields'])) {
             $data['fields'] = $args['fields'];
@@ -881,7 +976,7 @@ final class Server
         if (array_key_exists('position', $args)) {
             $data['position'] = $this->int($args['position']);
         }
-        foreach (['is_initial', 'is_final'] as $key) {
+        foreach (['is_initial', 'is_final', 'is_start'] as $key) {
             if (array_key_exists($key, $args)) {
                 $data[$key] = !empty($args[$key]);
             }

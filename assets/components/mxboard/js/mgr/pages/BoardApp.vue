@@ -614,6 +614,29 @@ function openNotif(n) {
     color: var(--p-orange-600, #d97706);
 }
 
+/* Пилюля «план / факт». Идущий замер подсвечен — видно, что время сейчас капает. */
+.mxb-time-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--mxb-radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: var(--p-surface-100, #f1f3f5);
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-time-chip .pi {
+    font-size: 11px;
+}
+
+.mxb-time-chip--running {
+    background: color-mix(in srgb, var(--p-blue-500, #3b82f6) 14%, transparent);
+    color: var(--p-blue-600, #2563eb);
+}
+
 .mxb-free {
     color: var(--p-orange-500, #f59e0b);
 }

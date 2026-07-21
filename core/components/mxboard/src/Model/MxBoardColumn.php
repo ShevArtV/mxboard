@@ -15,6 +15,7 @@ use xPDO\xPDO;
  * @property string $color
  * @property boolean $is_initial
  * @property boolean $is_final
+ * @property boolean $is_start
  * @property integer $createdon
  *
  * @property \MxBoard\Model\MxBoardProject $Project

@@ -132,6 +132,9 @@ export const TaskApi = {
     disputeDeadline: (id, proposedDate, reason = '') =>
         post(T + 'DisputeDeadline', { id, proposed_date: proposedDate, reason }),
     resolveDeadline: (id, accept) => post(T + 'ResolveDeadline', { id, accept: accept ? 1 : 0 }),
+    disputePlan: (id, proposedHours, reason = '') =>
+        post(T + 'DisputePlan', { id, proposed_hours: proposedHours, reason }),
+    resolvePlan: (id, accept) => post(T + 'ResolvePlan', { id, accept: accept ? 1 : 0 }),
 };
 
 // Вложения. Загрузка файлов через useApi невозможна (он кладёт только JSON/скаляры

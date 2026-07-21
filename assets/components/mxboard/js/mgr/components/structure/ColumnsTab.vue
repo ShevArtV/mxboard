@@ -21,7 +21,7 @@ const saving = ref(false);
 const createOpen = ref(false);
 const createForm = ref({ key: '', name: '', description: '', move_mode: 'both', color: '#6c757d' });
 const editOpen = ref(false);
-const editForm = ref({ id: 0, name: '', description: '', move_mode: 'both', color: '#6c757d', position: 0, is_initial: false, is_final: false });
+const editForm = ref({ id: 0, name: '', description: '', move_mode: 'both', color: '#6c757d', position: 0, is_initial: false, is_final: false, is_start: false });
 
 const copyOpen = ref(false);
 const copySources = ref([]);
@@ -137,6 +137,7 @@ function openEdit(col) {
         position: Number(col.position) || 0,
         is_initial: col.is_initial === true || col.is_initial === 1,
         is_final: col.is_final === true || col.is_final === 1,
+        is_start: col.is_start === true || col.is_start === 1,
     };
     editOpen.value = true;
 }
@@ -153,6 +154,8 @@ async function saveEdit() {
         };
         if (editForm.value.is_initial) data.is_initial = 1;
         if (editForm.value.is_final) data.is_final = 1;
+        // is_start шлём всегда: он необязателен, и ноль здесь означает «замер не вести».
+        data.is_start = editForm.value.is_start ? 1 : 0;
         await ColumnApi.update(editForm.value.id, data);
         toast.add({ severity: 'success', summary: t('mxboard_ui_struct_saved'), life: 3000 });
         editOpen.value = false;
@@ -298,6 +301,7 @@ async function doCopy(sourceId) {
             <Column style="width: 130px">
                 <template #body="{ data }">
                     <Tag v-if="data.is_initial" :value="t('mxboard_ui_struct_is_initial')" severity="info" />
+                    <Tag v-if="data.is_start" :value="t('mxboard_ui_struct_is_start')" severity="warn" />
                     <Tag v-if="data.is_final" :value="t('mxboard_ui_struct_is_final')" severity="success" />
                 </template>
             </Column>
@@ -389,6 +393,11 @@ async function doCopy(sourceId) {
                 <Checkbox v-model="editForm.is_final" :binary="true" input-id="col-final" />
                 <label for="col-final">{{ t('mxboard_ui_struct_is_final') }}</label>
             </div>
+            <div class="mxb-field mxb-check">
+                <Checkbox v-model="editForm.is_start" :binary="true" input-id="col-start" :disabled="editForm.is_initial" />
+                <label for="col-start">{{ t('mxboard_ui_struct_is_start') }}</label>
+            </div>
+            <div class="mxb-hint">{{ t('mxboard_ui_struct_is_start_hint') }}</div>
             <template #footer>
                 <div class="mxb-dialog-actions">
                     <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="editOpen = false" />

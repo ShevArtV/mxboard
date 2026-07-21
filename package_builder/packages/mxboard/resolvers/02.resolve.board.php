@@ -177,6 +177,8 @@ $columns = [
         'name' => 'Старт',
         'position' => 1,
         'move_roles' => 'author',
+        // Отсюда идёт отсчёт фактического времени: гейт открыт — работа началась.
+        'is_start' => true,
         'description' => 'Ты исполнитель. Автор дал старт: напиши в комментарии, что начал выполнение, изучи постановку и подготовь план. Готовый план оставь комментарием и переведи карточку в `plan`.',
     ],
     // План: исполнитель изучил задачу и вынес план работ на подтверждение. Двигает исполнитель.
@@ -232,6 +234,7 @@ $seedColumns = static function (int $projectId) use ($modx, $columns, $now): voi
             'project_id' => $projectId,
             'is_initial' => false,
             'is_final' => false,
+            'is_start' => false,
             'createdon' => $now,
         ], $data));
         $column->save();
