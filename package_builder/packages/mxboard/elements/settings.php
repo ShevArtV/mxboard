@@ -42,10 +42,10 @@ return [
         'area' => 'mxboard_rights',
     ],
     // Порог authority роли, при котором член группы отдела считается её супер-пользователем.
-    // В MODX меньше authority = больше прав; 0 = фича выключена (штатный минимум authority = 1).
+    // В MODX меньше authority = больше прав; 1 = только роль верхнего уровня.
     'mxboard.group_admin_authority' => [
         'xtype' => 'numberfield',
-        'value' => '0',
+        'value' => '1',
         'area' => 'mxboard_rights',
     ],
     // Киоск-режим (плагин mxBoardKiosk): CSV имён групп MODX, чьих рядовых (не sudo)

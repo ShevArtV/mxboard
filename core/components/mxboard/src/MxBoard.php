@@ -32,7 +32,7 @@ class MxBoard
             'defaultProject' => (string) $modx->getOption('mxboard.default_project', null, 'default'),
             'allowSelfClose' => (bool) $modx->getOption('mxboard.allow_self_close', null, false),
             'wipLimit' => (int) $modx->getOption('mxboard.wip_limit', null, 0),
-            'groupAdminAuthority' => (int) $modx->getOption('mxboard.group_admin_authority', null, 0),
+            'groupAdminAuthority' => (int) $modx->getOption('mxboard.group_admin_authority', null, 1),
         ];
     }
 

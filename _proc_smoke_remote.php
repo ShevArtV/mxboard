@@ -125,10 +125,10 @@ $department = $modx->getObject(MxBoardDepartment::class, (int) $project->get('de
 $departmentId = (int) $department->get('id');
 $usergroupId = (int) $department->get('usergroup_id');
 
-// Порог «супер группы отдела».
-$modx->setOption('mxboard.group_admin_authority', 9999);
+// Дефолтный порог «супер группы отдела»: роль authority=1 считается менеджерской.
+$modx->setOption('mxboard.group_admin_authority', 1);
 if ($setting = $modx->getObject(modSystemSetting::class, 'mxboard.group_admin_authority')) {
-    $setting->set('value', '9999');
+    $setting->set('value', '1');
     $setting->save();
     $modx->getCacheManager()->refresh(['system_settings' => []]);
 }
@@ -385,7 +385,7 @@ if ($g = $modx->getObject(modUserGroup::class, ['name' => 'mxb_proc_grp'])) {
     $g->remove();
 }
 if ($setting = $modx->getObject(modSystemSetting::class, 'mxboard.group_admin_authority')) {
-    $setting->set('value', '0');
+    $setting->set('value', '1');
     $setting->save();
     $modx->getCacheManager()->refresh(['system_settings' => []]);
 }

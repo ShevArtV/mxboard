@@ -150,7 +150,7 @@ class Transitions
             return false;
         }
 
-        $threshold = (int) $modx->getOption('mxboard.group_admin_authority', null, 0);
+        $threshold = (int) $modx->getOption('mxboard.group_admin_authority', null, 1);
         if ($threshold <= 0) {
             return false;
         }
@@ -210,7 +210,7 @@ class Transitions
             return false;
         }
 
-        $threshold = (int) $modx->getOption('mxboard.group_admin_authority', null, 0);
+        $threshold = (int) $modx->getOption('mxboard.group_admin_authority', null, 1);
         if ($threshold <= 0) {
             return false;
         }

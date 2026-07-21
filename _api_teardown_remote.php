@@ -77,12 +77,12 @@ if ($role = $modx->getObject(modUserGroupRole::class, ['name' => 'mxb-smoke-admi
     echo "removed role mxb-smoke-admin\n";
 }
 
-// Возврат порога менеджера в 0 + сброс кэша настроек.
+// Возврат порога менеджера к дефолту + сброс кэша настроек.
 if ($setting = $modx->getObject(modSystemSetting::class, 'mxboard.group_admin_authority')) {
-    $setting->set('value', '0');
+    $setting->set('value', '1');
     $setting->save();
 }
 $modx->getCacheManager()->refresh(['system_settings' => []]);
-echo "group_admin_authority reset to 0\n";
+echo "group_admin_authority reset to 1\n";
 
 echo "TEARDOWN DONE\n";

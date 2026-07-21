@@ -188,7 +188,7 @@ GET /events?since=<log_id>&limit= (только менеджеру отдела)
     mxboard.mcp_enabled           MCP-эндпоинт включён      1
     mxboard.allow_self_close      разрешить самоаттестацию  0
     mxboard.wip_limit             лимит задач в работе      0 (без лимита)
-    mxboard.group_admin_authority порог authority менеджера 0 (выключено)
+    mxboard.group_admin_authority порог authority менеджера 1
     mxboard.kiosk_usergroups      группы киоск-режима       (пусто)
     mxboard.media_source          медиа-источник вложений   (ставится резолвером)
     mxboard.upload_max_size       лимит размера вложения    10485760

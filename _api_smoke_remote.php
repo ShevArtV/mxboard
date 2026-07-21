@@ -85,11 +85,11 @@ $department = $modx->getObject(MxBoardDepartment::class, $departmentId);
 $usergroupId = (int) $department->get('usergroup_id');
 
 // Делаем mgr менеджером отдела через НАСТОЯЩИЙ механизм: членство в группе отдела с
-// ролью низкого authority + порог group_admin_authority. Флаг sudo через API не ставится
+// ролью authority=1 + дефолтный порог group_admin_authority=1. Флаг sudo через API не ставится
 // (MODX защищает). Порог пишем в БД и сбрасываем кэш настроек — чтобы и curl-процесс увидел.
-$modx->setOption('mxboard.group_admin_authority', 9999);
+$modx->setOption('mxboard.group_admin_authority', 1);
 if ($setting = $modx->getObject(modSystemSetting::class, 'mxboard.group_admin_authority')) {
-    $setting->set('value', '9999');
+    $setting->set('value', '1');
     $setting->save();
 }
 $modx->getCacheManager()->refresh(['system_settings' => []]);
