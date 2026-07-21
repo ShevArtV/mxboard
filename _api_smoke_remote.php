@@ -235,6 +235,14 @@ $deadlineOf = static function (modX $modx, int $id): int {
 
     return (int) ($stmt->fetchColumn() ?: 0);
 };
+$fieldsOf = static function (modX $modx, int $id): array {
+    $table = $modx->getTableName(MxBoardTask::class);
+    $stmt = $modx->prepare("SELECT fields FROM {$table} WHERE id = :id");
+    $stmt->execute(['id' => $id]);
+    $decoded = json_decode((string) ($stmt->fetchColumn() ?: ''), true);
+
+    return is_array($decoded) ? $decoded : [];
+};
 
 // worker создал карточку через REST → он автор, значит вправе её править.
 $r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'deadline' => '2026-12-31']);
@@ -263,6 +271,54 @@ $r = $workerRest->dispatch('PATCH', ['tasks', (string) $taskId], [], ['deadline'
 check('REST PATCH /tasks/{id} с дедлайном не сломан', $r['status'] === 200 && $r['body']['success'],
     (string) ($r['body']['message'] ?? ''));
 check('REST PATCH: дата сохранена корректно', $deadlineOf($modx, $taskId) === (int) strtotime('2027-01-15'));
+
+/* --- MCP task_update: частичный fields patch (регресс карточки #67) ---------- */
+
+$patchKey = (string) array_key_first($BUG);
+$beforeFields = $fieldsOf($modx, $taskId);
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'fields' => [$patchKey => 'patched']]);
+$afterPartial = $fieldsOf($modx, $taskId);
+check('MCP task_update: частичный fields patch принят', empty($r['result']['isError']),
+    json_encode($r['result'] ?? $r['error'] ?? [], JSON_UNESCAPED_UNICODE));
+check('MCP task_update: частичный patch меняет только переданный ключ',
+    ($afterPartial[$patchKey] ?? null) === 'patched'
+    && count(array_diff_key($beforeFields, $afterPartial)) === 0
+    && count(array_diff_key($afterPartial, $beforeFields)) === 0,
+    json_encode(['before' => $beforeFields, 'after' => $afterPartial], JSON_UNESCAPED_UNICODE));
+
+$r = $call($workerMcp, 'task_update', [
+    'task_id' => (string) $taskId,
+    'title' => 'MCP full update',
+    'priority' => 7,
+    'fields' => array_replace($afterPartial, [$patchKey => 'full']),
+]);
+$afterFull = $fieldsOf($modx, $taskId);
+check('MCP task_update: полный update с fields принят', empty($r['result']['isError']),
+    json_encode($r['result'] ?? $r['error'] ?? [], JSON_UNESCAPED_UNICODE));
+check('MCP task_update: полный update сохраняет fields', ($afterFull[$patchKey] ?? null) === 'full',
+    json_encode($afterFull, JSON_UNESCAPED_UNICODE));
+
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'fields' => [$patchKey => '']]);
+check('MCP task_update: пустое required-поле остаётся ошибкой',
+    !empty($r['result']['isError']) && !isset($r['error']),
+    json_encode($r, JSON_UNESCAPED_UNICODE));
+check('MCP task_update: ошибка fields не затирает сохранённое', ($fieldsOf($modx, $taskId)[$patchKey] ?? null) === 'full');
+
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'fields' => ['__unknown_smoke__' => 'x']]);
+check('MCP task_update: неизвестный fields-ключ → isError, без Internal error',
+    !empty($r['result']['isError']) && !isset($r['error']),
+    json_encode($r, JSON_UNESCAPED_UNICODE));
+check('MCP task_update: неизвестный fields-ключ не затирает сохранённое', ($fieldsOf($modx, $taskId)[$patchKey] ?? null) === 'full');
+
+$r = $workerRest->dispatch('PATCH', ['tasks', (string) $taskId], [], ['fields' => [$patchKey => 'rest-partial']]);
+check('REST PATCH /tasks/{id}: fields остаются полным набором, не MCP-merge',
+    count($BUG) <= 1 || ($r['status'] === 400 && !$r['body']['success']),
+    (string) ($r['body']['message'] ?? ''));
+
+$r = $workerRest->dispatch('PATCH', ['tasks', (string) $taskId], [], ['fields' => array_replace($afterFull, ['__unknown_smoke__' => 'x'])]);
+check('REST PATCH /tasks/{id}: неизвестный fields-ключ даёт валидационную ошибку',
+    $r['status'] === 400 && !$r['body']['success'],
+    (string) ($r['body']['message'] ?? ''));
 
 // Структура: worker запрещено, mgr можно.
 $r = $workerRest->dispatch('POST', ['types'], [], ['department_id' => $departmentId, 'key' => 'y', 'name' => 'Y', 'fields' => [['key' => 'a', 'label' => 'A']]]);

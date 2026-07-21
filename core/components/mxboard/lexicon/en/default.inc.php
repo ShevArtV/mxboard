@@ -51,6 +51,7 @@ $_lang['mxboard_err_type_required'] = 'Task type is required.';
 $_lang['mxboard_err_type_not_found'] = 'Task type not found in this department.';
 $_lang['mxboard_err_type_no_fields'] = 'The task type has no fields — it is not a working type.';
 $_lang['mxboard_err_field_required'] = 'Not all required type fields are filled in.';
+$_lang['mxboard_err_field_unknown'] = 'Unknown task type field was provided.';
 $_lang['mxboard_err_open_subtasks'] = 'Cannot close the task: it has unfinished subtasks.';
 $_lang['mxboard_err_assignee_required'] = 'Assignee is required.';
 $_lang['mxboard_err_assignee_not_found'] = 'Assignee not found or blocked.';

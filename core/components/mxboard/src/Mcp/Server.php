@@ -196,7 +196,7 @@ final class Server
                 'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах; 0 — снять оценку.'],
                 'priority' => ['type' => 'integer'],
                 'type' => ['type' => 'string', 'description' => 'Новый ключ типа.'],
-                'fields' => ['type' => 'object'],
+                'fields' => ['type' => 'object', 'description' => 'Частичный патч полей типа. Без смены type непереданные ключи сохраняются; при смене type передавайте полный набор полей нового типа.'],
                 'tor' => ['type' => 'string'],
             ], ['task_id']),
             $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.', [
@@ -875,7 +875,9 @@ final class Server
             $data['plan_hours'] = $args['plan_hours'];
         }
         if (array_key_exists('fields', $args) && is_array($args['fields'])) {
-            $data['fields'] = $args['fields'];
+            $data['fields'] = array_key_exists('type', $args)
+                ? $args['fields']
+                : array_replace($this->taskFields($task), $args['fields']);
         }
 
         $result = $this->tasks->update($this->user, $taskId, $data, self::CHANNEL);
@@ -999,6 +1001,24 @@ final class Server
         $project = $this->resolveProject($this->str($args['project'] ?? null));
 
         return $project ? (int) $project->get('id') : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function taskFields(MxBoardTask $task): array
+    {
+        $fields = $task->get('fields');
+        if (is_array($fields)) {
+            return $fields;
+        }
+        if (is_string($fields) && trim($fields) !== '') {
+            $decoded = json_decode($fields, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
     }
 
     /**

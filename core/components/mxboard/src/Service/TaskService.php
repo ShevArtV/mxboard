@@ -812,7 +812,7 @@ class TaskService
     /**
      * Проверить и нормализовать значения полей типа.
      *
-     * Обязательные поля должны быть заполнены; в результат кладём только известные ключи.
+     * Обязательные поля должны быть заполнены; неизвестные ключи отклоняются.
      *
      * @param array<string, mixed> $input
      *
@@ -821,6 +821,7 @@ class TaskService
     private function validateFields(MxBoardTaskType $type, array $input): array
     {
         $out = [];
+        $known = [];
 
         $c = $this->modx->newQuery(MxBoardField::class);
         $c->where(['task_type_id' => (int) $type->get('id')]);
@@ -829,6 +830,9 @@ class TaskService
         $fields = $this->modx->getCollection(MxBoardField::class, $c);
 
         foreach ($fields as $field) {
+            $key = (string) $field->get('key');
+            $known[$key] = true;
+
             // Тип `files` — файловая зона задачи: файлы живут вложениями (comment_id=0),
             // а не в task.fields. В fields ничего не пишем и required по нему не проверяем
             // (файлы грузятся после создания задачи, когда уже есть task_id).
@@ -836,7 +840,6 @@ class TaskService
                 continue;
             }
 
-            $key = (string) $field->get('key');
             $value = $input[$key] ?? null;
             $filled = $value !== null && (!is_string($value) || trim($value) !== '');
 
@@ -846,6 +849,12 @@ class TaskService
 
             if ($filled) {
                 $out[$key] = $value;
+            }
+        }
+
+        foreach (array_keys($input) as $key) {
+            if (!isset($known[(string) $key])) {
+                return [[], 'mxboard_err_field_unknown'];
             }
         }
 

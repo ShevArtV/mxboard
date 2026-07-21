@@ -51,6 +51,7 @@ $_lang['mxboard_err_type_required'] = 'Не указан тип задачи.';
 $_lang['mxboard_err_type_not_found'] = 'Тип задачи не найден в этом отделе.';
 $_lang['mxboard_err_type_no_fields'] = 'У типа задачи нет ни одного поля — он нерабочий.';
 $_lang['mxboard_err_field_required'] = 'Заполнены не все обязательные поля типа.';
+$_lang['mxboard_err_field_unknown'] = 'Передано неизвестное поле типа задачи.';
 $_lang['mxboard_err_open_subtasks'] = 'Нельзя закрыть задачу: есть незавершённые подзадачи.';
 $_lang['mxboard_err_assignee_required'] = 'Не указан исполнитель.';
 $_lang['mxboard_err_assignee_not_found'] = 'Исполнитель не найден или заблокирован.';
