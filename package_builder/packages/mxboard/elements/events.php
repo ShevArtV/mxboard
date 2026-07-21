@@ -18,4 +18,6 @@ return [
     'mxbOnTaskDelete',
     'mxbOnDeadlineDispute',
     'mxbOnDeadlineResolve',
+    'mxbOnPlanDispute',
+    'mxbOnPlanResolve',
 ];

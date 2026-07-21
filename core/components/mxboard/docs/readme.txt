@@ -167,8 +167,13 @@ https://docs.modx.pro/components/mxboard/agents
 
 События MODX, на которые можно повесить плагин:
 
-    mxbOnTaskCreate, mxbOnTaskTake, mxbOnTaskRelease,
-    mxbOnBeforeTaskMove, mxbOnTaskMove, mxbOnTaskClose, mxbOnTaskComment
+    mxbOnTaskCreate, mxbOnBeforeTaskMove, mxbOnTaskMove, mxbOnTaskClose,
+    mxbOnTaskComment, mxbOnTaskUpdate, mxbOnTaskDelete,
+    mxbOnDeadlineDispute, mxbOnDeadlineResolve,
+    mxbOnPlanDispute, mxbOnPlanResolve
+
+Ещё два события — mxbOnTaskTake и mxbOnTaskRelease — зарезервированы: захвата
+карточки в v2 нет, исполнитель назначается при создании.
 
 У карточки есть поле meta (JSON) — туда кладётся всё, что нужно вашей интеграции:
 рабочий каталог, движок и модель, идентификатор топика в мессенджере, номер задачи
