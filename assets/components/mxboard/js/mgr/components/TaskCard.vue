@@ -58,7 +58,7 @@ function onCardClick(event) {
 <template>
     <div
         class="mxb-card"
-        :class="{ 'mxb-card--dragging': dragging }"
+        :class="{ 'mxb-card--dragging': dragging, 'mxb-card--deletable': canDelete }"
         draggable="true"
         tabindex="0"
         role="button"

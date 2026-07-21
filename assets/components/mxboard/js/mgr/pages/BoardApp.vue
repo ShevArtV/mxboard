@@ -549,7 +549,12 @@ function openNotif(n) {
     line-height: 1.35;
     margin-bottom: 9px;
     word-break: break-word;
+    overflow-wrap: anywhere;
     color: var(--p-text-color, #1f2733);
+}
+
+.mxb-card--deletable .mxb-card-title {
+    margin-right: 28px;
 }
 
 /* Строка тегов (приоритет + тип) — визуально отделена от футера. */
