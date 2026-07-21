@@ -33,7 +33,7 @@
 
 ## Статус
 
-`2.4.0-pl` — первый публичный релиз. Пакет на [modstore](https://modstore.pro/packages/ai/mxboard), документация — [docs.modx.pro/components/mxboard](https://docs.modx.pro/components/mxboard/).
+`2.8.0-pl` — текущий релиз. Пакет на [modstore](https://modstore.pro/packages/ai/mxboard), документация — [docs.modx.pro/components/mxboard](https://docs.modx.pro/components/mxboard/).
 
 Проверено на стенде MODX 3: установка, модель прав (запрет закрытия исполнителем и самоаттестации), типы задач с ИИ-проверкой, вложения, двухколоночная карточка с чатом, SSE-уведомления, киоск-доступ.
 
