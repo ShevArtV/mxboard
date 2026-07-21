@@ -135,12 +135,13 @@ class Transitions
      * Супер-пользователь конкретной группы отдела.
      *
      * В MODX 3 «сила» роли — это `modUserGroupRole.authority` (int, default 9999),
-     * где МЕНЬШЕ значение = больше прав (Administrator authority=1 наследует права
-     * Member authority=9999). Членство с `role = 0` = роли нет. Значит участник —
+     * где МЕНЬШЕ значение = больше прав (Super User authority=0, Board Manager
+     * authority=1, Member authority=9999). Членство с `role = 0` = роли нет. Значит участник —
      * супер своей группы, если его роль назначена (`role != 0`) и её authority не
      * превышает порог `mxboard.group_admin_authority`.
      *
-     * Порог `<= 0` = фича выключена (штатных ролей с authority 0 нет, минимум 1).
+     * Порог `<= 0` = фича выключена внутри mxBoard; для менеджеров отделов используем
+     * роль не выше Board Manager (`authority <= 1`) вместо глобальной Super User.
      * Проверка — обычный JOIN, а не hasPermission: сессии в API-режиме нет.
      */
     public static function isGroupSuper(modX $modx, modUser $user, int $usergroupId): bool
