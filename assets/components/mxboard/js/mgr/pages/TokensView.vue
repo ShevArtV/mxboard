@@ -177,7 +177,7 @@ onMounted(load);
             </template>
         </DataTable>
 
-        <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_new_token_agent')" :style="{ width: '520px' }">
+        <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_new_token_agent')" :style="{ width: '520px' }">
             <div class="mxb-field">
                 <label for="mxb-token-name">{{ t('mxboard_ui_token_name') }}</label>
                 <InputText id="mxb-token-name" v-model="form.name" fluid autofocus :placeholder="t('mxboard_ui_token_name_placeholder')" />

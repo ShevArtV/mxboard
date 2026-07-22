@@ -299,7 +299,7 @@ function removeField(event, field) {
         </DataTable>
 
         <!-- Новый тип -->
-        <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_struct_new_type')" :style="{ width: '680px' }">
+        <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_struct_new_type')" :style="{ width: '680px' }">
             <div class="mxb-row">
                 <div class="mxb-field mxb-col">
                     <label>{{ t('mxboard_ui_struct_key') }}</label>
@@ -348,7 +348,7 @@ function removeField(event, field) {
         </Dialog>
 
         <!-- Правка типа -->
-        <Dialog v-model:visible="editOpen" modal :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
+        <Dialog v-model:visible="editOpen" modal dismissable-mask :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />
@@ -378,7 +378,7 @@ function removeField(event, field) {
         </Dialog>
 
         <!-- Поле (добавить/править) -->
-        <Dialog v-model:visible="fieldOpen" modal :header="fieldForm.id ? t('mxboard_ui_struct_edit') : t('mxboard_ui_struct_add_field')" :style="{ width: '480px' }">
+        <Dialog v-model:visible="fieldOpen" modal dismissable-mask :header="fieldForm.id ? t('mxboard_ui_struct_edit') : t('mxboard_ui_struct_add_field')" :style="{ width: '480px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_field_key') }}</label>
                 <InputText v-model="fieldForm.key" :disabled="!!fieldForm.id" fluid />

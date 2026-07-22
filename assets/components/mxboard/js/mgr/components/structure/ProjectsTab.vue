@@ -141,7 +141,7 @@ function removeProject(event, project) {
         </DataTable>
 
         <!-- Новый проект -->
-        <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_struct_new_project')" :style="{ width: '560px' }">
+        <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_struct_new_project')" :style="{ width: '560px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_departments') }}</label>
                 <Select v-model="createForm.department_id" :options="departments" option-label="name" option-value="id" fluid />
@@ -170,7 +170,7 @@ function removeProject(event, project) {
         </Dialog>
 
         <!-- Правка проекта -->
-        <Dialog v-model:visible="editOpen" modal :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
+        <Dialog v-model:visible="editOpen" modal dismissable-mask :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />

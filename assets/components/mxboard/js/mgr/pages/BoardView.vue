@@ -656,6 +656,7 @@ async function onQueueDrop(queue, target) {
         <Dialog
             v-model:visible="queuesOpen"
             modal
+            dismissable-mask
             append-to=".vueApp"
             :header="t('mxboard_ui_queues')"
             :style="{ width: '720px' }"
@@ -751,6 +752,7 @@ async function onQueueDrop(queue, target) {
         <Dialog
             v-model:visible="queueStart.open"
             modal
+            dismissable-mask
             append-to=".vueApp"
             :header="queueStart.queue?.name || t('mxboard_ui_queue')"
             :style="{ width: '480px' }"

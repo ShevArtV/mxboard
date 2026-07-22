@@ -315,7 +315,7 @@ async function doCopy(sourceId) {
         </DataTable>
 
         <!-- Новая колонка -->
-        <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_struct_new_column')" :style="{ width: '560px' }">
+        <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_struct_new_column')" :style="{ width: '560px' }">
             <div class="mxb-row">
                 <div class="mxb-field mxb-col">
                     <label>{{ t('mxboard_ui_struct_key') }}</label>
@@ -356,7 +356,7 @@ async function doCopy(sourceId) {
         </Dialog>
 
         <!-- Правка колонки -->
-        <Dialog v-model:visible="editOpen" modal :header="t('mxboard_ui_struct_edit')" :style="{ width: '560px' }">
+        <Dialog v-model:visible="editOpen" modal dismissable-mask :header="t('mxboard_ui_struct_edit')" :style="{ width: '560px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />
@@ -407,7 +407,7 @@ async function doCopy(sourceId) {
         </Dialog>
 
         <!-- Копирование колонок из источника -->
-        <Dialog v-model:visible="copyOpen" modal :header="t('mxboard_ui_struct_copy_title')" :style="{ width: '480px' }">
+        <Dialog v-model:visible="copyOpen" modal dismissable-mask :header="t('mxboard_ui_struct_copy_title')" :style="{ width: '480px' }">
             <div class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_copy_hint') }}</div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_copy_source') }}</label>

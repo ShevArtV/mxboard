@@ -149,7 +149,7 @@ function removeQueue(event, queue) {
         </DataTable>
 
         <!-- Новая очередь -->
-        <Dialog v-model:visible="createOpen" modal :header="t('mxboard_ui_queue_new')" :style="{ width: '560px' }">
+        <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_queue_new')" :style="{ width: '560px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_queue_project') }}</label>
                 <Select v-model="createForm.project_id" :options="projects" option-label="name" option-value="id" fluid />
@@ -177,7 +177,7 @@ function removeQueue(event, queue) {
         </Dialog>
 
         <!-- Правка очереди -->
-        <Dialog v-model:visible="editOpen" modal :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
+        <Dialog v-model:visible="editOpen" modal dismissable-mask :header="t('mxboard_ui_struct_edit')" :style="{ width: '520px' }">
             <div class="mxb-row">
                 <div class="mxb-field mxb-col">
                     <label>{{ t('mxboard_ui_struct_key') }}</label>

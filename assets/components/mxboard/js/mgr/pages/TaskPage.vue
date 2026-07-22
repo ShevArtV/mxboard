@@ -602,7 +602,7 @@ function openSubtaskDialog() {
         </div>
 
         <!-- Выбор очереди: показывается, только когда очередей у проекта несколько. -->
-        <Dialog v-model:visible="queueDialogOpen" modal :header="t('mxboard_ui_queue_select')" :style="{ width: '420px' }">
+        <Dialog v-model:visible="queueDialogOpen" modal dismissable-mask :header="t('mxboard_ui_queue_select')" :style="{ width: '420px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_queue') }}</label>
                 <Select v-model="queueChoice" :options="queues" option-label="name" option-value="id" fluid />

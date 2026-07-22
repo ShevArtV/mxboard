@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { Dialog, Button, InputText, Select, useToast } from 'primevue';
+import { Dialog, Button, InputText, Select, ConfirmDialog, useToast, useConfirm } from 'primevue';
 import { TaskApi, TypeApi, DepartmentApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
 import { PRIORITIES, fmtSize } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
@@ -18,6 +18,7 @@ const props = defineProps({
 const emit = defineEmits(['update:visible', 'created']);
 
 const toast = useToast();
+const confirm = useConfirm();
 
 const types = ref([]);
 const users = ref([]);
@@ -144,6 +145,36 @@ async function save(override = false) {
     }
 }
 
+// Есть ли во форме несохранённый ввод. Сверяемся с начальным состоянием из watch:
+// пустые тип/заголовок/ToR/дедлайн/исполнитель, план null, приоритет 1, поля и файлы пусты.
+const isDirty = computed(() => {
+    const f = form.value;
+    if (f.type || f.title.trim() || f.tor.trim() || f.deadline) return true;
+    if (f.assignee_id || f.priority !== 1) return true;
+    if (f.plan_hours !== null && f.plan_hours !== '' && Number(f.plan_hours) > 0) return true;
+    if (Object.values(f.fields || {}).some((v) => v !== '' && v !== null && v !== undefined && !(Array.isArray(v) && !v.length))) return true;
+    return pendingFiles.value.length > 0;
+});
+
+// Закрытие по бэкдропу/Esc/крестику/«Отмена»: при непустой форме — подтверждение
+// потери ввода (успешное создание закрывает форму напрямую, минуя этот путь).
+function requestClose() {
+    if (!isDirty.value) {
+        emit('update:visible', false);
+        return;
+    }
+    confirm.require({
+        group: 'mxb-newtask-discard',
+        message: t('mxboard_msg_discard_task'),
+        icon: 'pi pi-exclamation-triangle',
+        acceptLabel: t('mxboard_ui_discard'),
+        rejectLabel: t('mxboard_ui_keep_editing'),
+        acceptProps: { severity: 'danger', size: 'small' },
+        rejectProps: { severity: 'secondary', outlined: true, size: 'small' },
+        accept: () => emit('update:visible', false),
+    });
+}
+
 // Файлы приходят из FileDrop уже обрезанными по лимиту — просто копим.
 function addStagedFiles(files) {
     if (files && files.length) pendingFiles.value = pendingFiles.value.concat(files);
@@ -158,9 +189,10 @@ function removeStaged(idx) {
     <Dialog
         :visible="visible"
         modal
+        dismissable-mask
         :header="parentId ? t('mxboard_ui_new_subtask') : t('mxboard_ui_new_task')"
         :style="{ width: '680px' }"
-        @update:visible="emit('update:visible', $event)"
+        @update:visible="$event ? emit('update:visible', true) : requestClose()"
     >
         <div v-if="parentId" class="mxb-parent-note">
             <i class="pi pi-sitemap" /> {{ t('mxboard_ui_subtask_for') }}: <strong>{{ parentTitle }}</strong>
@@ -249,7 +281,7 @@ function removeStaged(idx) {
 
         <template #footer>
             <div class="mxb-dialog-actions">
-                <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="emit('update:visible', false)" />
+                <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="requestClose()" />
                 <Button
                     v-if="aiVerdict && aiCanOverride"
                     :label="t('mxboard_ui_ai_create_anyway')"
@@ -263,4 +295,8 @@ function removeStaged(idx) {
             </div>
         </template>
     </Dialog>
+
+    <!-- Локальный confirm потери ввода: своя group, чтобы не пересекаться с
+         глобальным <ConfirmPopup> (BoardApp), который якорится к элементу. -->
+    <ConfirmDialog group="mxb-newtask-discard" :style="{ width: '420px' }" />
 </template>

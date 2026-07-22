@@ -180,6 +180,8 @@ $_lang['mxboard_ui_structure'] = 'Structure';
 $_lang['mxboard_ui_refresh'] = 'Refresh';
 $_lang['mxboard_ui_cancel'] = 'Cancel';
 $_lang['mxboard_ui_create'] = 'Create';
+$_lang['mxboard_ui_discard'] = 'Discard';
+$_lang['mxboard_ui_keep_editing'] = 'Keep editing';
 $_lang['mxboard_ui_save'] = 'Save';
 $_lang['mxboard_ui_delete'] = 'Delete';
 $_lang['mxboard_ui_edit'] = 'Edit';
@@ -327,6 +329,7 @@ $_lang['mxboard_msg_warn_proposed_hours'] = 'Specify the proposed estimate in ho
 $_lang['mxboard_msg_task_deleted'] = 'Task deleted';
 $_lang['mxboard_msg_warn_proposed_date'] = 'Specify the proposed date';
 $_lang['mxboard_msg_confirm_delete_task'] = 'Delete the task? Subtasks will be detached, not deleted.';
+$_lang['mxboard_msg_discard_task'] = 'Close the form? Entered data will be lost.';
 
 // Agent tokens (tab).
 $_lang['mxboard_ui_new_token'] = 'New token';

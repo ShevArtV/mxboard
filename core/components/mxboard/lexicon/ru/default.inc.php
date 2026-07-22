@@ -180,6 +180,8 @@ $_lang['mxboard_ui_structure'] = 'Структура';
 $_lang['mxboard_ui_refresh'] = 'Обновить';
 $_lang['mxboard_ui_cancel'] = 'Отмена';
 $_lang['mxboard_ui_create'] = 'Создать';
+$_lang['mxboard_ui_discard'] = 'Отменить создание';
+$_lang['mxboard_ui_keep_editing'] = 'Продолжить';
 $_lang['mxboard_ui_save'] = 'Сохранить';
 $_lang['mxboard_ui_delete'] = 'Удалить';
 $_lang['mxboard_ui_edit'] = 'Редактировать';
@@ -327,6 +329,7 @@ $_lang['mxboard_msg_warn_proposed_hours'] = 'Укажите предлагаем
 $_lang['mxboard_msg_task_deleted'] = 'Задача удалена';
 $_lang['mxboard_msg_warn_proposed_date'] = 'Укажите предлагаемую дату';
 $_lang['mxboard_msg_confirm_delete_task'] = 'Удалить задачу? Подзадачи будут откреплены, а не удалены.';
+$_lang['mxboard_msg_discard_task'] = 'Закрыть форму? Введённые данные не сохранятся.';
 
 // Токены агентов (вкладка).
 $_lang['mxboard_ui_new_token'] = 'Новый токен';

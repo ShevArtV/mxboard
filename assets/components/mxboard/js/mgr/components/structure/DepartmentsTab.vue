@@ -121,7 +121,7 @@ function removeRow(event, row) {
         </DataTable>
 
         <!-- Регистрация отдела -->
-        <Dialog v-model:visible="registerOpen" modal :header="t('mxboard_ui_struct_register_dept')" :style="{ width: '520px' }">
+        <Dialog v-model:visible="registerOpen" modal dismissable-mask :header="t('mxboard_ui_struct_register_dept')" :style="{ width: '520px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_usergroup') }}</label>
                 <Select
@@ -153,7 +153,7 @@ function removeRow(event, row) {
         </Dialog>
 
         <!-- Правка отдела -->
-        <Dialog v-model:visible="editOpen" modal :header="t('mxboard_ui_struct_edit')" :style="{ width: '460px' }">
+        <Dialog v-model:visible="editOpen" modal dismissable-mask :header="t('mxboard_ui_struct_edit')" :style="{ width: '460px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_name') }}</label>
                 <InputText v-model="editForm.name" fluid />
