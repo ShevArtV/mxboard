@@ -442,12 +442,21 @@ function openNotif(n) {
     font-size: 13px;
 }
 
-/* Очереди задач: панель над доской, раскрывается кнопкой «Очереди» в фильтрах. */
+/* Очереди задач: аккордеон внутри модального окна (кнопка «Очереди» в фильтрах).
+   Список ограничен по высоте — очередей и задач может быть много, а окно не должно
+   вырастать за пределы экрана. */
 .mxb-queues {
-    margin-bottom: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.mxb-queue-hint {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--mxb-ink-muted);
 }
 
 .mxb-queue-warn {

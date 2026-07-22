@@ -503,3 +503,4 @@ $_lang['mxboard_ui_queue_not_first'] = 'You are starting the queue, but this tas
 $_lang['mxboard_ui_queue_continue'] = 'Continue';
 $_lang['mxboard_ui_queue_cancel'] = 'Cancel';
 $_lang['mxboard_ui_queue_reordered'] = 'Queue order saved';
+$_lang['mxboard_ui_queue_hint'] = 'Drag rows to change the order. To start the queue, close this window and drag a task to the start stage.';

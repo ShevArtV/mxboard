@@ -267,6 +267,12 @@ function openTask(task) {
     openTaskId.value = task.id;
 }
 
+/** Переход к задаче из окна очередей: сначала закрываем окно, иначе карточка откроется под ним. */
+function openQueueTask(task) {
+    queuesOpen.value = false;
+    openTask(task);
+}
+
 // Удаление задачи прямо с доски (иконка в углу карточки). Права проверяет сервер
 // (TaskService::delete), на клиенте иконка уже скрыта для не-автора/не-менеджера.
 function deleteTask(task, anchorEl) {
@@ -553,40 +559,54 @@ async function onQueueDrop(queue, target) {
             />
         </div>
 
-        <!-- Аккордеон очередей: в раскрытой очереди — её задачи (номер + заголовок),
-             порядок меняется перетаскиванием строк. -->
-        <div v-if="queuesOpen && hasQueues" class="mxb-queues">
-            <Panel v-for="queue in nonEmptyQueues" :key="queue.id" toggleable :collapsed="false">
-                <template #header>
-                    <span class="mxb-queue-head">
-                        {{ queue.name }}
-                        <span class="mxb-queue-count">{{ (queue.tasks || []).length }}</span>
-                    </span>
-                </template>
-                <ol class="mxb-queue-list">
-                    <li
-                        v-for="task in queue.tasks"
-                        :key="task.id"
-                        class="mxb-queue-item"
-                        :class="{
-                            'mxb-queue-item--drag': queueDrag.taskId === Number(task.id),
-                            'mxb-queue-item--over': queueDrag.overId === Number(task.id),
-                        }"
-                        draggable="true"
-                        @dragstart="onQueueDragStart(queue, task, $event)"
-                        @dragend="onQueueDragEnd"
-                        @dragover="onQueueDragOver(queue, task, $event)"
-                        @drop.prevent="onQueueDrop(queue, task)"
-                        @click="openTask(task)"
-                    >
-                        <i class="pi pi-bars mxb-queue-grip" />
-                        <span class="mxb-queue-num">{{ task.num || `#${task.id}` }}</span>
-                        <span class="mxb-queue-title">{{ task.title }}</span>
-                    </li>
-                </ol>
-                <div v-if="!(queue.tasks || []).length" class="mxb-empty">{{ t('mxboard_ui_queue_empty') }}</div>
-            </Panel>
-        </div>
+        <!-- Очереди — в модальном окне: доска остаётся целиком видимой, а список
+             очередей не оттесняет колонки вниз. Внутри — аккордеон, в раскрытой
+             очереди её задачи (номер + заголовок), порядок меняется перетаскиванием. -->
+        <!-- append-to=".vueApp": PrimeIcons подключены правилами `.vueApp .pi*`, а по
+             умолчанию модалка уезжает в <body> — вне скоупа, и иконки в ней пропадают. -->
+        <Dialog
+            v-model:visible="queuesOpen"
+            modal
+            append-to=".vueApp"
+            :header="t('mxboard_ui_queues')"
+            :style="{ width: '720px' }"
+            :breakpoints="{ '900px': '95vw' }"
+        >
+            <div class="mxb-queues">
+                <Panel v-for="queue in nonEmptyQueues" :key="queue.id" toggleable :collapsed="false">
+                    <template #header>
+                        <span class="mxb-queue-head">
+                            {{ queue.name }}
+                            <span class="mxb-queue-count">{{ (queue.tasks || []).length }}</span>
+                        </span>
+                    </template>
+                    <ol class="mxb-queue-list">
+                        <li
+                            v-for="task in queue.tasks"
+                            :key="task.id"
+                            class="mxb-queue-item"
+                            :class="{
+                                'mxb-queue-item--drag': queueDrag.taskId === Number(task.id),
+                                'mxb-queue-item--over': queueDrag.overId === Number(task.id),
+                            }"
+                            draggable="true"
+                            @dragstart="onQueueDragStart(queue, task, $event)"
+                            @dragend="onQueueDragEnd"
+                            @dragover="onQueueDragOver(queue, task, $event)"
+                            @drop.prevent="onQueueDrop(queue, task)"
+                            @click="openQueueTask(task)"
+                        >
+                            <i class="pi pi-bars mxb-queue-grip" />
+                            <span class="mxb-queue-num">{{ task.num || `#${task.id}` }}</span>
+                            <span class="mxb-queue-title">{{ task.title }}</span>
+                        </li>
+                    </ol>
+                    <div v-if="!(queue.tasks || []).length" class="mxb-empty">{{ t('mxboard_ui_queue_empty') }}</div>
+                </Panel>
+            </div>
+            <div v-if="!hasQueues" class="mxb-empty">{{ t('mxboard_ui_queue_empty') }}</div>
+            <p class="mxb-queue-hint">{{ t('mxboard_ui_queue_hint') }}</p>
+        </Dialog>
 
         <div v-if="!projectKey" class="mxb-empty">{{ t('mxboard_ui_no_projects') }}</div>
 
@@ -629,6 +649,7 @@ async function onQueueDrop(queue, target) {
         <Dialog
             v-model:visible="queueStart.open"
             modal
+            append-to=".vueApp"
             :header="queueStart.queue?.name || t('mxboard_ui_queue')"
             :style="{ width: '480px' }"
         >
