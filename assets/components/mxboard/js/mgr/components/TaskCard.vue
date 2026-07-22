@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Tag } from 'primevue';
 import {
-    priorityMeta, userName, fmtRelativeDay, fmtDay, deadlineTone, initials, avatarStyle, isOverdue,
+    priorityMeta, contrastText, userName, fmtRelativeDay, fmtDay, deadlineTone, initials, avatarStyle, isOverdue,
     factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
@@ -22,6 +22,13 @@ const userId = Number(cfg.user_id) || 0;
 const canDelete = computed(() => !!cfg.can_move_any || props.task.author_id === userId);
 
 const priority = computed(() => priorityMeta(props.task.priority));
+// Цвет бейджа — из справочника; нет цвета (fallback P<value>) → нейтральный серый.
+const priorityStyle = computed(() => {
+    const c = priority.value.color;
+    return c
+        ? { backgroundColor: c, color: contrastText(c), border: 'none' }
+        : { backgroundColor: '#6c757d', color: '#fff', border: 'none' };
+});
 const assignee = computed(() => userName(props.task, 'assignee'));
 const overdue = computed(() => isOverdue(props.task));
 const deadlineRel = computed(() => fmtRelativeDay(props.task.deadlineon));
@@ -89,7 +96,7 @@ function onCardClick(event) {
 
         <div class="mxb-card-tags">
             <span v-if="task.num" class="mxb-chip mxb-chip--num">{{ task.num }}</span>
-            <Tag :value="priority.label" :severity="priority.severity" />
+            <Tag :value="priority.label" :style="priorityStyle" />
             <span v-if="task.type_key" class="mxb-chip mxb-chip--type">{{ task.type_key }}</span>
         </div>
 

@@ -71,6 +71,9 @@ class MxboardboardManagerController extends modExtraManagerController
                 'max_files' => (int) $this->modx->getOption('mxboard.upload_max_files', null, 10),
                 'max_size' => (int) $this->modx->getOption('mxboard.upload_max_size', null, 0),
             ],
+            // Справочник приоритетов — единственный источник истины для фронта (шкала во
+            // format.js больше не хардкодится). Пусто → фронт рисует нейтральный fallback.
+            'priorities' => $this->loadPriorities(),
         ];
         $json = json_encode($config, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $this->modx->regClientStartupHTMLBlock("<script>window.MxBoardConfig = {$json};</script>");
@@ -142,6 +145,32 @@ class MxboardboardManagerController extends modExtraManagerController
 </script>
 JS;
         $this->modx->regClientStartupHTMLBlock($script);
+    }
+
+    /**
+     * Глобальный справочник приоритетов для window.MxBoardConfig. Пакет модели тут
+     * может быть не зарегистрирован (страница CMP, не коннектор) — добавляем его сами,
+     * как это делают процессоры/резолвер. Любая осечка → пустой список: фронт покажет
+     * нейтральный fallback, а не упадёт.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function loadPriorities(): array
+    {
+        try {
+            if (!isset($this->modx->packages['MxBoard\\Model'])) {
+                $this->modx->addPackage('MxBoard\\Model', MODX_CORE_PATH . 'components/mxboard/src/', null, 'MxBoard\\');
+            }
+            if (!class_exists(\MxBoard\Service\PriorityService::class)) {
+                return [];
+            }
+
+            return (new \MxBoard\Service\PriorityService($this->modx))->all();
+        } catch (\Throwable $e) {
+            $this->modx->log(\MODX\Revolution\modX::LOG_LEVEL_WARN, '[mxBoard] Не удалось загрузить справочник приоритетов: ' . $e->getMessage());
+
+            return [];
+        }
     }
 
     public function getTemplateFile()

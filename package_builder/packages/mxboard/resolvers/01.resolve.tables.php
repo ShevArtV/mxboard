@@ -53,6 +53,7 @@ $classes = [
     \MxBoard\Model\MxBoardAttachment::class,
     \MxBoard\Model\MxBoardCounter::class,
     \MxBoard\Model\MxBoardNotification::class,
+    \MxBoard\Model\MxBoardPriority::class,
 ];
 
 $manager = $modx->getManager();
@@ -188,6 +189,29 @@ try {
     }
 } catch (\Throwable $e) {
     $modx->log(modX::LOG_LEVEL_WARN, '[mxBoard] Бэкофилл num: ' . $e->getMessage());
+}
+
+// Сид справочника приоритетов: текущие четыре значения с цветами, эквивалентными
+// прежним severity бейджа. INSERT IGNORE по уникальному value — не затирает правки
+// оператора и не плодит дублей при повторной установке.
+try {
+    $priorityTable = $modx->getTableName(\MxBoard\Model\MxBoardPriority::class);
+    if ($priorityTable) {
+        $seed = [
+            [0, 'Низкий', '#64748b'],
+            [1, 'Обычный', '#3b82f6'],
+            [2, 'Высокий', '#f59e0b'],
+            [3, 'Критический', '#ef4444'],
+        ];
+        $now = time();
+        $ins = $modx->prepare("INSERT IGNORE INTO {$priorityTable} (`name`, `color`, `value`, `createdon`) VALUES (?, ?, ?, ?)");
+        foreach ($seed as [$value, $name, $color]) {
+            $ins->execute([$name, $color, $value, $now]);
+        }
+        $modx->log(modX::LOG_LEVEL_INFO, '[mxBoard] Справочник приоритетов засеян/на месте.');
+    }
+} catch (\Throwable $e) {
+    $modx->log(modX::LOG_LEVEL_WARN, '[mxBoard] Сид приоритетов: ' . $e->getMessage());
 }
 
 $modx->log(modX::LOG_LEVEL_INFO, '[mxBoard] Таблицы проверены/созданы.');

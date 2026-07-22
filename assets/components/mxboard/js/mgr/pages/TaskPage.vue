@@ -5,7 +5,7 @@ import {
     TaskApi, TypeApi, ColumnApi, DepartmentApi, AttachmentApi, QueueApi, errorMessage, listOf,
 } from '../api/connector.js';
 import {
-    PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
+    PRIORITIES, priorityMeta, contrastText, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
     initials, avatarStyle, factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
@@ -74,6 +74,13 @@ const isAuthor = computed(() => !!task.value && task.value.author_id === props.u
 const isAssignee = computed(() => !!task.value && task.value.assignee_id === props.userId);
 const canManage = computed(() => isAuthor.value || props.canMoveAny);
 const priority = computed(() => priorityMeta(task.value?.priority));
+// Цвет бейджа из справочника; fallback без цвета → нейтральный серый.
+const priorityStyle = computed(() => {
+    const c = priority.value.color;
+    return c
+        ? { backgroundColor: c, color: contrastText(c), border: 'none' }
+        : { backgroundColor: '#6c757d', color: '#fff', border: 'none' };
+});
 const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
 
@@ -728,7 +735,7 @@ function openSubtaskDialog() {
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_priority') }}</span>
                         <span class="mxb-meta-value">
-                            <Tag :value="priority.label" :severity="priority.severity" />
+                            <Tag :value="priority.label" :style="priorityStyle" />
                             <span v-if="task.type_key" class="mxb-chip">{{ task.type_key }}</span>
                         </span>
                     </div>

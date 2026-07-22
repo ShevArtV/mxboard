@@ -11,6 +11,7 @@ use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardQueue;
 use MxBoard\Model\MxBoardTask;
 use MxBoard\Service\BoardQuery;
+use MxBoard\Service\PriorityService;
 use MxBoard\Service\QueueService;
 use MxBoard\Service\StructureService;
 use MxBoard\Service\TaskService;
@@ -44,6 +45,7 @@ final class Server
     private StructureService $structure;
     private BoardQuery $query;
     private QueueService $queues;
+    private PriorityService $priorities;
 
     public function __construct(private modX $modx, private modUser $user)
     {
@@ -51,6 +53,7 @@ final class Server
         $this->structure = new StructureService($modx);
         $this->query = new BoardQuery($modx);
         $this->queues = new QueueService($modx);
+        $this->priorities = new PriorityService($modx);
     }
 
     /**
@@ -162,7 +165,7 @@ final class Server
                 'fields' => ['type' => 'object', 'description' => 'Значения полей типа: {ключ_поля: значение}.'],
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
                 'tor' => ['type' => 'string', 'description' => 'Постановка (ToR) в markdown.'],
-                'priority' => ['type' => 'integer', 'description' => 'Приоритет, больше — важнее.'],
+                'priority' => $this->priorityField(),
                 'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах. Необязательно; исполнитель вправе оспорить (task_dispute_plan).'],
                 'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя).'],
                 'meta' => ['type' => 'object', 'description' => 'Произвольные метаданные интегратора.'],
@@ -198,7 +201,7 @@ final class Server
                 'title' => ['type' => 'string'],
                 'deadline' => ['type' => 'string', 'description' => 'YYYY-MM-DD или unix.'],
                 'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах; 0 — снять оценку.'],
-                'priority' => ['type' => 'integer'],
+                'priority' => $this->priorityField(),
                 'type' => ['type' => 'string', 'description' => 'Новый ключ типа.'],
                 'fields' => ['type' => 'object', 'description' => 'Частичный патч полей типа. Без смены type непереданные ключи сохраняются; при смене type передавайте полный набор полей нового типа.'],
                 'tor' => ['type' => 'string'],
@@ -320,6 +323,35 @@ final class Server
         }
 
         return ['name' => $name, 'description' => $description, 'inputSchema' => $schema];
+    }
+
+    /**
+     * Схема поля `priority` для task_create/task_update: enum допустимых чисел из
+     * справочника + человекочитаемые метки в описании, чтобы модель не гадала значение
+     * и не получала отказ валидации. Справочник пуст (не должно случаться) — падаем на
+     * простой integer без enum.
+     *
+     * @return array<string, mixed>
+     */
+    private function priorityField(): array
+    {
+        $priorities = $this->priorities->all();
+        if ($priorities === []) {
+            return ['type' => 'integer', 'description' => 'Приоритет, больше — важнее.'];
+        }
+
+        $values = array_map(static fn (array $p): int => $p['value'], $priorities);
+        $labels = array_map(
+            static fn (array $p): string => $p['value'] . ' — ' . $p['name'],
+            $priorities
+        );
+
+        return [
+            'type' => 'integer',
+            'enum' => $values,
+            'description' => 'Приоритет из справочника (больше — важнее): ' . implode(', ', $labels)
+                . '. Значение вне списка отклоняется валидацией.',
+        ];
     }
 
     /**

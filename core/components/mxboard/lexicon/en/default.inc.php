@@ -99,6 +99,13 @@ $_lang['mxboard_err_project_has_tasks'] = 'Cannot remove the project: it still h
 $_lang['mxboard_err_column_exists'] = 'A column with this key already exists in the project.';
 $_lang['mxboard_err_column_protected'] = 'Cannot remove the initial or final column — move the flag to another column first.';
 $_lang['mxboard_err_column_has_tasks'] = 'Cannot remove the column: it still has tasks.';
+$_lang['mxboard_err_priority_not_found'] = 'Priority not found.';
+$_lang['mxboard_err_priority_name_required'] = 'Priority name is required.';
+$_lang['mxboard_err_priority_value_invalid'] = 'Priority value must be a non-negative integer.';
+$_lang['mxboard_err_priority_value_exists'] = 'A priority with this numeric value already exists.';
+$_lang['mxboard_err_priority_name_exists'] = 'A priority with this name already exists.';
+$_lang['mxboard_err_priority_last'] = 'Cannot remove the last priority — the dictionary must not be empty.';
+$_lang['mxboard_err_priority_unknown'] = 'No such priority in the dictionary.';
 $_lang['mxboard_err_api_disabled'] = 'REST API is disabled by the mxboard.api_enabled system setting.';
 
 // Subtask A: task and chat message attachments.
@@ -494,6 +501,12 @@ $_lang['mxboard_err_queue_no_start_column'] = 'The project has no start stage �
 $_lang['mxboard_queue_auto_note'] = 'Queue auto-start';
 
 $_lang['mxboard_ui_struct_queues'] = 'Queues';
+$_lang['mxboard_ui_struct_priorities'] = 'Priorities';
+$_lang['mxboard_ui_struct_priorities_hint'] = 'Global priority dictionary — one for the whole system, not tied to any project. Value and name are unique; the last priority cannot be removed.';
+$_lang['mxboard_ui_struct_new_priority'] = 'New priority';
+$_lang['mxboard_ui_struct_priority_value'] = 'Value';
+$_lang['mxboard_ui_struct_priority_value_hint'] = 'Integer: higher is more important. Written to the task priority.';
+$_lang['mxboard_ui_struct_confirm_remove_priority'] = 'Remove priority “[[+name]]”?';
 $_lang['mxboard_ui_queue'] = 'Queue';
 $_lang['mxboard_ui_queues'] = 'Queues';
 $_lang['mxboard_ui_queue_new'] = 'New queue';

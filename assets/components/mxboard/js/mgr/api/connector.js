@@ -40,6 +40,7 @@ const D = P + 'Department\\';
 const PR = P + 'Project\\';
 const TY = P + 'Type\\';
 const C = P + 'Column\\';
+const PRI = P + 'Priority\\';
 const K = P + 'Token\\';
 const N = P + 'Notification\\';
 const Q = P + 'Queue\\';
@@ -117,6 +118,14 @@ export const ColumnApi = {
     reorder: (projectId, order) => post(C + 'Reorder', withJson({ project_id: projectId, order }, ['order'])),
     // Сбросить свои колонки проекта → вернуться к дефолтному шаблону (задачи переносятся по ключу).
     reset: (projectId) => post(C + 'Reset', { project_id: projectId }),
+};
+
+// Глобальный справочник приоритетов (проектно независимый — селектора проекта нет).
+export const PriorityApi = {
+    getList: () => post(PRI + 'GetList'),
+    create: (data) => post(PRI + 'Create', data),
+    update: (id, data) => post(PRI + 'Update', { id, ...data }),
+    remove: (id) => post(PRI + 'Remove', { id }),
 };
 
 // Очереди задач проекта. Очередь запускается вручную (перетаскиванием задачи в

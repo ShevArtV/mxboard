@@ -1,14 +1,38 @@
-/** Приоритет — unsigned int в БД; в UI даём фиксированную шкалу. */
-export const PRIORITIES = [
-    { value: 0, label: 'Низкий', severity: 'secondary' },
-    { value: 1, label: 'Обычный', severity: 'info' },
-    { value: 2, label: 'Высокий', severity: 'warn' },
-    { value: 3, label: 'Критический', severity: 'danger' },
-];
+/**
+ * Приоритет — сущность глобального справочника, а НЕ хардкод фронта. Шкала грузится с
+ * бэка через window.MxBoardConfig.priorities (см. board.class.php::loadPriorities).
+ * Пустой конфиг → пустой список: priorityMeta отдаёт нейтральный fallback по числу,
+ * а не воскрешает захардкоженную шкалу 0–3.
+ */
+export const PRIORITIES = (() => {
+    const raw = (typeof window !== 'undefined' && window.MxBoardConfig && Array.isArray(window.MxBoardConfig.priorities))
+        ? window.MxBoardConfig.priorities
+        : [];
+    return raw.map((p) => ({
+        value: Number(p.value) || 0,
+        label: String(p.name ?? ''),
+        color: String(p.color ?? '') || '',
+    }));
+})();
 
+/**
+ * Мета приоритета для бейджа: {value, label, color}. Нет в справочнике —
+ * нейтральный fallback `P<value>` без цвета (не подменяем отсутствующую шкалу).
+ */
 export function priorityMeta(value) {
     const v = Number(value) || 0;
-    return PRIORITIES.find((p) => p.value === v) || { value: v, label: `P${v}`, severity: 'contrast' };
+    return PRIORITIES.find((p) => p.value === v) || { value: v, label: `P${v}`, color: '' };
+}
+
+/** Контрастный цвет текста (чёрный/белый) для фона бейджа приоритета. */
+export function contrastText(hex) {
+    const h = String(hex || '').replace('#', '');
+    if (h.length !== 6) return '#fff';
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.6 ? '#1f2937' : '#fff';
 }
 
 /** Дата-время в БД — unix timestamp; процессор мог отдать и строку. */

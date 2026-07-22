@@ -148,6 +148,13 @@ class TaskService
             return $this->fail('mxboard_err_wip_limit');
         }
 
+        // Приоритет — только из глобального справочника. Не передан → минимальный
+        // существующий (обычно «Низкий»); передан вне справочника → ошибка, а не (int).
+        [$priority, $priorityError] = $this->resolvePriority($data['priority'] ?? null, false);
+        if ($priorityError !== null) {
+            return $this->fail($priorityError);
+        }
+
         $column = $this->columnBy($project, ['is_initial' => true]);
         if (!$column) {
             return $this->fail('mxboard_err_no_initial_column');
@@ -168,7 +175,7 @@ class TaskService
             'tor' => (string) ($data['tor'] ?? ''),
             'author_id' => (int) $user->get('id'),
             'assignee_id' => $assigneeId,
-            'priority' => (int) ($data['priority'] ?? 0),
+            'priority' => $priority,
             'position' => $this->nextPosition((int) $column->get('id')),
             'deadlineon' => $deadline,
             'deadline_disputed' => 0,
@@ -629,7 +636,11 @@ class TaskService
         }
 
         if (array_key_exists('priority', $data)) {
-            $task->set('priority', (int) $data['priority']);
+            [$priority, $priorityError] = $this->resolvePriority($data['priority'], true);
+            if ($priorityError !== null) {
+                return $this->fail($priorityError);
+            }
+            $task->set('priority', $priority);
         }
 
         // Переназначение: новый исполнитель тоже строго из отдела проекта.
@@ -1140,6 +1151,38 @@ class TaskService
         $hours = (int) round((float) $value);
 
         return $hours > 0 ? $hours : 0;
+    }
+
+    /**
+     * Приоритет строго из глобального справочника. Значение вне справочника отклоняется
+     * ошибкой поля, а не молча приводится к int (иначе в БД попадало бы 99/-5).
+     *
+     * @param bool $required true (update): при переданном ключе значение обязано быть
+     *                       валидным. false (create): отсутствие/пусто → дефолт справочника.
+     *
+     * @return array{0: int, 1: string|null} [значение, ключ ошибки]
+     */
+    private function resolvePriority(mixed $raw, bool $required): array
+    {
+        $priorities = new PriorityService($this->modx);
+
+        if (!$required && ($raw === null || $raw === '')) {
+            $default = $priorities->defaultValue();
+
+            // Справочник пуст (не должно случаться: сид заводит четвёрку) — не роняем
+            // создание задачи, пишем 0.
+            return [$default < 0 ? 0 : $default, null];
+        }
+
+        if (!is_numeric($raw)) {
+            return [0, 'mxboard_err_priority_unknown'];
+        }
+        $value = (int) $raw;
+        if (!$priorities->isValid($value)) {
+            return [0, 'mxboard_err_priority_unknown'];
+        }
+
+        return [$value, null];
     }
 
     /**

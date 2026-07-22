@@ -7,9 +7,10 @@ import TypesTab from '../components/structure/TypesTab.vue';
 import ProjectsTab from '../components/structure/ProjectsTab.vue';
 import ColumnsTab from '../components/structure/ColumnsTab.vue';
 import QueuesTab from '../components/structure/QueuesTab.vue';
+import PrioritiesTab from '../components/structure/PrioritiesTab.vue';
 
 // Экран «Структура» — только менеджеру (гейт по cfg.is_manager в BoardApp).
-// Внутренние вкладки: отделы · типы+поля · проекты · колонки/стадии · очереди.
+// Внутренние вкладки: отделы · типы+поля · проекты · колонки/стадии · очереди · приоритеты.
 const sub = ref('departments');
 </script>
 
@@ -21,6 +22,7 @@ const sub = ref('departments');
             <Tab value="projects">{{ t('mxboard_ui_struct_projects') }}</Tab>
             <Tab value="columns">{{ t('mxboard_ui_struct_columns') }}</Tab>
             <Tab value="queues">{{ t('mxboard_ui_struct_queues') }}</Tab>
+            <Tab value="priorities">{{ t('mxboard_ui_struct_priorities') }}</Tab>
         </TabList>
         <!-- Свой скролл рабочей области: фрейм менеджера страницу не прокручивает,
              поэтому длинная таблица (и раскрытые поля) иначе уходит под нижний край. -->
@@ -31,6 +33,7 @@ const sub = ref('departments');
                 <TabPanel value="projects"><ProjectsTab /></TabPanel>
                 <TabPanel value="columns"><ColumnsTab /></TabPanel>
                 <TabPanel value="queues"><QueuesTab /></TabPanel>
+                <TabPanel value="priorities"><PrioritiesTab /></TabPanel>
             </TabPanels>
         </div>
     </Tabs>
