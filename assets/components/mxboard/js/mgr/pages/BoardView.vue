@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 // ВНИМАНИЕ: сборка PrimeVue из Import Map пакета VueTools содержит НЕ все компоненты —
 // Accordion* в ней нет вовсе (проверено на стенде: 105 экспортов, ни одного Accordion).
 // Аккордеон очередей собран из Panel toggleable: поведение то же, зависимость доступна.
@@ -134,6 +134,15 @@ const queueDrag = ref({ queueId: 0, taskId: 0, overId: 0 });
 const queueStart = ref({ open: false, task: null, column: null, from: null, index: -1, queue: null });
 const nonEmptyQueues = computed(() => queues.value.filter((q) => (q.tasks || []).length > 0));
 const hasQueues = computed(() => nonEmptyQueues.value.length > 0);
+
+/**
+ * Индекс задачи, которая поедет в работу следующей: первая по порядку из тех, что ещё
+ * стоят в начальной стадии. Задачу очереди, уже уехавшую в работу, помечать «следующей»
+ * нельзя — она уже стартовала.
+ */
+function nextIndex(queue) {
+    return (queue.tasks || []).findIndex((task) => task.is_initial);
+}
 
 /** Очередь задачи по её queue_id — нужна, чтобы понять, первая ли она в очереди. */
 function queueOf(task) {
@@ -443,6 +452,50 @@ function onQueueDragEnd() {
 }
 
 /**
+ * Клавиатура для строки очереди: Enter/Пробел открывают задачу, Alt+↑/↓ двигают её
+ * по очереди. Drag-and-drop мышью — не единственный способ задать порядок.
+ */
+function onQueueKeydown(queue, index, ev) {
+    const task = (queue.tasks || [])[index];
+    if (!task) return;
+
+    if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+        ev.preventDefault();
+        openQueueTask(task);
+        return;
+    }
+    if (!ev.altKey || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+
+    ev.preventDefault();
+    const to = ev.key === 'ArrowUp' ? index - 1 : index + 1;
+    moveInQueue(queue, index, to, ev.currentTarget);
+}
+
+/** Переставить задачу очереди с позиции на позицию и сохранить новый порядок. */
+async function moveInQueue(queue, from, to, focusEl) {
+    const tasks = [...(queue.tasks || [])];
+    if (to < 0 || to >= tasks.length) return;
+
+    const before = queue.tasks;
+    const [moved] = tasks.splice(from, 1);
+    tasks.splice(to, 0, moved);
+    queue.tasks = tasks;
+
+    // Строка уехала на новое место — возвращаем на неё фокус, иначе после первого
+    // же нажатия клавиатура «теряет» карточку и повторить сдвиг нечем.
+    await nextTick();
+    const rows = focusEl?.parentElement?.children;
+    if (rows && rows[to]) rows[to].focus();
+
+    try {
+        await QueueApi.reorder(queue.id, tasks.map((x) => Number(x.id)));
+    } catch (e) {
+        queue.tasks = before;
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+    }
+}
+
+/**
  * Бросили карточку очереди на другую: переставляем её на место цели и шлём ПОЛНЫЙ
  * порядок — процессор принимает только полную перестановку, чтобы не оставлять дыр.
  */
@@ -582,23 +635,29 @@ async function onQueueDrop(queue, target) {
                     </template>
                     <ol class="mxb-queue-list">
                         <li
-                            v-for="task in queue.tasks"
+                            v-for="(task, index) in queue.tasks"
                             :key="task.id"
                             class="mxb-queue-item"
                             :class="{
                                 'mxb-queue-item--drag': queueDrag.taskId === Number(task.id),
                                 'mxb-queue-item--over': queueDrag.overId === Number(task.id),
+                                'mxb-queue-item--next': index === nextIndex(queue),
                             }"
                             draggable="true"
+                            tabindex="0"
                             @dragstart="onQueueDragStart(queue, task, $event)"
                             @dragend="onQueueDragEnd"
                             @dragover="onQueueDragOver(queue, task, $event)"
                             @drop.prevent="onQueueDrop(queue, task)"
                             @click="openQueueTask(task)"
+                            @keydown="onQueueKeydown(queue, index, $event)"
                         >
-                            <i class="pi pi-bars mxb-queue-grip" />
+                            <i class="pi pi-bars mxb-queue-grip" aria-hidden="true" />
+                            <span class="mxb-queue-pos">{{ index + 1 }}</span>
                             <span class="mxb-queue-num">{{ task.num || `#${task.id}` }}</span>
                             <span class="mxb-queue-title">{{ task.title }}</span>
+                            <span v-if="index === nextIndex(queue)" class="mxb-queue-next">{{ t('mxboard_ui_queue_next') }}</span>
+                            <span v-else-if="!task.is_initial" class="mxb-queue-stage">{{ task.column_name || task.column_key }}</span>
                         </li>
                     </ol>
                     <div v-if="!(queue.tasks || []).length" class="mxb-empty">{{ t('mxboard_ui_queue_empty') }}</div>

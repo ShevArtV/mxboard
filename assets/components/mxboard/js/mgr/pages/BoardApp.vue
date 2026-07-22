@@ -103,7 +103,14 @@ function openNotif(n) {
 <style>
 .mxb {
     font-size: 14px;
+}
 
+/* Токены объявлены и на .mxb, и на .vueApp. Модалки/попапы PrimeVue телепортируются
+   из .mxb в корень приложения, и переменные, объявленные только на .mxb, там уже не
+   видны: приглушённый текст, радиусы и тени молча схлопывались в дефолты, отчего
+   содержимое окна выглядело плоским. */
+.mxb,
+.vueApp {
     /* Единая шкала радиусов/теней/отступов — чтобы поверхности читались одной рукой. */
     --mxb-radius-sm: 8px;
     --mxb-radius-md: 12px;
@@ -443,44 +450,75 @@ function openNotif(n) {
 }
 
 /* Очереди задач: аккордеон внутри модального окна (кнопка «Очереди» в фильтрах).
-   Список ограничен по высоте — очередей и задач может быть много, а окно не должно
-   вырастать за пределы экрана. */
+   Три уровня должны читаться сразу: окно → очередь → строка задачи. Приём тот же,
+   что у доски: группа лежит на тонированной поверхности, а элементы внутри — белые
+   с лёгкой тенью (ср. .mxb-column / .mxb-card). */
 .mxb-queues {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--mxb-space-3);
+    /* Очередей и задач может быть много, а окно не должно вырастать за экран. */
     max-height: 60vh;
     overflow-y: auto;
 }
 
-.mxb-queue-hint {
-    margin: 12px 0 0;
-    font-size: 12px;
-    color: var(--mxb-ink-muted);
+/* Панель очереди = группа. Своя поверхность и радиус из общей шкалы, а не дефолт
+   темы PrimeVue: иначе аккордеон выглядит деталью из чужого приложения. */
+.mxb-queues .p-panel {
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: var(--mxb-radius-md);
+    background: var(--p-surface-50, #f6f7f9);
+    overflow: hidden;
 }
 
-.mxb-queue-warn {
-    margin: 0;
-    line-height: 1.5;
+/* Заголовок очереди не уезжает при прокрутке длинного списка — иначе на 60 строках
+   перестаёшь понимать, в какой очереди находишься. */
+.mxb-queues .p-panel-header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: var(--mxb-space-2) var(--mxb-space-3);
+    background: var(--p-surface-50, #f6f7f9);
+    border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+}
+
+.mxb-queues .p-panel-content {
+    padding: var(--mxb-space-2);
+    background: transparent;
+}
+
+/* Внутренние обёртки Panel не ограничены по ширине: без этого они растягиваются по
+   самой длинной строке, строка перестаёт сжиматься, и длинный заголовок выдавливает
+   метку «Следующая» за край панели вместо многоточия. */
+.mxb-queues .p-panel-content-container,
+.mxb-queues .p-panel-content-wrapper,
+.mxb-queues .p-panel-content,
+.mxb-queue-list,
+.mxb-queue-item {
+    min-width: 0;
+    max-width: 100%;
 }
 
 .mxb-queue-head {
     display: inline-flex;
-    align-items: center;
+    align-items: baseline;
+    gap: var(--mxb-space-2);
+    font-size: 14px;
+    font-weight: 600;
 }
 
+/* Счётчик — спутник названия, а не соперник: мельче, легче, приглушён. */
 .mxb-queue-count {
-    margin-left: 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 22px;
-    height: 20px;
-    padding: 0 7px;
-    font-size: 12px;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 var(--mxb-space-2);
+    font-size: 11px;
     font-weight: 600;
     color: var(--mxb-ink-muted);
-    background: var(--p-surface-100, #f1f5f9);
+    background: var(--p-surface-200, #e2e8f0);
     border-radius: var(--mxb-radius-pill);
 }
 
@@ -490,23 +528,68 @@ function openNotif(n) {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--mxb-space-1);
 }
 
 .mxb-queue-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 10px;
+    gap: var(--mxb-space-3);
+    padding: var(--mxb-space-2) var(--mxb-space-3);
     font-size: 13px;
-    border: 1px solid var(--p-surface-200, #e2e8f0);
-    border-radius: var(--mxb-radius-sm, 6px);
+    border: 1px solid var(--p-content-border-color, #e2e5e9);
+    border-radius: var(--mxb-radius-sm);
     background: var(--p-surface-0, #fff);
-    cursor: pointer;
+    box-shadow: var(--mxb-shadow-1);
+    /* Строку и тащат, и открывают кликом: курсор обещает то, что работает везде. */
+    cursor: grab;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .mxb-queue-item:hover {
-    border-color: var(--p-primary-color, #6366f1);
+    border-color: color-mix(in srgb, var(--p-primary-color, #10b981) 45%, var(--p-content-border-color, #e2e5e9));
+    box-shadow: var(--mxb-shadow-2);
+}
+
+.mxb-queue-item:active {
+    cursor: grabbing;
+}
+
+.mxb-queue-item:focus-visible {
+    outline: none;
+    box-shadow: var(--mxb-focus);
+}
+
+/* Первая задача = та, что поедет в работу следующей. Это центральная семантика
+   очереди, поэтому она помечена и фоном, и подписью, а не только позицией в списке. */
+.mxb-queue-item--next {
+    background: color-mix(in srgb, var(--p-primary-color, #10b981) 7%, var(--p-surface-0, #fff));
+    border-color: color-mix(in srgb, var(--p-primary-color, #10b981) 35%, var(--p-content-border-color, #e2e5e9));
+}
+
+.mxb-queue-next {
+    flex: none;
+    padding: 0 var(--mxb-space-2);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+    color: var(--p-primary-700, #047857);
+    background: color-mix(in srgb, var(--p-primary-color, #10b981) 16%, var(--p-surface-0, #fff));
+    border-radius: var(--mxb-radius-pill);
+    white-space: nowrap;
+}
+
+/* Задача очереди, которая уже в работе: показываем её стадию — иначе непонятно,
+   почему «следующей» помечена не первая строка списка. */
+.mxb-queue-stage {
+    flex: none;
+    padding: 0 var(--mxb-space-2);
+    font-size: 11px;
+    line-height: 18px;
+    color: var(--mxb-ink-muted);
+    background: var(--p-surface-100, #f1f5f9);
+    border-radius: var(--mxb-radius-pill);
+    white-space: nowrap;
 }
 
 /* Перетаскиваемая строка гаснет, цель вставки подсвечивается сверху — порядок
@@ -518,24 +601,70 @@ function openNotif(n) {
 /* Линию вставки рисуем тенью, а не border'ом: border сдвинул бы строку на пиксель,
    и список бы «дёргался» под курсором на каждом переходе между элементами. */
 .mxb-queue-item--over {
-    box-shadow: inset 0 2px 0 0 var(--p-primary-color, #6366f1);
+    box-shadow: inset 0 2px 0 0 var(--p-primary-color, #10b981);
 }
 
 .mxb-queue-grip {
-    color: var(--mxb-ink-muted);
-    cursor: grab;
+    flex: none;
+    color: var(--p-surface-400, #94a3b8);
+    transition: color 0.16s ease;
 }
 
+.mxb-queue-item:hover .mxb-queue-grip {
+    color: var(--mxb-ink-muted);
+}
+
+/* Позиция в очереди — ориентир при перетаскивании. Слабее заголовка размером, но не
+   цветом: светло-серый давал 2.4:1 к фону, то есть был нечитаем. */
+.mxb-queue-pos {
+    flex: none;
+    min-width: 14px;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: var(--mxb-ink-muted);
+    text-align: right;
+}
+
+/* Номер карточки — адрес, а не заголовок: тот же приглушённый чип, что на доске. */
 .mxb-queue-num {
+    flex: none;
+    padding: 0 var(--mxb-space-1);
+    font-size: 11px;
     font-weight: 600;
     color: var(--mxb-ink-muted);
+    background: var(--p-surface-100, #f1f5f9);
+    border-radius: var(--mxb-radius-sm);
     white-space: nowrap;
 }
 
+/* Заголовок — то, ради чего строку читают: полный контраст текста. Сжимается он,
+   а не соседи: без `min-width: 0` длинный заголовок выдавливает метку «Следующая»
+   за край строки вместо того, чтобы обрезаться многоточием. */
 .mxb-queue-title {
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--p-text-color, #334155);
+}
+
+.mxb-queue-hint {
+    margin: var(--mxb-space-3) 0 0;
+    font-size: 12px;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-queue-warn {
+    margin: 0;
+    line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mxb-queue-item,
+    .mxb-queue-grip {
+        transition: none;
+    }
 }
 
 .mxb-muted {

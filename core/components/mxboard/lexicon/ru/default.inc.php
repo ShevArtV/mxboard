@@ -503,4 +503,5 @@ $_lang['mxboard_ui_queue_not_first'] = 'Вы запускаете очередь
 $_lang['mxboard_ui_queue_continue'] = 'Продолжить';
 $_lang['mxboard_ui_queue_cancel'] = 'Отмена';
 $_lang['mxboard_ui_queue_reordered'] = 'Порядок очереди сохранён';
-$_lang['mxboard_ui_queue_hint'] = 'Порядок задач меняется перетаскиванием. Чтобы запустить очередь, закройте окно и перетащите задачу в стартовую стадию.';
+$_lang['mxboard_ui_queue_next'] = 'Следующая';
+$_lang['mxboard_ui_queue_hint'] = 'Порядок меняется перетаскиванием строки или Alt+↑/↓. Чтобы запустить очередь, закройте окно и перетащите задачу в стартовую стадию.';

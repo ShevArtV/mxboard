@@ -593,6 +593,7 @@ class QueueService
                 'title' => (string) $task->get('title'),
                 'queue_position' => $pos,
                 'column_key' => $column ? (string) $column->get('key') : '',
+                'column_name' => $column ? (string) $column->get('name') : '',
                 'is_initial' => $column ? (bool) $column->get('is_initial') : false,
             ];
         }
