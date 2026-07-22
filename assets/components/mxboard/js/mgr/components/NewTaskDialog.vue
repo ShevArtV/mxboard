@@ -31,7 +31,12 @@ const saving = ref(false);
 const aiVerdict = ref(null);
 const aiCanOverride = ref(false);
 
-const form = ref({ type: '', title: '', tor: '', priority: 1, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
+// Дефолт приоритета — из справочника (первый по значению), а не хардкод: значение
+// могли переименовать/удалить. Пусто → 0 (backend всё равно подставит свой дефолт).
+const DEFAULT_PRIORITY = PRIORITIES[0]?.value ?? 0;
+const blankForm = () => ({ type: '', title: '', tor: '', priority: DEFAULT_PRIORITY, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
+
+const form = ref(blankForm());
 // Файлы, приложенные ДО создания задачи: копятся в памяти, грузятся после успешного create.
 const pendingFiles = ref([]);
 // Файловая зона показывается, только если у выбранного типа есть поле `files` (лейбл = его заголовок).
@@ -40,7 +45,7 @@ const filesField = computed(() => (schema.value?.fields || []).find((f) => f.typ
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
     if (!open) return;
-    form.value = { type: '', title: '', tor: '', priority: 1, deadline: '', plan_hours: null, assignee_id: 0, fields: {} };
+    form.value = blankForm();
     pendingFiles.value = [];
     aiVerdict.value = null;
     aiCanOverride.value = false;
@@ -145,12 +150,13 @@ async function save(override = false) {
     }
 }
 
-// Есть ли во форме несохранённый ввод. Сверяемся с начальным состоянием из watch:
-// пустые тип/заголовок/ToR/дедлайн/исполнитель, план null, приоритет 1, поля и файлы пусты.
+// Есть ли во форме несохранённый ввод. Сверяемся с начальным состоянием (blankForm):
+// пустые тип/заголовок/ToR/дедлайн/исполнитель, план null, приоритет = DEFAULT_PRIORITY,
+// поля и файлы пусты.
 const isDirty = computed(() => {
     const f = form.value;
     if (f.type || f.title.trim() || f.tor.trim() || f.deadline) return true;
-    if (f.assignee_id || f.priority !== 1) return true;
+    if (f.assignee_id || f.priority !== DEFAULT_PRIORITY) return true;
     if (f.plan_hours !== null && f.plan_hours !== '' && Number(f.plan_hours) > 0) return true;
     if (Object.values(f.fields || {}).some((v) => v !== '' && v !== null && v !== undefined && !(Array.isArray(v) && !v.length))) return true;
     return pendingFiles.value.length > 0;

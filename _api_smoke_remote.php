@@ -357,6 +357,15 @@ check('MCP task_update: приоритет 99 → isError, без Internal error
 check('MCP task_update: отклонённый приоритет не записан', $priorityOf($modx, $taskId) === $beforePriority,
     'в БД ' . $priorityOf($modx, $taskId) . ', ожидали ' . $beforePriority);
 
+// Дробное значение — НЕ схлопывается в (int): 2.5 отвергается, а не пишется как 2.
+$before2 = $priorityOf($modx, $taskId);
+$r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'priority' => 2.5]);
+check('MCP task_update: дробный приоритет 2.5 → isError, без Internal error',
+    !empty($r['result']['isError']) && !isset($r['error']),
+    json_encode($r, JSON_UNESCAPED_UNICODE));
+check('MCP task_update: дробный приоритет не схлопнут в 2', $priorityOf($modx, $taskId) === $before2,
+    'в БД ' . $priorityOf($modx, $taskId) . ', ожидали ' . $before2);
+
 // Валидный приоритет из справочника — принимается и пишется.
 $r = $call($workerMcp, 'task_update', ['task_id' => (string) $taskId, 'priority' => 3]);
 check('MCP task_update: валидный приоритет 3 принят', empty($r['result']['isError']),
@@ -367,6 +376,16 @@ check('MCP task_update: валидный приоритет записан', $pr
 // REST create: приоритет вне справочника → 400, а валидный → 201.
 $r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'bad priority', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId, 'priority' => 99]);
 check('REST POST /tasks с приоритетом вне справочника → 400', $r['status'] === 400 && !$r['body']['success'], (string) ($r['body']['message'] ?? ''));
+
+// REST create: дробный приоритет '2.5' строкой (как пришёл бы из form-data) → 400.
+$r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'frac priority', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId, 'priority' => '2.5']);
+check('REST POST /tasks с дробным приоритетом → 400', $r['status'] === 400 && !$r['body']['success'], (string) ($r['body']['message'] ?? ''));
+
+// REST update: дробный приоритет '2.5' на существующей карточке → 400, БД не тронута.
+$beforeRest = $priorityOf($modx, $taskId);
+$r = $workerRest->dispatch('PATCH', ['tasks', (string) $taskId], [], ['priority' => '2.5']);
+check('REST PATCH /tasks с дробным приоритетом → 400', $r['status'] === 400 && !$r['body']['success'], (string) ($r['body']['message'] ?? ''));
+check('REST PATCH: дробный приоритет не записан', $priorityOf($modx, $taskId) === $beforeRest);
 
 $r = $workerRest->dispatch('POST', ['tasks'], [], ['type' => 'bugfix', 'title' => 'good priority', 'deadline' => $DEADLINE, 'fields' => $BUG, 'assignee_id' => $workerId, 'priority' => 2]);
 check('REST POST /tasks с валидным приоритетом → 201', $r['status'] === 201 && $r['body']['success'], (string) ($r['body']['message'] ?? ''));

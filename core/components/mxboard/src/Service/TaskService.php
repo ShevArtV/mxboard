@@ -1166,6 +1166,10 @@ class TaskService
     {
         $priorities = new PriorityService($this->modx);
 
+        if (is_string($raw)) {
+            $raw = trim($raw);
+        }
+
         if (!$required && ($raw === null || $raw === '')) {
             $default = $priorities->defaultValue();
 
@@ -1174,7 +1178,11 @@ class TaskService
             return [$default < 0 ? 0 : $default, null];
         }
 
-        if (!is_numeric($raw)) {
+        // Только целое значение справочника. Дробное/мусор ('2.5', 2.5, '2abc', '') —
+        // отказ, а не молчаливый (int): 2.5 не должно тихо стать 2 (тот же класс бага,
+        // что исходное приведение магического числа). Логика зеркалит
+        // PriorityService::normalizeValue: (int) должно совпадать со входом посимвольно.
+        if ($raw === null || $raw === '' || !is_numeric($raw) || (string) (int) $raw !== (string) $raw) {
             return [0, 'mxboard_err_priority_unknown'];
         }
         $value = (int) $raw;

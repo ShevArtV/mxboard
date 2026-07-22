@@ -704,7 +704,9 @@ final class Server
             'assignee' => $args['assignee'] ?? null,
             'fields' => isset($args['fields']) && is_array($args['fields']) ? $args['fields'] : null,
             'tor' => $this->str($args['tor'] ?? null),
-            'priority' => $this->int($args['priority'] ?? null),
+            // Сырым, как deadline: приведение к int здесь тихо схлопнуло бы 2.5 → 2.
+            // Валидацию (только целое из справочника) делает TaskService::resolvePriority.
+            'priority' => $args['priority'] ?? null,
             'plan_hours' => $args['plan_hours'] ?? null,
             'parent_id' => $this->int($args['parent_id'] ?? null),
             'meta' => isset($args['meta']) && is_array($args['meta']) ? $args['meta'] : null,
@@ -936,7 +938,9 @@ final class Server
             }
         }
         if (array_key_exists('priority', $args)) {
-            $data['priority'] = $this->int($args['priority']);
+            // Сырым: TaskService::resolvePriority отвергает дробное/мусор, а int() тут
+            // тихо схлопнул бы 2.5 → 2.
+            $data['priority'] = $args['priority'];
         }
         if (array_key_exists('deadline', $args)) {
             // Сырым, как в taskCreate(): разбор даты централизован в TaskService::normalizeDeadline().
