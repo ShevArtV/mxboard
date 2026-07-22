@@ -472,7 +472,8 @@ function openNotif(n) {
 }
 
 /* Заголовок очереди не уезжает при прокрутке длинного списка — иначе на 60 строках
-   перестаёшь понимать, в какой очереди находишься. */
+   перестаёшь понимать, в какой очереди находишься. Вся шапка кликабельна: она и есть
+   переключатель, «плюс» справа — лишь его видимая часть. */
 .mxb-queues .p-panel-header {
     position: sticky;
     top: 0;
@@ -480,6 +481,13 @@ function openNotif(n) {
     padding: var(--mxb-space-2) var(--mxb-space-3);
     background: var(--p-surface-50, #f6f7f9);
     border-bottom: 1px solid var(--p-content-border-color, #e2e5e9);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.16s ease;
+}
+
+.mxb-queues .p-panel-header:hover {
+    background: var(--p-surface-100, #f1f5f9);
 }
 
 .mxb-queues .p-panel-content {
@@ -662,7 +670,8 @@ function openNotif(n) {
 
 @media (prefers-reduced-motion: reduce) {
     .mxb-queue-item,
-    .mxb-queue-grip {
+    .mxb-queue-grip,
+    .mxb-queues .p-panel-header {
         transition: none;
     }
 }

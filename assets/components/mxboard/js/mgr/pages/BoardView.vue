@@ -127,9 +127,9 @@ const createOpen = ref(false);
 // пустая очередь на доске — шум, управлять её составом надо из карточки задачи.
 const queues = ref([]);
 const queuesOpen = ref(false);
-// Счётчик открытий окна очередей: входит в :key панелей, чтобы каждое открытие
-// начиналось со свёрнутых очередей, а не с того, что пользователь раскрыл в прошлый раз.
-const queuesSeq = ref(0);
+// Свёрнутость очередей держим сами: клик по заголовку и клик по кнопке должны менять
+// одно и то же состояние, а внутреннее состояние Panel снаружи не переключить.
+const queueCollapsed = ref({});
 const queueDrag = ref({ queueId: 0, taskId: 0, overId: 0 });
 // Предупреждение «задача не первая в очереди» — модальный диалог, а не ConfirmPopup:
 // попап цепляется к элементу-якорю, а при drop надёжного якоря нет (currentTarget к
@@ -149,8 +149,29 @@ function nextIndex(queue) {
 
 /** Кнопка «Очереди»: открывает окно со свёрнутыми очередями либо закрывает его. */
 function toggleQueues() {
-    if (!queuesOpen.value) queuesSeq.value += 1;
+    if (!queuesOpen.value) collapseAllQueues();
     queuesOpen.value = !queuesOpen.value;
+}
+
+/** Каждое открытие окна начинается со свёрнутых очередей. */
+function collapseAllQueues() {
+    const map = {};
+    for (const queue of queues.value) map[queue.id] = true;
+    queueCollapsed.value = map;
+}
+
+/**
+ * Клик по шапке очереди раскрывает её целиком, а не только по «плюсу». Клик по самой
+ * кнопке пропускаем: она эмитит toggle сама, иначе состояние переключилось бы дважды
+ * и панель осталась бы на месте.
+ */
+function onQueueHeaderClick(queue, ev) {
+    if (ev?.target?.closest?.('.p-panel-toggle-button')) return;
+    queueCollapsed.value = { ...queueCollapsed.value, [queue.id]: !isQueueCollapsed(queue) };
+}
+
+function isQueueCollapsed(queue) {
+    return queueCollapsed.value[queue.id] !== false;
 }
 
 /** Очередь задачи по её queue_id — нужна, чтобы понять, первая ли она в очереди. */
@@ -251,6 +272,12 @@ async function loadQueues() {
         queues.value = [];
     }
     if (!hasQueues.value) queuesOpen.value = false;
+
+    const map = { ...queueCollapsed.value };
+    for (const queue of queues.value) {
+        if (map[queue.id] === undefined) map[queue.id] = true;
+    }
+    queueCollapsed.value = map;
 }
 
 // Реактивная синхронизация со «Структурой» (без перезагрузки страницы):
@@ -637,9 +664,11 @@ async function onQueueDrop(queue, target) {
             <div class="mxb-queues">
                 <Panel
                     v-for="queue in nonEmptyQueues"
-                    :key="`${queuesSeq}-${queue.id}`"
+                    :key="queue.id"
                     toggleable
-                    :collapsed="true"
+                    :collapsed="isQueueCollapsed(queue)"
+                    :pt="{ header: { onClick: (ev) => onQueueHeaderClick(queue, ev) } }"
+                    @update:collapsed="queueCollapsed = { ...queueCollapsed, [queue.id]: $event }"
                 >
                     <template #header>
                         <span class="mxb-queue-head">
