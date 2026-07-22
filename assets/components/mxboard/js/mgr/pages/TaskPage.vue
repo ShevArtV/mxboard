@@ -734,10 +734,6 @@ function openSubtaskDialog() {
                             </span>
                         </span>
                     </div>
-                    <div class="mxb-meta-row">
-                        <span class="mxb-meta-label">{{ t('mxboard_ui_fact_label') }}</span>
-                        <span class="mxb-meta-value">{{ factText }}</span>
-                    </div>
                     <!-- Действия по плану: разрешение оспаривания / оспорить (только если план задан) -->
                     <div v-if="(task.plan_disputed && canManage) || (!task.plan_disputed && isAssignee && planHours)" class="mxb-meta-row">
                         <span class="mxb-meta-label" />
@@ -756,6 +752,10 @@ function openSubtaskDialog() {
                                 @click="openPlanDispute"
                             />
                         </span>
+                    </div>
+                    <div class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_fact_label') }}</span>
+                        <span class="mxb-meta-value">{{ factText }}</span>
                     </div>
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_stage') }}</span>
