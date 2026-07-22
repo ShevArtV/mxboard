@@ -127,6 +127,9 @@ const createOpen = ref(false);
 // пустая очередь на доске — шум, управлять её составом надо из карточки задачи.
 const queues = ref([]);
 const queuesOpen = ref(false);
+// Счётчик открытий окна очередей: входит в :key панелей, чтобы каждое открытие
+// начиналось со свёрнутых очередей, а не с того, что пользователь раскрыл в прошлый раз.
+const queuesSeq = ref(0);
 const queueDrag = ref({ queueId: 0, taskId: 0, overId: 0 });
 // Предупреждение «задача не первая в очереди» — модальный диалог, а не ConfirmPopup:
 // попап цепляется к элементу-якорю, а при drop надёжного якоря нет (currentTarget к
@@ -142,6 +145,12 @@ const hasQueues = computed(() => nonEmptyQueues.value.length > 0);
  */
 function nextIndex(queue) {
     return (queue.tasks || []).findIndex((task) => task.is_initial);
+}
+
+/** Кнопка «Очереди»: открывает окно со свёрнутыми очередями либо закрывает его. */
+function toggleQueues() {
+    if (!queuesOpen.value) queuesSeq.value += 1;
+    queuesOpen.value = !queuesOpen.value;
 }
 
 /** Очередь задачи по её queue_id — нужна, чтобы понять, первая ли она в очереди. */
@@ -591,7 +600,7 @@ async function onQueueDrop(queue, target) {
                 :severity="queuesOpen ? 'primary' : 'secondary'"
                 :outlined="!queuesOpen"
                 :badge="String(nonEmptyQueues.length)"
-                @click="queuesOpen = !queuesOpen"
+                @click="toggleQueues"
             />
             <span class="mxb-toolbar-spacer" />
             <Button
@@ -626,7 +635,12 @@ async function onQueueDrop(queue, target) {
             :breakpoints="{ '900px': '95vw' }"
         >
             <div class="mxb-queues">
-                <Panel v-for="queue in nonEmptyQueues" :key="queue.id" toggleable :collapsed="false">
+                <Panel
+                    v-for="queue in nonEmptyQueues"
+                    :key="`${queuesSeq}-${queue.id}`"
+                    toggleable
+                    :collapsed="true"
+                >
                     <template #header>
                         <span class="mxb-queue-head">
                             {{ queue.name }}
