@@ -42,6 +42,7 @@ if (!isset($modx->packages['MxBoard\\Model'])) {
 $classes = [
     \MxBoard\Model\MxBoardDepartment::class,
     \MxBoard\Model\MxBoardProject::class,
+    \MxBoard\Model\MxBoardQueue::class,
     \MxBoard\Model\MxBoardColumn::class,
     \MxBoard\Model\MxBoardTaskType::class,
     \MxBoard\Model\MxBoardField::class,
@@ -85,6 +86,12 @@ $migrations = [
         'ADD COLUMN `plan_hours` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `deadline_proposed`',
         'ADD COLUMN `plan_disputed` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0 AFTER `plan_hours`',
         'ADD COLUMN `plan_proposed` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `plan_disputed`',
+        // Очереди задач: членство и порядок живут в самой задаче (максимум одна очередь
+        // на задачу), отдельной таблицы связки нет — см. комментарий у mxboard_queue.
+        'ADD COLUMN `queue_id` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `plan_proposed`',
+        'ADD COLUMN `queue_position` INT(11) UNSIGNED NOT NULL DEFAULT 0 AFTER `queue_id`',
+        'ADD INDEX `queue_id` (`queue_id`)',
+        'ADD INDEX `queue_position` (`queue_position`)',
     ],
 ];
 

@@ -34,6 +34,8 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'plan_hours' => 0,
             'plan_disputed' => 0,
             'plan_proposed' => 0,
+            'queue_id' => 0,
+            'queue_position' => 0,
             'fields' => NULL,
             'meta' => NULL,
             'ai_verdict' => NULL,
@@ -74,7 +76,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'column_id' =>
+            'column_id' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -84,7 +86,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => 0,
                 'index' => 'index',
             ),
-            'num' =>
+            'num' => 
             array (
                 'dbtype' => 'varchar',
                 'precision' => '32',
@@ -93,7 +95,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'default' => NULL,
                 'index' => 'unique',
             ),
-            'title' =>
+            'title' => 
             array (
                 'dbtype' => 'varchar',
                 'precision' => '255',
@@ -165,7 +167,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'deadline_proposed' =>
+            'deadline_proposed' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',
@@ -174,7 +176,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'plan_hours' =>
+            'plan_hours' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -183,7 +185,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'plan_disputed' =>
+            'plan_disputed' => 
             array (
                 'dbtype' => 'tinyint',
                 'precision' => '1',
@@ -192,7 +194,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'plan_proposed' =>
+            'plan_proposed' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -201,25 +203,45 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'null' => false,
                 'default' => 0,
             ),
-            'fields' =>
+            'queue_id' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+                'index' => 'index',
+            ),
+            'queue_position' => 
+            array (
+                'dbtype' => 'integer',
+                'precision' => '11',
+                'attributes' => 'unsigned',
+                'phptype' => 'integer',
+                'null' => false,
+                'default' => 0,
+                'index' => 'index',
+            ),
+            'fields' => 
             array (
                 'dbtype' => 'mediumtext',
                 'phptype' => 'json',
                 'null' => true,
             ),
-            'meta' =>
+            'meta' => 
             array (
                 'dbtype' => 'mediumtext',
                 'phptype' => 'json',
                 'null' => true,
             ),
-            'ai_verdict' =>
+            'ai_verdict' => 
             array (
                 'dbtype' => 'mediumtext',
                 'phptype' => 'json',
                 'null' => true,
             ),
-            'createdon' =>
+            'createdon' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '20',
@@ -307,15 +329,15 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'column_id' =>
+            'column_id' => 
             array (
                 'alias' => 'column_id',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
-                'columns' =>
+                'columns' => 
                 array (
-                    'column_id' =>
+                    'column_id' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -323,15 +345,15 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'num' =>
+            'num' => 
             array (
                 'alias' => 'num',
                 'primary' => false,
                 'unique' => true,
                 'type' => 'BTREE',
-                'columns' =>
+                'columns' => 
                 array (
-                    'num' =>
+                    'num' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -339,7 +361,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
-            'author_id' =>
+            'author_id' => 
             array (
                 'alias' => 'author_id',
                 'primary' => false,
@@ -419,6 +441,38 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                     ),
                 ),
             ),
+            'queue_id' => 
+            array (
+                'alias' => 'queue_id',
+                'primary' => false,
+                'unique' => false,
+                'type' => 'BTREE',
+                'columns' => 
+                array (
+                    'queue_id' => 
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
+            'queue_position' => 
+            array (
+                'alias' => 'queue_position',
+                'primary' => false,
+                'unique' => false,
+                'type' => 'BTREE',
+                'columns' => 
+                array (
+                    'queue_position' => 
+                    array (
+                        'length' => '',
+                        'collation' => 'A',
+                        'null' => false,
+                    ),
+                ),
+            ),
         ),
         'composites' => 
         array (
@@ -438,7 +492,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'cardinality' => 'many',
                 'owner' => 'local',
             ),
-            'Logs' =>
+            'Logs' => 
             array (
                 'class' => 'MxBoard\\Model\\MxBoardLog',
                 'local' => 'id',
@@ -446,7 +500,7 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'cardinality' => 'many',
                 'owner' => 'local',
             ),
-            'Attachments' =>
+            'Attachments' => 
             array (
                 'class' => 'MxBoard\\Model\\MxBoardAttachment',
                 'local' => 'id',
@@ -455,12 +509,20 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'owner' => 'local',
             ),
         ),
-        'aggregates' =>
+        'aggregates' => 
         array (
             'Project' => 
             array (
                 'class' => 'MxBoard\\Model\\MxBoardProject',
                 'local' => 'project_id',
+                'foreign' => 'id',
+                'cardinality' => 'one',
+                'owner' => 'foreign',
+            ),
+            'Queue' => 
+            array (
+                'class' => 'MxBoard\\Model\\MxBoardQueue',
+                'local' => 'queue_id',
                 'foreign' => 'id',
                 'cardinality' => 'one',
                 'owner' => 'foreign',

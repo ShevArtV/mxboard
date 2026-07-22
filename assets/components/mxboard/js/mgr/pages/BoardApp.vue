@@ -442,6 +442,93 @@ function openNotif(n) {
     font-size: 13px;
 }
 
+/* Очереди задач: панель над доской, раскрывается кнопкой «Очереди» в фильтрах. */
+.mxb-queues {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mxb-queue-warn {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.mxb-queue-head {
+    display: inline-flex;
+    align-items: center;
+}
+
+.mxb-queue-count {
+    margin-left: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mxb-ink-muted);
+    background: var(--p-surface-100, #f1f5f9);
+    border-radius: var(--mxb-radius-pill);
+}
+
+.mxb-queue-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.mxb-queue-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid var(--p-surface-200, #e2e8f0);
+    border-radius: var(--mxb-radius-sm, 6px);
+    background: var(--p-surface-0, #fff);
+    cursor: pointer;
+}
+
+.mxb-queue-item:hover {
+    border-color: var(--p-primary-color, #6366f1);
+}
+
+/* Перетаскиваемая строка гаснет, цель вставки подсвечивается сверху — порядок
+   в очереди меняется мышью, и без этих двух подсказок бросок «вслепую». */
+.mxb-queue-item--drag {
+    opacity: 0.45;
+}
+
+/* Линию вставки рисуем тенью, а не border'ом: border сдвинул бы строку на пиксель,
+   и список бы «дёргался» под курсором на каждом переходе между элементами. */
+.mxb-queue-item--over {
+    box-shadow: inset 0 2px 0 0 var(--p-primary-color, #6366f1);
+}
+
+.mxb-queue-grip {
+    color: var(--mxb-ink-muted);
+    cursor: grab;
+}
+
+.mxb-queue-num {
+    font-weight: 600;
+    color: var(--mxb-ink-muted);
+    white-space: nowrap;
+}
+
+.mxb-queue-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .mxb-muted {
     color: var(--mxb-ink-muted);
 }

@@ -266,6 +266,15 @@ class TaskService
 
         if ($isFinal) {
             $this->fireEvent('mxbOnTaskClose', $task, $user, ['channel' => $channel]);
+
+            // Задача из очереди доехала до финала — тянем следующую в стартовую стадию.
+            // Автозапуск идёт тем же move() (значит права, журнал и события штатные), но
+            // сбой очереди не должен превращать успешное закрытие в ошибку.
+            try {
+                (new QueueService($this->modx))->advance($task);
+            } catch (\Throwable $e) {
+                $this->modx->log(modX::LOG_LEVEL_ERROR, '[mxBoard] Автозапуск очереди: ' . $e->getMessage());
+            }
         }
 
         return $this->ok($task);
@@ -1178,6 +1187,13 @@ class TaskService
      */
     private function fireEvent(string $event, MxBoardTask $task, modUser $user, array $extra = []): void
     {
+        // Задача из очереди несёт ключ `queue` во ВСЕХ своих событиях: по нему внешняя
+        // автоматизация отличает работу по очереди от одиночной карточки.
+        $queueId = (int) $task->get('queue_id');
+        if ($queueId > 0) {
+            $extra['queue'] = $queueId;
+        }
+
         try {
             $this->modx->invokeEvent($event, array_merge([
                 'task_id' => (int) $task->get('id'),

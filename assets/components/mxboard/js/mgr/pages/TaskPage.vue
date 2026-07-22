@@ -1,8 +1,8 @@
 <script setup>
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
-import { Button, InputText, Select, Tag, useToast, useConfirm } from 'primevue';
+import { Button, InputText, Select, Tag, Dialog, useToast, useConfirm } from 'primevue';
 import {
-    TaskApi, TypeApi, ColumnApi, DepartmentApi, AttachmentApi, errorMessage, listOf,
+    TaskApi, TypeApi, ColumnApi, DepartmentApi, AttachmentApi, QueueApi, errorMessage, listOf,
 } from '../api/connector.js';
 import {
     PRIORITIES, priorityMeta, userName, fmtDate, fmtDay, fmtTime, fmtSize, toDateInput, isOverdue, normalizeTask,
@@ -47,6 +47,10 @@ const editingCommentId = ref(0);
 const editingCommentText = ref('');
 const editing = ref(false);
 const form = ref({ title: '', tor: '', priority: 0, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
+
+const queues = ref([]);
+const queueDialogOpen = ref(false);
+const queueChoice = ref(0);
 
 const disputeOpen = ref(false);
 const dispute = ref({ date: '', reason: '' });
@@ -97,6 +101,15 @@ const currentColumn = computed(() => {
     return columns.value.find((c) => c.key === key) || null;
 });
 const taskIsFinal = computed(() => !!currentColumn.value?.is_final);
+// В очередь ставим только из начальной стадии: очередь управляет ЗАПУСКОМ работы,
+// а карточка, которая уже в работе, запуска не ждёт. Убрать из очереди можно всегда.
+const taskInQueue = computed(() => Number(task.value?.queue_id) > 0);
+const canQueue = computed(() => (canManage.value || isAssignee.value)
+    && (taskInQueue.value || !!currentColumn.value?.is_initial));
+const queueName = computed(() => {
+    const q = queues.value.find((x) => Number(x.id) === Number(task.value?.queue_id));
+    return q ? q.name : '';
+});
 const parentLabel = computed(() => {
     const parent = detail.value.parent;
     if (!parent) return '';
@@ -230,6 +243,50 @@ async function loadContext() {
         const res = await ColumnApi.getList(cur.project_id);
         columns.value = listOf(res);
     } catch { columns.value = []; }
+    try {
+        const res = await QueueApi.getList(cur.project_id);
+        queues.value = listOf(res).filter((q) => q.active !== false && q.active !== 0);
+    } catch { queues.value = []; }
+}
+
+/**
+ * Кнопка «В очередь». Если очередь у проекта одна — ставим молча, выбирать не из чего;
+ * несколько — показываем диалог. Карточка, уже стоящая в очереди, кнопкой выходит из неё.
+ */
+async function queueClick() {
+    if (taskInQueue.value) {
+        await runQueueAction(() => QueueApi.removeTask(props.taskId), t('mxboard_ui_queue_removed'));
+        return;
+    }
+    if (!queues.value.length) {
+        toast.add({ severity: 'warn', summary: t('mxboard_err_queue_none'), life: 4000 });
+        return;
+    }
+    if (queues.value.length === 1) {
+        await runQueueAction(() => QueueApi.addTask(props.taskId, Number(queues.value[0].id)), t('mxboard_ui_queue_added'));
+        return;
+    }
+    queueChoice.value = Number(queues.value[0].id);
+    queueDialogOpen.value = true;
+}
+
+async function confirmQueueChoice() {
+    if (!queueChoice.value) return;
+    queueDialogOpen.value = false;
+    await runQueueAction(() => QueueApi.addTask(props.taskId, Number(queueChoice.value)), t('mxboard_ui_queue_added'));
+}
+
+async function runQueueAction(action, successText) {
+    busy.value = true;
+    try {
+        await action();
+        toast.add({ severity: 'success', summary: successText, life: 3000 });
+        reload();
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+    } finally {
+        busy.value = false;
+    }
 }
 
 async function ensureUsers() {
@@ -524,6 +581,16 @@ function openSubtaskDialog() {
                 @click="editing ? (editing = false) : startEdit()"
             />
             <Button
+                v-if="canQueue"
+                :label="taskInQueue ? t('mxboard_ui_queue_remove_task') : t('mxboard_ui_queue_add_task')"
+                :icon="taskInQueue ? 'pi pi-times-circle' : 'pi pi-list'"
+                size="small"
+                :severity="taskInQueue ? 'secondary' : 'primary'"
+                outlined
+                :loading="busy"
+                @click="queueClick"
+            />
+            <Button
                 v-if="canManage"
                 :label="t('mxboard_ui_delete')"
                 icon="pi pi-trash"
@@ -533,6 +600,20 @@ function openSubtaskDialog() {
                 @click="removeTask"
             />
         </div>
+
+        <!-- Выбор очереди: показывается, только когда очередей у проекта несколько. -->
+        <Dialog v-model:visible="queueDialogOpen" modal :header="t('mxboard_ui_queue_select')" :style="{ width: '420px' }">
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_queue') }}</label>
+                <Select v-model="queueChoice" :options="queues" option-label="name" option-value="id" fluid />
+            </div>
+            <template #footer>
+                <div class="mxb-dialog-actions">
+                    <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="queueDialogOpen = false" />
+                    <Button :label="t('mxboard_ui_queue_add_task')" icon="pi pi-check" :loading="busy" @click="confirmQueueChoice" />
+                </div>
+            </template>
+        </Dialog>
 
         <div v-if="loading" class="mxb-empty">{{ t('mxboard_ui_loading') }}</div>
 
@@ -691,6 +772,10 @@ function openSubtaskDialog() {
                             />
                             <span v-else class="mxb-chip">{{ stageName || '—' }}</span>
                         </span>
+                    </div>
+                    <div v-if="taskInQueue" class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ t('mxboard_ui_queue') }}</span>
+                        <span class="mxb-meta-value"><span class="mxb-chip">{{ queueName || `#${task.queue_id}` }}</span></span>
                     </div>
                     <div v-if="projectKey" class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_project') }}</span>

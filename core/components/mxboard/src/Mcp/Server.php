@@ -8,8 +8,10 @@ use MODX\Revolution\modUser;
 use MODX\Revolution\modX;
 use MxBoard\Helpers\Transitions;
 use MxBoard\Model\MxBoardProject;
+use MxBoard\Model\MxBoardQueue;
 use MxBoard\Model\MxBoardTask;
 use MxBoard\Service\BoardQuery;
+use MxBoard\Service\QueueService;
 use MxBoard\Service\StructureService;
 use MxBoard\Service\TaskService;
 
@@ -41,12 +43,14 @@ final class Server
     private TaskService $tasks;
     private StructureService $structure;
     private BoardQuery $query;
+    private QueueService $queues;
 
     public function __construct(private modX $modx, private modUser $user)
     {
         $this->tasks = new TaskService($modx);
         $this->structure = new StructureService($modx);
         $this->query = new BoardQuery($modx);
+        $this->queues = new QueueService($modx);
     }
 
     /**
@@ -215,6 +219,16 @@ final class Server
             $this->tool('task_delete', 'Удалить карточку (автор/менеджер). Подзадачи открепляются, не удаляются.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
             ], ['task_id']),
+            $this->tool('queue_list', 'Очереди проекта и задачи в них. Очередь запускает карточки по порядку: закрытие задачи очереди автоматически двигает следующую в стартовую стадию.', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+            ]),
+            $this->tool('task_queue_add', 'Поставить карточку в очередь. Только из начальной стадии. Если у проекта одна очередь, queue можно не указывать.', [
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
+                'queue' => ['type' => 'string', 'description' => 'Очередь: ключ или id. Можно опустить, если очередь у проекта одна.'],
+            ], ['task_id']),
+            $this->tool('task_queue_remove', 'Вынуть карточку из очереди.', [
+                'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
+            ], ['task_id']),
         ];
     }
 
@@ -269,6 +283,26 @@ final class Server
                 'is_final' => ['type' => 'boolean', 'description' => 'true переносит флаг финальной стадии сюда.'],
                 'is_start' => ['type' => 'boolean', 'description' => 'Стартовая стадия: с неё идёт отсчёт фактического времени. true переносит флаг сюда, false — снимает (замера не будет). Начальной стадией быть не может.'],
             ], ['stage_id']),
+            $this->tool('queue_create', 'Создать очередь задач в проекте (менеджер).', [
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+                'project_id' => ['type' => 'integer', 'description' => 'ID проекта (альтернатива ключу).'],
+                'name' => ['type' => 'string', 'description' => 'Название очереди.'],
+                'key' => ['type' => 'string', 'description' => 'Ключ очереди. Пусто — сгенерируется из названия.'],
+                'description' => ['type' => 'string'],
+            ], ['name']),
+            $this->tool('queue_reorder', 'Задать порядок задач в очереди (менеджер): order — полный список id задач очереди в новом порядке.', [
+                'queue' => ['type' => 'string', 'description' => 'Очередь: ключ или id.'],
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта (нужен, если очередь задана ключом). По умолчанию — из настроек.'],
+                'order' => [
+                    'type' => 'array',
+                    'description' => 'ID задач очереди в новом порядке — ПОЛНЫЙ список её незакрытых задач.',
+                    'items' => ['type' => 'integer'],
+                ],
+            ], ['queue', 'order']),
+            $this->tool('queue_remove', 'Удалить очередь (менеджер). Задачи остаются, из очереди они просто выходят.', [
+                'queue' => ['type' => 'string', 'description' => 'Очередь: ключ или id.'],
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта (нужен, если очередь задана ключом). По умолчанию — из настроек.'],
+            ], ['queue']),
         ];
     }
 
@@ -323,6 +357,12 @@ final class Server
             'project_create' => $this->result($this->structure->createProject($this->user, $this->structureArgs($args))),
             'stage_create' => $this->stageCreate($args),
             'stage_update' => $this->stageUpdate($args),
+            'queue_list' => $this->queueList($args),
+            'queue_create' => $this->queueCreate($args),
+            'queue_reorder' => $this->queueReorder($args),
+            'queue_remove' => $this->queueRemove($args),
+            'task_queue_add' => $this->taskQueueAdd($args),
+            'task_queue_remove' => $this->taskQueueRemove($args),
             default => throw new \InvalidArgumentException('Unknown tool: ' . $name),
         };
     }
@@ -987,6 +1027,170 @@ final class Server
         }
 
         return $this->result($this->structure->updateColumn($this->user, $stageId, $data));
+    }
+
+    /**
+     * Очереди проекта с их задачами.
+     *
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function queueList(array $args): array
+    {
+        $project = $this->resolveProject($this->str($args['project'] ?? null));
+        if (!$project) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
+        }
+
+        $queues = $this->queues->queues((int) $project->get('id'), true);
+        if (!$queues) {
+            return $this->content('У проекта [' . $project->get('key') . '] нет очередей.');
+        }
+
+        $out = ['Очереди проекта [' . $project->get('key') . ']:'];
+        foreach ($queues as $queue) {
+            $out[] = '  #' . $queue['id'] . ' [' . $queue['key'] . '] ' . $queue['name']
+                . ($queue['description'] !== '' ? ' — ' . $queue['description'] : '');
+            foreach ($queue['tasks'] ?? [] as $pos => $task) {
+                $out[] = '      ' . ($pos + 1) . '. ' . ($task['num'] !== '' ? $task['num'] : '#' . $task['id'])
+                    . ' ' . $task['title'] . ' [' . $task['column_key'] . ']';
+            }
+            if (!($queue['tasks'] ?? [])) {
+                $out[] = '      (пусто)';
+            }
+        }
+
+        return $this->content(implode("\n", $out));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function queueCreate(array $args): array
+    {
+        $projectId = $this->stageProjectId($args);
+        if ($projectId === null) {
+            return $this->content($this->lex('mxboard_err_project_not_found'), true);
+        }
+
+        $data = ['project_id' => $projectId, 'name' => $this->str($args['name'] ?? null)];
+        foreach (['key', 'description'] as $key) {
+            if (array_key_exists($key, $args)) {
+                $data[$key] = $this->str($args[$key]);
+            }
+        }
+
+        return $this->result($this->queues->create($this->user, $data));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function queueReorder(array $args): array
+    {
+        $queueId = $this->resolveQueueId($args);
+        if ($queueId === null) {
+            return $this->content($this->lex('mxboard_err_queue_not_found'), true);
+        }
+
+        $order = $args['order'] ?? [];
+
+        return $this->result($this->queues->reorder($this->user, $queueId, is_array($order) ? $order : []));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function queueRemove(array $args): array
+    {
+        $queueId = $this->resolveQueueId($args);
+        if ($queueId === null) {
+            return $this->content($this->lex('mxboard_err_queue_not_found'), true);
+        }
+
+        return $this->result($this->queues->remove($this->user, $queueId));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function taskQueueAdd(array $args): array
+    {
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
+        }
+
+        // Очередь ищем в проекте самой карточки: агент задаёт её ключом, а `project` в
+        // аргументах может отсутствовать (и по умолчанию указывать на другой проект).
+        $queueId = 0;
+        $ref = $this->str($args['queue'] ?? null);
+        if ($ref !== '') {
+            $queueId = $this->queueIdByRef($ref, (int) $task->get('project_id'));
+            if ($queueId === 0) {
+                return $this->content($this->lex('mxboard_err_queue_not_found'), true);
+            }
+        }
+
+        return $this->result($this->queues->addTask($this->user, (int) $task->get('id'), $queueId));
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function taskQueueRemove(array $args): array
+    {
+        $task = $this->tasks->resolveTaskRef($args['task_id'] ?? null);
+        if (!$task) {
+            return $this->content($this->lex('mxboard_err_task_not_found'), true);
+        }
+
+        return $this->result($this->queues->removeTask($this->user, (int) $task->get('id')));
+    }
+
+    /**
+     * Очередь по аргументам тула: id числом или ключ в рамках проекта.
+     *
+     * @param array<string, mixed> $args
+     */
+    private function resolveQueueId(array $args): ?int
+    {
+        $ref = $this->str($args['queue'] ?? null);
+        if ($ref === '') {
+            return null;
+        }
+
+        $projectId = $this->stageProjectId($args) ?? 0;
+        $id = $this->queueIdByRef($ref, $projectId);
+
+        return $id > 0 ? $id : null;
+    }
+
+    /** Очередь по id или по ключу в проекте. 0 — не нашли. */
+    private function queueIdByRef(string $ref, int $projectId): int
+    {
+        if (ctype_digit($ref)) {
+            /** @var MxBoardQueue|null $byId */
+            $byId = $this->modx->getObject(MxBoardQueue::class, (int) $ref);
+
+            return $byId ? (int) $byId->get('id') : 0;
+        }
+
+        /** @var MxBoardQueue|null $byKey */
+        $byKey = $this->modx->getObject(MxBoardQueue::class, ['project_id' => $projectId, 'key' => $ref]);
+
+        return $byKey ? (int) $byKey->get('id') : 0;
     }
 
     /**

@@ -23,6 +23,8 @@ use xPDO\xPDO;
  * @property integer $plan_hours
  * @property boolean $plan_disputed
  * @property integer $plan_proposed
+ * @property integer $queue_id
+ * @property integer $queue_position
  * @property array $fields
  * @property array $meta
  * @property array $ai_verdict
@@ -32,6 +34,7 @@ use xPDO\xPDO;
  * @property integer $closedon
  *
  * @property \MxBoard\Model\MxBoardProject $Project
+ * @property \MxBoard\Model\MxBoardQueue $Queue
  * @property \MxBoard\Model\MxBoardColumn $Column
  * @property \MxBoard\Model\MxBoardTaskType $Type
  * @property \MxBoard\Model\MxBoardTask $Parent

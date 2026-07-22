@@ -68,6 +68,44 @@
         <aggregate alias="Department" class="MxBoard\Model\MxBoardDepartment" local="department_id" foreign="id" cardinality="one" owner="foreign"/>
         <composite alias="Columns" class="MxBoard\Model\MxBoardColumn" local="id" foreign="project_id" cardinality="many" owner="local"/>
         <composite alias="Tasks" class="MxBoard\Model\MxBoardTask" local="id" foreign="project_id" cardinality="many" owner="local"/>
+        <composite alias="Queues" class="MxBoard\Model\MxBoardQueue" local="id" foreign="project_id" cardinality="many" owner="local"/>
+    </object>
+
+    <!-- Очередь задач проекта: упорядоченный список карточек, который стартует вручную
+         (перетаскиванием любой задачи очереди в стартовую стадию) и дальше едет сам —
+         закрытие задачи очереди тянет следующую в стартовую стадию.
+
+         Членство задачи в очереди хранится НЕ здесь, а полями mxboard_task.queue_id /
+         queue_position: задача может состоять максимум в одной очереди (событие несёт
+         один ключ `queue`), и при полях в задаче этот инвариант не нужно стеречь, а
+         payload событий и лента /events получают id очереди без лишнего JOIN. -->
+    <object class="MxBoardQueue" table="mxboard_queue" extends="xPDO\Om\xPDOSimpleObject">
+        <field key="project_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="key" dbtype="varchar" precision="100" phptype="string" null="false" default="" index="index"/>
+        <field key="name" dbtype="varchar" precision="191" phptype="string" null="false" default=""/>
+        <field key="description" dbtype="text" phptype="string" null="true"/>
+        <field key="active" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="1" index="index"/>
+        <field key="position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <field key="createdon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <field key="updatedon" dbtype="integer" precision="20" attributes="unsigned" phptype="integer" null="false" default="0"/>
+
+        <index alias="project_id" name="project_id" primary="false" unique="false" type="BTREE">
+            <column key="project_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="project_queue_key" name="project_queue_key" primary="false" unique="true" type="BTREE">
+            <column key="project_id" length="" collation="A" null="false"/>
+            <column key="key" length="" collation="A" null="false"/>
+        </index>
+        <index alias="active" name="active" primary="false" unique="false" type="BTREE">
+            <column key="active" length="" collation="A" null="false"/>
+        </index>
+        <index alias="position" name="position" primary="false" unique="false" type="BTREE">
+            <column key="position" length="" collation="A" null="false"/>
+        </index>
+
+        <!-- ВНИМАНИЕ: связь очередь→задачи намеренно НЕ composite. composite с owner="local"
+             при удалении очереди снёс бы сами задачи; членство обнуляется в QueueService. -->
+        <aggregate alias="Project" class="MxBoard\Model\MxBoardProject" local="project_id" foreign="id" cardinality="one" owner="foreign"/>
     </object>
 
     <object class="MxBoardColumn" table="mxboard_column" extends="xPDO\Om\xPDOSimpleObject">
@@ -196,6 +234,12 @@
         <field key="plan_hours" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <field key="plan_disputed" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0"/>
         <field key="plan_proposed" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
+        <!-- Очередь, в которой стоит задача. 0 — задача вне очередей. Задача состоит максимум
+             в ОДНОЙ очереди: события несут единственный ключ `queue`. Членство сохраняется и
+             после закрытия задачи — иначе события закрытой карточки потеряли бы ключ `queue`. -->
+        <field key="queue_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
+        <!-- Порядок внутри очереди. Отдельно от `position`: та задаёт порядок в колонке доски. -->
+        <field key="queue_position" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Формализованный контент задачи по типу: {field_key: value}. -->
         <field key="fields" dbtype="mediumtext" phptype="json" null="true"/>
         <!-- Произвольные метаданные интегратора (cwd, движок, топик, номер задачи в трекере).
@@ -238,8 +282,15 @@
         <index alias="createdon" name="createdon" primary="false" unique="false" type="BTREE">
             <column key="createdon" length="" collation="A" null="false"/>
         </index>
+        <index alias="queue_id" name="queue_id" primary="false" unique="false" type="BTREE">
+            <column key="queue_id" length="" collation="A" null="false"/>
+        </index>
+        <index alias="queue_position" name="queue_position" primary="false" unique="false" type="BTREE">
+            <column key="queue_position" length="" collation="A" null="false"/>
+        </index>
 
         <aggregate alias="Project" class="MxBoard\Model\MxBoardProject" local="project_id" foreign="id" cardinality="one" owner="foreign"/>
+        <aggregate alias="Queue" class="MxBoard\Model\MxBoardQueue" local="queue_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Column" class="MxBoard\Model\MxBoardColumn" local="column_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Type" class="MxBoard\Model\MxBoardTaskType" local="type_id" foreign="id" cardinality="one" owner="foreign"/>
         <aggregate alias="Parent" class="MxBoard\Model\MxBoardTask" local="parent_id" foreign="id" cardinality="one" owner="foreign"/>

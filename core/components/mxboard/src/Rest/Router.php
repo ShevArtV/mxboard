@@ -9,6 +9,7 @@ use MODX\Revolution\modX;
 use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardTask;
 use MxBoard\Service\BoardQuery;
+use MxBoard\Service\QueueService;
 use MxBoard\Service\StructureService;
 use MxBoard\Service\TaskService;
 
@@ -27,12 +28,14 @@ final class Router
     private TaskService $tasks;
     private StructureService $structure;
     private BoardQuery $query;
+    private QueueService $queues;
 
     public function __construct(private modX $modx, private modUser $user)
     {
         $this->tasks = new TaskService($modx);
         $this->structure = new StructureService($modx);
         $this->query = new BoardQuery($modx);
+        $this->queues = new QueueService($modx);
     }
 
     /**
@@ -123,6 +126,32 @@ final class Router
             return $this->result($this->structure->updateColumn($this->user, (int) $seg[1], $body));
         }
 
+        // GET /projects/{id}/queues[?with_tasks=1] — очереди проекта
+        if ($method === 'GET' && $resource === 'projects' && isset($seg[1]) && ($seg[2] ?? '') === 'queues') {
+            return $this->ok($this->queues->queues((int) $seg[1], !empty($query['with_tasks'])));
+        }
+        // POST /projects/{id}/queues — создать очередь
+        if ($method === 'POST' && $resource === 'projects' && isset($seg[1]) && ($seg[2] ?? '') === 'queues') {
+            $body['project_id'] = (int) $seg[1];
+
+            return $this->result($this->queues->create($this->user, $body), 201);
+        }
+        // PATCH|DELETE /queues/{id}  и  POST /queues/{id}/reorder
+        if ($resource === 'queues' && isset($seg[1])) {
+            $queueId = (int) $seg[1];
+            if ($method === 'PATCH' && !isset($seg[2])) {
+                return $this->result($this->queues->update($this->user, $queueId, $body));
+            }
+            if ($method === 'DELETE' && !isset($seg[2])) {
+                return $this->result($this->queues->remove($this->user, $queueId));
+            }
+            if ($method === 'POST' && ($seg[2] ?? '') === 'reorder') {
+                $order = $body['order'] ?? [];
+
+                return $this->result($this->queues->reorder($this->user, $queueId, is_array($order) ? $order : []));
+            }
+        }
+
         // /tasks ...
         if ($resource === 'tasks') {
             return $this->tasksRoute($method, $seg, $body);
@@ -198,6 +227,11 @@ final class Router
             return $this->result($this->tasks->delete($this->user, $taskId, self::CHANNEL));
         }
 
+        // DELETE /tasks/{id}/queue — вынуть задачу из очереди
+        if ($method === 'DELETE' && $action === 'queue') {
+            return $this->result($this->queues->removeTask($this->user, $taskId));
+        }
+
         // POST /tasks/{id}/{action}
         if ($method === 'POST') {
             return match ($action) {
@@ -225,6 +259,9 @@ final class Router
                     self::CHANNEL
                 )),
                 'resolve-plan' => $this->result($this->tasks->resolvePlan($this->user, $taskId, !empty($body['accept']), self::CHANNEL)),
+                // queue без тела — «в единственную очередь проекта».
+                'queue' => $this->result($this->queues->addTask($this->user, $taskId, (int) ($body['queue_id'] ?? 0))),
+                'promote' => $this->result($this->queues->promote($this->user, $taskId)),
                 default => $this->fail('mxboard_err_route_not_found', 404),
             };
         }

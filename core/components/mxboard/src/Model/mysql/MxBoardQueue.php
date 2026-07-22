@@ -3,13 +3,13 @@ namespace MxBoard\Model\mysql;
 
 use xPDO\xPDO;
 
-class MxBoardProject extends \MxBoard\Model\MxBoardProject
+class MxBoardQueue extends \MxBoard\Model\MxBoardQueue
 {
 
     public static $metaMap = array (
         'package' => 'MxBoard\\Model',
         'version' => '3.0',
-        'table' => 'mxboard_project',
+        'table' => 'mxboard_queue',
         'extends' => 'xPDO\\Om\\xPDOSimpleObject',
         'tableMeta' => 
         array (
@@ -17,7 +17,7 @@ class MxBoardProject extends \MxBoard\Model\MxBoardProject
         ),
         'fields' => 
         array (
-            'department_id' => 0,
+            'project_id' => 0,
             'key' => '',
             'name' => '',
             'description' => NULL,
@@ -28,7 +28,7 @@ class MxBoardProject extends \MxBoard\Model\MxBoardProject
         ),
         'fieldMeta' => 
         array (
-            'department_id' => 
+            'project_id' => 
             array (
                 'dbtype' => 'integer',
                 'precision' => '11',
@@ -102,15 +102,15 @@ class MxBoardProject extends \MxBoard\Model\MxBoardProject
         ),
         'indexes' => 
         array (
-            'department_id' => 
+            'project_id' => 
             array (
-                'alias' => 'department_id',
+                'alias' => 'project_id',
                 'primary' => false,
                 'unique' => false,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'department_id' => 
+                    'project_id' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -118,15 +118,15 @@ class MxBoardProject extends \MxBoard\Model\MxBoardProject
                     ),
                 ),
             ),
-            'department_key' => 
+            'project_queue_key' => 
             array (
-                'alias' => 'department_key',
+                'alias' => 'project_queue_key',
                 'primary' => false,
                 'unique' => true,
                 'type' => 'BTREE',
                 'columns' => 
                 array (
-                    'department_id' => 
+                    'project_id' => 
                     array (
                         'length' => '',
                         'collation' => 'A',
@@ -173,39 +173,12 @@ class MxBoardProject extends \MxBoard\Model\MxBoardProject
                 ),
             ),
         ),
-        'composites' => 
-        array (
-            'Columns' => 
-            array (
-                'class' => 'MxBoard\\Model\\MxBoardColumn',
-                'local' => 'id',
-                'foreign' => 'project_id',
-                'cardinality' => 'many',
-                'owner' => 'local',
-            ),
-            'Tasks' => 
-            array (
-                'class' => 'MxBoard\\Model\\MxBoardTask',
-                'local' => 'id',
-                'foreign' => 'project_id',
-                'cardinality' => 'many',
-                'owner' => 'local',
-            ),
-            'Queues' => 
-            array (
-                'class' => 'MxBoard\\Model\\MxBoardQueue',
-                'local' => 'id',
-                'foreign' => 'project_id',
-                'cardinality' => 'many',
-                'owner' => 'local',
-            ),
-        ),
         'aggregates' => 
         array (
-            'Department' => 
+            'Project' => 
             array (
-                'class' => 'MxBoard\\Model\\MxBoardDepartment',
-                'local' => 'department_id',
+                'class' => 'MxBoard\\Model\\MxBoardProject',
+                'local' => 'project_id',
                 'foreign' => 'id',
                 'cardinality' => 'one',
                 'owner' => 'foreign',

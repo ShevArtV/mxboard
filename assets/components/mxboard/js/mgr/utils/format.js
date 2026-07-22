@@ -197,6 +197,10 @@ export function normalizeTask(t) {
         plan_proposed: Number(t.plan_proposed) || 0,
         startedon: Number(t.startedon) || 0,
         closedon: Number(t.closedon) || 0,
+        // 0 — карточка вне очередей. По этому полю доска решает, спрашивать ли
+        // подтверждение при перетаскивании в стартовую стадию.
+        queue_id: Number(t.queue_id) || 0,
+        queue_position: Number(t.queue_position) || 0,
         column_key: String(t.column_key ?? t.column ?? ''),
     };
 }

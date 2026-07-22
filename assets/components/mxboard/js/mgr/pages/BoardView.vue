@@ -1,8 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { Button, Select, useToast, useConfirm } from 'primevue';
+// ВНИМАНИЕ: сборка PrimeVue из Import Map пакета VueTools содержит НЕ все компоненты —
+// Accordion* в ней нет вовсе (проверено на стенде: 105 экспортов, ни одного Accordion).
+// Аккордеон очередей собран из Panel toggleable: поведение то же, зависимость доступна.
+import { Button, Select, Panel, Dialog, useToast, useConfirm } from 'primevue';
 import {
-    BoardApi, TaskApi, DepartmentApi, ProjectApi, errorMessage, listOf,
+    BoardApi, TaskApi, DepartmentApi, ProjectApi, QueueApi, errorMessage, listOf,
 } from '../api/connector.js';
 import { normalizeBoard, normalizeTask, PRIORITIES } from '../utils/format.js';
 import { liveEvents, revisions } from '../utils/bus.js';
@@ -120,6 +123,24 @@ const dragFromKey = ref('');
 const dragOverKey = ref('');
 const createOpen = ref(false);
 
+// Очереди проекта. Панель показывается по кнопке и только когда очереди непустые:
+// пустая очередь на доске — шум, управлять её составом надо из карточки задачи.
+const queues = ref([]);
+const queuesOpen = ref(false);
+const queueDrag = ref({ queueId: 0, taskId: 0, overId: 0 });
+// Предупреждение «задача не первая в очереди» — модальный диалог, а не ConfirmPopup:
+// попап цепляется к элементу-якорю, а при drop надёжного якоря нет (currentTarget к
+// моменту показа уже сброшен), и подтверждение уезжало в угол экрана.
+const queueStart = ref({ open: false, task: null, column: null, from: null, index: -1, queue: null });
+const nonEmptyQueues = computed(() => queues.value.filter((q) => (q.tasks || []).length > 0));
+const hasQueues = computed(() => nonEmptyQueues.value.length > 0);
+
+/** Очередь задачи по её queue_id — нужна, чтобы понять, первая ли она в очереди. */
+function queueOf(task) {
+    const id = Number(task?.queue_id) || 0;
+    return id ? queues.value.find((q) => Number(q.id) === id) || null : null;
+}
+
 // Проекты выбранного отдела (у проекта есть department_id).
 const projectsInDepartment = computed(
     () => projects.value.filter((p) => Number(p.department_id) === departmentId.value),
@@ -194,6 +215,24 @@ async function load(options = {}) {
     } finally {
         if (!silent) loading.value = false;
     }
+    loadQueues();
+}
+
+// Очереди грузим отдельно от доски: их отсутствие не должно мешать показу карточек,
+// поэтому сбой здесь только гасит панель, а не рушит экран.
+async function loadQueues() {
+    const project = projects.value.find((p) => p.key === projectKey.value);
+    if (!project) {
+        queues.value = [];
+        return;
+    }
+    try {
+        const res = await QueueApi.getList(project.id, true);
+        queues.value = listOf(res);
+    } catch (e) {
+        queues.value = [];
+    }
+    if (!hasQueues.value) queuesOpen.value = false;
 }
 
 // Реактивная синхронизация со «Структурой» (без перезагрузки страницы):
@@ -320,19 +359,109 @@ async function onDrop(column) {
         return;
     }
 
+    // Старт очереди не с первой задачи меняет её порядок — об этом предупреждаем и
+    // ждём подтверждения. Перетаскивание в любую другую стадию очереди не касается.
+    const queue = column.is_start ? queueOf(task) : null;
+    const first = queue ? (queue.tasks || [])[0] : null;
+    if (queue && first && Number(first.id) !== taskId) {
+        queueStart.value = { open: true, task, column, from, index, queue };
+        return;
+    }
+
+    await moveTask(task, column, from, index);
+}
+
+/**
+ * Подтверждение старта очереди не с первой задачи: продолжаем — карточка становится
+ * первой, остальные сдвигаются, и только потом идёт сам перевод в стартовую стадию.
+ */
+async function confirmQueueStart() {
+    const { task, column, from, index } = queueStart.value;
+    queueStart.value = { open: false, task: null, column: null, from: null, index: -1, queue: null };
+    if (!task || !column || !from) return;
+
+    try {
+        await QueueApi.promote(task.id);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
+        return;
+    }
+    await moveTask(task, column, from, index);
+    loadQueues();
+}
+
+/** Само перемещение с оптимистичным откатом — общая часть обычного drop и старта очереди. */
+async function moveTask(task, column, from, index) {
     from.tasks.splice(index, 1);
     column.tasks.push(task);
     task.column_key = column.key;
 
     try {
-        const res = await TaskApi.move(taskId, column.key);
+        const res = await TaskApi.move(task.id, column.key);
         if (res.object) Object.assign(task, normalizeTask(res.object));
+        // Закрытие задачи очереди тянет следующую в работу — доску и панель надо
+        // перечитать, иначе автозапуск станет виден только после ручного обновления.
+        if (task.queue_id) {
+            await load({ silent: true });
+        } else {
+            loadQueues();
+        }
     } catch (e) {
-        const back = column.tasks.findIndex((x) => x.id === taskId);
+        const back = column.tasks.findIndex((x) => x.id === task.id);
         if (back !== -1) column.tasks.splice(back, 1);
-        task.column_key = fromKey;
+        task.column_key = from.key;
         from.tasks.splice(index, 0, task);
         toast.add({ severity: 'error', summary: t('mxboard_msg_move_rejected'), detail: errorMessage(e), life: 8000 });
+    }
+}
+
+// --- Порядок внутри очереди: свой drag-and-drop, отдельный от DnD колонок ---
+
+function onQueueDragStart(queue, task, ev) {
+    queueDrag.value = { queueId: Number(queue.id), taskId: Number(task.id), overId: 0 };
+    if (ev.dataTransfer) {
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.dataTransfer.setData('text/plain', String(task.id));
+    }
+}
+
+function onQueueDragOver(queue, task, ev) {
+    if (!queueDrag.value.taskId || queueDrag.value.queueId !== Number(queue.id)) return;
+    ev.preventDefault();
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
+    queueDrag.value.overId = Number(task.id);
+}
+
+function onQueueDragEnd() {
+    queueDrag.value = { queueId: 0, taskId: 0, overId: 0 };
+}
+
+/**
+ * Бросили карточку очереди на другую: переставляем её на место цели и шлём ПОЛНЫЙ
+ * порядок — процессор принимает только полную перестановку, чтобы не оставлять дыр.
+ */
+async function onQueueDrop(queue, target) {
+    const dragged = queueDrag.value.taskId;
+    onQueueDragEnd();
+
+    if (!dragged || Number(target.id) === dragged) return;
+
+    const tasks = [...(queue.tasks || [])];
+    const fromIndex = tasks.findIndex((x) => Number(x.id) === dragged);
+    const toIndex = tasks.findIndex((x) => Number(x.id) === Number(target.id));
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const before = queue.tasks;
+    const [moved] = tasks.splice(fromIndex, 1);
+    tasks.splice(toIndex, 0, moved);
+    queue.tasks = tasks;
+
+    try {
+        await QueueApi.reorder(queue.id, tasks.map((x) => Number(x.id)));
+        toast.add({ severity: 'success', summary: t('mxboard_ui_queue_reordered'), life: 2000 });
+    } catch (e) {
+        queue.tasks = before;
+        toast.add({ severity: 'error', summary: t('mxboard_msg_rejected'), detail: errorMessage(e), life: 8000 });
     }
 }
 </script>
@@ -394,6 +523,17 @@ async function onDrop(column) {
                 text
                 @click="resetFilters"
             />
+            <!-- Кнопка появляется, только когда у выбранного проекта есть непустые очереди. -->
+            <Button
+                v-if="hasQueues"
+                :label="t('mxboard_ui_queues')"
+                icon="pi pi-list"
+                size="small"
+                :severity="queuesOpen ? 'primary' : 'secondary'"
+                :outlined="!queuesOpen"
+                :badge="String(nonEmptyQueues.length)"
+                @click="queuesOpen = !queuesOpen"
+            />
             <span class="mxb-toolbar-spacer" />
             <Button
                 :label="t('mxboard_ui_new_task')"
@@ -411,6 +551,41 @@ async function onDrop(column) {
                 :loading="loading"
                 @click="load"
             />
+        </div>
+
+        <!-- Аккордеон очередей: в раскрытой очереди — её задачи (номер + заголовок),
+             порядок меняется перетаскиванием строк. -->
+        <div v-if="queuesOpen && hasQueues" class="mxb-queues">
+            <Panel v-for="queue in nonEmptyQueues" :key="queue.id" toggleable :collapsed="false">
+                <template #header>
+                    <span class="mxb-queue-head">
+                        {{ queue.name }}
+                        <span class="mxb-queue-count">{{ (queue.tasks || []).length }}</span>
+                    </span>
+                </template>
+                <ol class="mxb-queue-list">
+                    <li
+                        v-for="task in queue.tasks"
+                        :key="task.id"
+                        class="mxb-queue-item"
+                        :class="{
+                            'mxb-queue-item--drag': queueDrag.taskId === Number(task.id),
+                            'mxb-queue-item--over': queueDrag.overId === Number(task.id),
+                        }"
+                        draggable="true"
+                        @dragstart="onQueueDragStart(queue, task, $event)"
+                        @dragend="onQueueDragEnd"
+                        @dragover="onQueueDragOver(queue, task, $event)"
+                        @drop.prevent="onQueueDrop(queue, task)"
+                        @click="openTask(task)"
+                    >
+                        <i class="pi pi-bars mxb-queue-grip" />
+                        <span class="mxb-queue-num">{{ task.num || `#${task.id}` }}</span>
+                        <span class="mxb-queue-title">{{ task.title }}</span>
+                    </li>
+                </ol>
+                <div v-if="!(queue.tasks || []).length" class="mxb-empty">{{ t('mxboard_ui_queue_empty') }}</div>
+            </Panel>
         </div>
 
         <div v-if="!projectKey" class="mxb-empty">{{ t('mxboard_ui_no_projects') }}</div>
@@ -450,6 +625,26 @@ async function onDrop(column) {
                 </div>
             </div>
         </div>
+
+        <Dialog
+            v-model:visible="queueStart.open"
+            modal
+            :header="queueStart.queue?.name || t('mxboard_ui_queue')"
+            :style="{ width: '480px' }"
+        >
+            <p class="mxb-queue-warn">{{ t('mxboard_ui_queue_not_first') }}</p>
+            <template #footer>
+                <div class="mxb-dialog-actions">
+                    <Button
+                        :label="t('mxboard_ui_queue_cancel')"
+                        severity="secondary"
+                        outlined
+                        @click="queueStart.open = false"
+                    />
+                    <Button :label="t('mxboard_ui_queue_continue')" icon="pi pi-check" @click="confirmQueueStart" />
+                </div>
+            </template>
+        </Dialog>
 
         <NewTaskDialog
             v-model:visible="createOpen"

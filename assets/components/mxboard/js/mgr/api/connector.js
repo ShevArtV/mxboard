@@ -42,6 +42,7 @@ const TY = P + 'Type\\';
 const C = P + 'Column\\';
 const K = P + 'Token\\';
 const N = P + 'Notification\\';
+const Q = P + 'Queue\\';
 
 /**
  * Текст ошибки из проваленного вызова useApi. Тело ответа MODX — в err.data:
@@ -116,6 +117,23 @@ export const ColumnApi = {
     reorder: (projectId, order) => post(C + 'Reorder', withJson({ project_id: projectId, order }, ['order'])),
     // Сбросить свои колонки проекта → вернуться к дефолтному шаблону (задачи переносятся по ключу).
     reset: (projectId) => post(C + 'Reset', { project_id: projectId }),
+};
+
+// Очереди задач проекта. Очередь запускается вручную (перетаскиванием задачи в
+// стартовую стадию), дальше едет сама: закрытие задачи тянет следующую в работу.
+export const QueueApi = {
+    // withTasks=true — вместе с задачами очереди (для аккордеона на доске).
+    getList: (projectId, withTasks = false) => post(Q + 'GetList', { project_id: projectId, with_tasks: withTasks ? 1 : 0 }),
+    create: (data) => post(Q + 'Create', data),
+    update: (id, data) => post(Q + 'Update', { id, ...data }),
+    remove: (id) => post(Q + 'Remove', { id }),
+    // Переупорядочить: order — ПОЛНЫЙ список id задач очереди в новом порядке.
+    reorder: (queueId, order) => post(Q + 'Reorder', withJson({ queue_id: queueId, order }, ['order'])),
+    // queueId = 0 — «в единственную очередь проекта» (диалог выбора не нужен).
+    addTask: (taskId, queueId = 0) => post(Q + 'AddTask', { task_id: taskId, queue_id: queueId }),
+    removeTask: (taskId) => post(Q + 'RemoveTask', { task_id: taskId }),
+    // Сделать задачу первой в очереди — старт очереди не с первой карточки.
+    promote: (taskId) => post(Q + 'Promote', { task_id: taskId }),
 };
 
 // Задача. Модель v2: исполнитель назначается при создании (пула/захвата нет),

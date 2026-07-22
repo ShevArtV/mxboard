@@ -407,6 +407,9 @@ class BoardQuery
             'assignee_id' => 'Task.assignee_id',
             'project_key' => 'Project.key',
             'task_stage' => 'Stage.key',
+            // Очередь задачи: внешняя автоматизация читает эту ленту, а не события MODX,
+            // поэтому ключ `queue` должен быть и здесь (0 — задача вне очередей).
+            'queue' => 'Task.queue_id',
         ]);
         $c->sortby('MxBoardLog.id', 'ASC');
         $c->limit($limit);
@@ -441,6 +444,7 @@ class BoardQuery
                 'task_stage' => (string) ($r['task_stage'] ?? ''),
                 'author_id' => (int) $r['author_id'],
                 'assignee_id' => (int) $r['assignee_id'],
+                'queue' => (int) ($r['queue'] ?? 0),
             ];
         }
 
@@ -493,6 +497,7 @@ class BoardQuery
             'task_stage' => 'Stage.key',
             'author_id' => 'Task.author_id',
             'assignee_id' => 'Task.assignee_id',
+            'queue' => 'Task.queue_id',
         ]);
         $c->sortby('MxBoardLog.id', 'ASC');
         $c->limit($limit);
@@ -521,6 +526,7 @@ class BoardQuery
                 'task_stage' => (string) ($r['task_stage'] ?? ''),
                 'author_id' => (int) $r['author_id'],
                 'assignee_id' => (int) $r['assignee_id'],
+                'queue' => (int) ($r['queue'] ?? 0),
             ];
         }
 
@@ -643,6 +649,10 @@ class BoardQuery
             'MxBoardTask.plan_disputed',
             'MxBoardTask.startedon',
             'MxBoardTask.closedon',
+            // Членство в очереди: фронт по нему решает, спрашивать ли подтверждение при
+            // перетаскивании карточки в стартовую стадию.
+            'MxBoardTask.queue_id',
+            'MxBoardTask.queue_position',
             'column_key' => 'Column.key',
             'type_key' => 'Type.key',
             'author' => 'Author.username',

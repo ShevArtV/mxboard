@@ -472,3 +472,34 @@ $_lang['mxboard_err_reset_no_template'] = 'There is no default column template t
 $_lang['mxboard_ui_struct_reset'] = 'Reset to defaults';
 $_lang['mxboard_ui_struct_reset_confirm'] = 'Delete the project own columns and fall back to defaults? Tasks will move to the matching default stages.';
 $_lang['mxboard_ui_struct_no_own'] = 'The project has no own columns — defaults are used. Click “Copy columns” to create your own and customize them.';
+
+// Task queues: a project entity that drives the order tasks are started in.
+$_lang['mxboard_err_queue_not_found'] = 'Queue not found.';
+$_lang['mxboard_err_queue_denied'] = 'Only a department manager of the project can manage queues.';
+$_lang['mxboard_err_queue_name_required'] = 'Queue requires a name.';
+$_lang['mxboard_err_queue_key_exists'] = 'A queue with this key already exists in the project.';
+$_lang['mxboard_err_queue_not_initial'] = 'Only a task in the initial stage can be added to a queue.';
+$_lang['mxboard_err_queue_foreign_project'] = 'The queue belongs to another project.';
+$_lang['mxboard_err_queue_required'] = 'The project has several queues — choose one.';
+$_lang['mxboard_err_queue_none'] = 'The project has no queues.';
+$_lang['mxboard_err_queue_task_not_in'] = 'The task is not in a queue.';
+$_lang['mxboard_err_queue_no_start_column'] = 'The project has no start stage — there is nowhere to start the queue.';
+$_lang['mxboard_queue_auto_note'] = 'Queue auto-start';
+
+$_lang['mxboard_ui_struct_queues'] = 'Queues';
+$_lang['mxboard_ui_queue'] = 'Queue';
+$_lang['mxboard_ui_queues'] = 'Queues';
+$_lang['mxboard_ui_queue_new'] = 'New queue';
+$_lang['mxboard_ui_queue_project'] = 'Project';
+$_lang['mxboard_ui_queue_add_task'] = 'To queue';
+$_lang['mxboard_ui_queue_remove_task'] = 'Remove from queue';
+$_lang['mxboard_ui_queue_select'] = 'Choose a queue';
+$_lang['mxboard_ui_queue_added'] = 'Task added to the queue';
+$_lang['mxboard_ui_queue_removed'] = 'Task removed from the queue';
+$_lang['mxboard_ui_queue_in'] = 'In queue';
+$_lang['mxboard_ui_queue_empty'] = 'The queue has no tasks';
+$_lang['mxboard_ui_queue_confirm_remove'] = 'Delete the queue "[[+name]]"? Tasks stay, they just leave the queue.';
+$_lang['mxboard_ui_queue_not_first'] = 'You are starting the queue, but this task is not the first one in it; continuing will change the order of tasks in the queue';
+$_lang['mxboard_ui_queue_continue'] = 'Continue';
+$_lang['mxboard_ui_queue_cancel'] = 'Cancel';
+$_lang['mxboard_ui_queue_reordered'] = 'Queue order saved';
