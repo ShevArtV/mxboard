@@ -191,7 +191,7 @@ final class Server
             $this->tool('task_dispute_deadline', 'Оспорить дедлайн (исполнитель): предложить новую дату с причиной. Меняет её автор.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
-                'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос.'],
+                'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос. До 1000 символов; хвост сверх лимита обрезается.'],
             ], ['task_id', 'proposed_date']),
             $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип, поля, ToR.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
@@ -210,7 +210,7 @@ final class Server
             $this->tool('task_dispute_plan', 'Оспорить плановое время (исполнитель): предложить свою оценку в часах с причиной. Меняет её автор.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'proposed_hours' => ['type' => 'integer', 'description' => 'Предлагаемая оценка в часах.'],
-                'reason' => ['type' => 'string', 'description' => 'Почему оценка не годится.'],
+                'reason' => ['type' => 'string', 'description' => 'Почему оценка не годится. До 1000 символов; хвост сверх лимита обрезается.'],
             ], ['task_id', 'proposed_hours']),
             $this->tool('task_resolve_plan', 'Разрешить оспаривание планового времени (автор/менеджер): принять или отклонить.', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],

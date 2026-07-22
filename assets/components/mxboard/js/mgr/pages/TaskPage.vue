@@ -56,6 +56,11 @@ const disputeOpen = ref(false);
 const dispute = ref({ date: '', reason: '' });
 const planDisputeOpen = ref(false);
 const planDispute = ref({ hours: null, reason: '' });
+// Лимит обоснования оспаривания. Держать в синхроне с TaskService::DISPUTE_REASON_MAX.
+const REASON_MAX = 1000;
+// Разрешение спора вынесено в одну модалку «Решить» (и для дедлайна, и для плана).
+const resolveOpen = ref(false);
+const resolveKind = ref('deadline'); // 'deadline' | 'plan'
 const subtaskOpen = ref(false);
 
 // Кат для собранного описания: прячем длинный текст под max-height и показываем
@@ -538,6 +543,39 @@ async function resolvePlan(accept) {
     if (ok) reload();
 }
 
+// Обоснование берём из журнала: последняя запись оспаривания нужного вида.
+// reason нигде на карточке не хранится отдельно — только в mxboard_log.note.
+const resolveReason = computed(() => {
+    const action = resolveKind.value === 'plan' ? 'plan_dispute' : 'deadline_dispute';
+    const matches = (detail.value.log || []).filter((l) => l.action === action);
+    if (!matches.length) return '';
+    matches.sort((a, b) => (Number(b.createdon) || 0) - (Number(a.createdon) || 0));
+    return matches[0].note || '';
+});
+
+const resolveProposed = computed(() => {
+    if (resolveKind.value === 'plan') {
+        return task.value?.plan_proposed
+            ? `${task.value.plan_proposed} ${t('mxboard_ui_hours_short')}`
+            : '—';
+    }
+    return fmtDay(task.value?.deadline_proposed) || '—';
+});
+
+function openResolve(kind) {
+    resolveKind.value = kind;
+    resolveOpen.value = true;
+}
+
+async function doResolve(accept) {
+    resolveOpen.value = false;
+    if (resolveKind.value === 'plan') {
+        await resolvePlan(accept);
+    } else {
+        await resolve(accept);
+    }
+}
+
 function removeTask(event) {
     confirm.require({
         target: event.currentTarget,
@@ -611,6 +649,24 @@ function openSubtaskDialog() {
                 <div class="mxb-dialog-actions">
                     <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined @click="queueDialogOpen = false" />
                     <Button :label="t('mxboard_ui_queue_add_task')" icon="pi pi-check" :loading="busy" @click="confirmQueueChoice" />
+                </div>
+            </template>
+        </Dialog>
+
+        <!-- Разрешение спора: показываем причину оспаривания, «Принять»/«Отклонить» — только внутри. -->
+        <Dialog v-model:visible="resolveOpen" modal dismissable-mask :header="t('mxboard_ui_resolve_title')" :style="{ width: '460px' }">
+            <div class="mxb-field">
+                <label>{{ resolveKind === 'plan' ? t('mxboard_ui_proposed_hours') : t('mxboard_ui_proposed_date') }}</label>
+                <div class="mxb-meta-value"><strong>{{ resolveProposed }}</strong></div>
+            </div>
+            <div class="mxb-field">
+                <label>{{ t('mxboard_ui_reason') }}</label>
+                <div class="mxb-resolve-reason">{{ resolveReason || t('mxboard_ui_reason_empty') }}</div>
+            </div>
+            <template #footer>
+                <div class="mxb-dialog-actions">
+                    <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" severity="secondary" outlined :loading="busy" @click="doResolve(false)" />
+                    <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" :loading="busy" @click="doResolve(true)" />
                 </div>
             </template>
         </Dialog>
@@ -704,18 +760,21 @@ function openSubtaskDialog() {
                             <span v-if="task.deadline_disputed" class="mxb-disputed-badge">
                                 <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ fmtDay(task.deadline_proposed) }}
                             </span>
+                            <Button
+                                v-if="task.deadline_disputed && canManage"
+                                :label="t('mxboard_ui_resolve')"
+                                icon="pi pi-gavel"
+                                size="small"
+                                :loading="busy"
+                                @click="openResolve('deadline')"
+                            />
                         </span>
                     </div>
-                    <!-- Действия по дедлайну: разрешение оспаривания / оспорить -->
-                    <div v-if="(task.deadline_disputed && canManage) || (!task.deadline_disputed && isAssignee)" class="mxb-meta-row">
+                    <!-- Оспорить дедлайн (исполнитель). Разрешение спора — кнопкой «Решить» в строке значения. -->
+                    <div v-if="!task.deadline_disputed && isAssignee" class="mxb-meta-row">
                         <span class="mxb-meta-label" />
                         <span class="mxb-meta-value mxb-meta-deadline-actions">
-                            <template v-if="task.deadline_disputed && canManage">
-                                <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolve(true)" />
-                                <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolve(false)" />
-                            </template>
                             <Button
-                                v-else-if="isAssignee"
                                 :label="t('mxboard_ui_dispute')"
                                 icon="pi pi-flag"
                                 size="small"
@@ -732,18 +791,21 @@ function openSubtaskDialog() {
                             <span v-if="task.plan_disputed" class="mxb-disputed-badge">
                                 <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ task.plan_proposed }} {{ t('mxboard_ui_hours_short') }}
                             </span>
+                            <Button
+                                v-if="task.plan_disputed && canManage"
+                                :label="t('mxboard_ui_resolve')"
+                                icon="pi pi-gavel"
+                                size="small"
+                                :loading="busy"
+                                @click="openResolve('plan')"
+                            />
                         </span>
                     </div>
-                    <!-- Действия по плану: разрешение оспаривания / оспорить (только если план задан) -->
-                    <div v-if="(task.plan_disputed && canManage) || (!task.plan_disputed && isAssignee && planHours)" class="mxb-meta-row">
+                    <!-- Оспорить оценку (исполнитель, только если план задан). Разрешение — «Решить» в строке значения. -->
+                    <div v-if="!task.plan_disputed && isAssignee && planHours" class="mxb-meta-row">
                         <span class="mxb-meta-label" />
                         <span class="mxb-meta-value mxb-meta-deadline-actions">
-                            <template v-if="task.plan_disputed && canManage">
-                                <Button :label="t('mxboard_ui_accept')" icon="pi pi-check" size="small" :loading="busy" @click="resolvePlan(true)" />
-                                <Button :label="t('mxboard_ui_reject')" icon="pi pi-times" size="small" severity="secondary" outlined :loading="busy" @click="resolvePlan(false)" />
-                            </template>
                             <Button
-                                v-else-if="isAssignee"
                                 :label="t('mxboard_ui_dispute_plan')"
                                 icon="pi pi-flag"
                                 size="small"
@@ -803,7 +865,8 @@ function openSubtaskDialog() {
                     </div>
                     <div class="mxb-field">
                         <label>{{ t('mxboard_ui_reason') }}</label>
-                        <InputText v-model="dispute.reason" fluid :placeholder="t('mxboard_ui_reason_placeholder')" />
+                        <InputText v-model="dispute.reason" fluid :maxlength="REASON_MAX" :placeholder="t('mxboard_ui_reason_placeholder')" />
+                        <small class="mxb-field-hint">{{ t('mxboard_ui_reason_max_hint') }} · {{ dispute.reason.length }}/{{ REASON_MAX }}</small>
                     </div>
                     <div class="mxb-dialog-actions">
                         <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="disputeOpen = false" />
@@ -819,7 +882,8 @@ function openSubtaskDialog() {
                     </div>
                     <div class="mxb-field">
                         <label>{{ t('mxboard_ui_reason') }}</label>
-                        <InputText v-model="planDispute.reason" fluid :placeholder="t('mxboard_ui_reason_placeholder')" />
+                        <InputText v-model="planDispute.reason" fluid :maxlength="REASON_MAX" :placeholder="t('mxboard_ui_reason_placeholder')" />
+                        <small class="mxb-field-hint">{{ t('mxboard_ui_reason_max_hint') }} · {{ planDispute.reason.length }}/{{ REASON_MAX }}</small>
                     </div>
                     <div class="mxb-dialog-actions">
                         <Button :label="t('mxboard_ui_cancel')" severity="secondary" outlined size="small" @click="planDisputeOpen = false" />

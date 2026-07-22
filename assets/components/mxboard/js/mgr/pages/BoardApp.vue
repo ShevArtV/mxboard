@@ -1861,6 +1861,23 @@ function openNotif(n) {
     margin-bottom: 12px;
 }
 
+.mxb-field-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--p-text-color-secondary, #6c757d);
+}
+
+.mxb-resolve-reason {
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: var(--p-content-hover-background, #f4f5f7);
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 .mxb-fieldrow {
     display: flex;
     gap: 10px;

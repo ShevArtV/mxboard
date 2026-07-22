@@ -32,6 +32,14 @@ class TaskService
     /** Длина заголовка — встроенный инвариант задачи. */
     private const TITLE_MAX = 250;
 
+    /**
+     * Максимум обоснования оспаривания (дедлайн/план). Колонка mxboard_log.note —
+     * TEXT, так что это мягкий контрактный лимит, а не ограничение БД: UI режет ввод
+     * на этой длине и показывает счётчик, здесь — страховка от не-UI каналов
+     * (REST/MCP). Держать в синхроне с maxlength в TaskPage.vue.
+     */
+    public const DISPUTE_REASON_MAX = 1000;
+
     public function __construct(private modX $modx)
     {
     }
@@ -442,7 +450,7 @@ class TaskService
             return $this->fail('mxboard_err_save');
         }
 
-        $this->log($task, $user, 'deadline_dispute', '', '', mb_substr($reason, 0, 255), $channel);
+        $this->log($task, $user, 'deadline_dispute', '', '', mb_substr($reason, 0, self::DISPUTE_REASON_MAX), $channel);
         $this->fireEvent('mxbOnDeadlineDispute', $task, $user, ['channel' => $channel, 'proposed' => $proposedDate, 'reason' => $reason]);
 
         return $this->ok($task);
@@ -530,7 +538,7 @@ class TaskService
             return $this->fail('mxboard_err_save');
         }
 
-        $this->log($task, $user, 'plan_dispute', '', '', mb_substr($reason, 0, 255), $channel);
+        $this->log($task, $user, 'plan_dispute', '', '', mb_substr($reason, 0, self::DISPUTE_REASON_MAX), $channel);
         $this->fireEvent('mxbOnPlanDispute', $task, $user, ['channel' => $channel, 'proposed' => $proposedHours, 'reason' => $reason]);
 
         return $this->ok($task);
