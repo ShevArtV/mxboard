@@ -2033,16 +2033,6 @@ function openNotif(n) {
     color: var(--mxb-ink-muted);
 }
 
-.mxb-ov-warn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--mxb-space-1);
-    padding: 2px 8px;
-    border-radius: var(--mxb-radius-pill);
-    background: color-mix(in srgb, var(--p-orange-500, #f59e0b) 16%, transparent);
-    color: var(--p-orange-600, #d97706);
-    font-weight: 600;
-}
 
 .mxb-ov-empty {
     display: flex;

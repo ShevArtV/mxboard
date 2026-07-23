@@ -32,11 +32,41 @@ class BoardQuery
     private const MAX_TASKS = 300;
 
     /**
-     * Потолок табличного обзора отдела. Выше, чем у доски (там карточки в колонках, а
-     * тут плоский список сразу по всем проектам отдела), но всё равно конечный: выдача
-     * сопровождается total/truncated, и UI честно говорит, что показал не всё.
+     * Размеры страницы табличного обзора отдела. Список закрытый: страница — это то, что
+     * пользователь выбирает в листалке, а не произвольное число из запроса, иначе
+     * per_page=100000 вернул бы ту же выгрузку всего отдела, ради ухода от которой
+     * пагинация и делалась.
+     *
+     * @var list<int>
      */
-    private const MAX_OVERVIEW_TASKS = 1000;
+    public const OVERVIEW_PAGE_SIZES = [25, 50, 100];
+
+    /** Размер страницы обзора по умолчанию. */
+    public const OVERVIEW_PAGE_SIZE = 25;
+
+    /**
+     * Сортируемые колонки обзора: имя из запроса → выражение для ORDER BY.
+     *
+     * Белый список, а не имя поля напрямую: xPDO подставляет sortby в SQL как есть и
+     * не квотит его, поэтому строка из запроса туда попадать не должна.
+     *
+     * `fact` собирается отдельно (см. overviewSort) — это вычисляемая длительность,
+     * колонки с таким именем в таблице нет.
+     *
+     * @var array<string, string>
+     */
+    private const OVERVIEW_SORTS = [
+        'priority' => 'MxBoardTask.priority',
+        'num' => 'MxBoardTask.num',
+        'title' => 'MxBoardTask.title',
+        'column_name' => 'Column.name',
+        'type_name' => 'Type.name',
+        'author' => 'Author.username',
+        'assignee' => 'Assignee.username',
+        'deadlineon' => 'MxBoardTask.deadlineon',
+        'plan_hours' => 'MxBoardTask.plan_hours',
+        'fact_hours' => '',
+    ];
 
     /** @var array<int, string> кеш username по userId — предотвращает N+1 в taskDetail. */
     private array $usernameCache = [];
@@ -262,17 +292,44 @@ class BoardQuery
      * Учитываются задачи только АКТИВНЫХ проектов отдела: список проектов в фильтре тоже
      * активные, иначе строки неотключаемого проекта нельзя было бы отфильтровать.
      *
-     * @param array<string, mixed> $filters priority[], project_id[], author_id[], assignee_id[], stage[] (ключи колонок)
+     * Выдача СТРАНИЧНАЯ: наружу уходит только запрошенная страница, а `total` считается
+     * отдельным запросом. Потолка у выборки нет — обрезать список молча нельзя, у отдела
+     * с тысячей карточек «хвост» так же нужен, как голова.
      *
-     * @return array{tasks: list<array<string, mixed>>, total: int, truncated: bool, limit: int}
+     * @param array<string, mixed> $filters priority[], project_id[], author_id[], assignee_id[], stage[] (ключи колонок)
+     * @param int                  $page    номер страницы, 1-based
+     * @param int                  $perPage размер страницы; вне OVERVIEW_PAGE_SIZES — дефолт
+     * @param string               $sortBy  колонка сортировки из OVERVIEW_SORTS; иное — дефолтный порядок
+     * @param string               $sortDir ASC|DESC
+     *
+     * @return array{tasks: list<array<string, mixed>>, total: int, page: int, per_page: int, sort_by: string, sort_dir: string}
      */
-    public function departmentTasks(modUser $user, int $departmentId, array $filters = []): array
-    {
+    public function departmentTasks(
+        modUser $user,
+        int $departmentId,
+        array $filters = [],
+        int $page = 1,
+        int $perPage = self::OVERVIEW_PAGE_SIZE,
+        string $sortBy = '',
+        string $sortDir = 'DESC'
+    ): array {
+        $perPage = in_array($perPage, self::OVERVIEW_PAGE_SIZES, true) ? $perPage : self::OVERVIEW_PAGE_SIZE;
+        $page = max(1, $page);
+        $sortBy = isset(self::OVERVIEW_SORTS[$sortBy]) ? $sortBy : '';
+        $sortDir = strtoupper($sortDir) === 'ASC' ? 'ASC' : 'DESC';
+
         $c = $this->overviewQuery($user, $departmentId, $filters);
 
-        // Полное количество ДО потолка: UI должен показать «первые N из M», а не молчать.
+        // Количество — на ОТДЕЛЬНОМ экземпляре запроса: getCount() достраивает свой select
+        // и limit, и на рабочем query это сломало бы саму выборку страницы.
         $countQuery = $this->overviewQuery($user, $departmentId, $filters);
         $total = (int) $this->modx->getCount(MxBoardTask::class, $countQuery);
+
+        // Страница за пределами выдачи (сузили фильтр, оставшись на пятой) — отдаём
+        // последнюю существующую, а не пустоту: листалка иначе показывает «0 из 137».
+        $pages = $total > 0 ? (int) ceil($total / $perPage) : 1;
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
 
         $c->select([
             'MxBoardTask.id',
@@ -308,11 +365,18 @@ class BoardQuery
             'assignee' => 'Assignee.username',
         ]);
 
-        // Порядок по умолчанию — «важное сверху»: если выдача упрётся в потолок, срежется
-        // хвост наименее приоритетного, а не случайные строки. Дальше сортирует таблица.
-        $c->sortby('MxBoardTask.priority', 'DESC');
+        // Сортировка — на сервере: страница отдаётся одна, и клиент, отсортировав только
+        // её, дал бы порядок внутри двадцати пяти строк вместо порядка по всей выдаче.
+        if ($sortBy !== '') {
+            $c->sortby($this->overviewSort($sortBy), $sortDir);
+        } else {
+            // Умолчание — «важное сверху».
+            $c->sortby('MxBoardTask.priority', 'DESC');
+        }
+        // Тай-брейк: без него строки с равным значением сортируемой колонки могут менять
+        // порядок между страницами, и одна и та же задача покажется дважды либо пропадёт.
         $c->sortby('MxBoardTask.id', 'DESC');
-        $c->limit(self::MAX_OVERVIEW_TASKS);
+        $c->limit($perPage, $offset);
 
         $rows = [];
         $c->prepare();
@@ -357,9 +421,37 @@ class BoardQuery
         return [
             'tasks' => $tasks,
             'total' => $total,
-            'truncated' => $total > count($tasks),
-            'limit' => self::MAX_OVERVIEW_TASKS,
+            'page' => $page,
+            'per_page' => $perPage,
+            'sort_by' => $sortBy,
+            'sort_dir' => $sortDir,
         ];
+    }
+
+    /**
+     * Выражение ORDER BY для колонки обзора.
+     *
+     * Все обычные колонки берутся из белого списка как есть. Особый случай — `fact_hours`:
+     * фактическая длительность нигде не хранится, она считается от startedon до closedon
+     * (или до «сейчас» у идущей задачи), поэтому в ORDER BY уходит выражение.
+     *
+     * «Сейчас» подставляет PHP, а не UNIX_TIMESTAMP(): фронт считает ту же длительность по
+     * часам приложения, и если бы сервер брал часы БД, порядок строк разошёлся бы с
+     * показанными в ячейке значениями. Значение — int, в SQL попадает числом.
+     *
+     * Незапущенные задачи получают -1, как и во фронте (utils/format.js) — иначе они
+     * притворялись бы нулевой длительностью и смешивались с только что начатыми.
+     */
+    private function overviewSort(string $sortBy): string
+    {
+        if ($sortBy !== 'fact_hours') {
+            return self::OVERVIEW_SORTS[$sortBy];
+        }
+
+        $now = time();
+
+        return 'IF(MxBoardTask.startedon > 0, '
+            . 'IF(MxBoardTask.closedon > 0, MxBoardTask.closedon, ' . $now . ') - MxBoardTask.startedon, -1)';
     }
 
     /**

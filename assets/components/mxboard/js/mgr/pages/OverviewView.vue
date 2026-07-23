@@ -24,12 +24,24 @@ const stages = ref([]);
 
 const rows = ref([]);
 const total = ref(0);
-const truncated = ref(false);
 const loading = ref(false);
 const metaLoaded = ref(false);
 
 // Множественные фильтры: пустой массив = «любой», как и на сервере.
 const filters = ref({ priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] });
+
+// Страница, её размер и сортировка — состояние ЗАПРОСА, а не таблицы: в браузер приезжает
+// одна страница, поэтому и листание, и порядок строк считает сервер.
+const PAGE_SIZES = [25, 50, 100];
+const page = ref(1);
+const perPage = ref(PAGE_SIZES[0]);
+const sortBy = ref('');
+const sortDir = ref('DESC');
+
+const first = computed(() => (page.value - 1) * perPage.value);
+// null, а не 'priority': пока пользователь не сортировал сам, у таблицы не должно быть
+// стрелки на колонке — порядок по умолчанию задаёт сервер.
+const sortOrder = computed(() => (sortBy.value ? (sortDir.value === 'ASC' ? 1 : -1) : null));
 
 const priorityOptions = computed(() => [...PRIORITIES].sort((a, b) => b.value - a.value));
 
@@ -38,7 +50,15 @@ const priorityOptions = computed(() => [...PRIORITIES].sort((a, b) => b.value - 
 const STATE_KEY = `mxb_overview_filters_${userId}`;
 function saveState() {
     try {
-        localStorage.setItem(STATE_KEY, JSON.stringify({ departmentId: departmentId.value, filters: filters.value }));
+        localStorage.setItem(STATE_KEY, JSON.stringify({
+            departmentId: departmentId.value,
+            filters: filters.value,
+            // Размер страницы и порядок — та же настройка рабочего места, что и фильтры:
+            // возвращаться каждый раз к 25 строкам «важное сверху» пришлось бы вручную.
+            perPage: perPage.value,
+            sortBy: sortBy.value,
+            sortDir: sortDir.value,
+        }));
     } catch (e) { /* localStorage недоступен — не критично */ }
 }
 function readState() {
@@ -53,7 +73,9 @@ let reloadTimer = 0;
 function scheduleLoad() {
     saveState();
     window.clearTimeout(reloadTimer);
-    reloadTimer = window.setTimeout(load, 250);
+    // Сузили фильтр — возвращаемся на первую страницу: остаться на пятой значит увидеть
+    // пустую таблицу там, где результаты есть.
+    reloadTimer = window.setTimeout(() => load(true), 250);
 }
 
 async function loadMeta(withDepartment = true) {
@@ -71,34 +93,52 @@ async function loadMeta(withDepartment = true) {
     }
 }
 
-async function load() {
+async function load(resetPage = false) {
+    if (resetPage) page.value = 1;
     if (!departmentId.value) {
         rows.value = [];
         total.value = 0;
-        truncated.value = false;
         return;
     }
     loading.value = true;
     try {
-        const res = await OverviewApi.getList(departmentId.value, filters.value);
+        const res = await OverviewApi.getList(departmentId.value, filters.value, {
+            page: page.value,
+            per_page: perPage.value,
+            sort_by: sortBy.value,
+            sort_dir: sortDir.value,
+        });
         const data = res.object || {};
-        // fact_hours считаем здесь, а не в шаблоне: DataTable сортирует по ИМЕНИ поля
-        // (resolveFieldData), функцию в sort-field он не примет — а столбец «план / факт»
-        // сортировать надо именно по факту.
-        rows.value = (Array.isArray(data.tasks) ? data.tasks : []).map((row) => ({
-            ...row,
-            fact_hours: Number(row.startedon) ? factHours(row) : -1,
-        }));
+        rows.value = Array.isArray(data.tasks) ? data.tasks : [];
         total.value = Number(data.total) || 0;
-        truncated.value = !!data.truncated;
+        // Номер страницы берём из ответа: сервер поджимает его к последней существующей,
+        // и рассинхрон дал бы листалку, показывающую страницу, которой уже нет.
+        page.value = Number(data.page) || 1;
     } catch (e) {
         rows.value = [];
         total.value = 0;
-        truncated.value = false;
         toast.add({ severity: 'error', detail: errorMessage(e), life: 6000 });
     } finally {
         loading.value = false;
     }
+}
+
+// Листалка и сортировка: оба обработчика меняют параметры ЗАПРОСА и идут на сервер —
+// в lazy-режиме DataTable сама ничего не режет и не сортирует.
+function onPage(event) {
+    perPage.value = Number(event.rows) || PAGE_SIZES[0];
+    page.value = Math.floor((Number(event.first) || 0) / perPage.value) + 1;
+    saveState();
+    load();
+}
+
+function onSort(event) {
+    // removable-sort третьим кликом снимает сортировку (sortField = null) — возвращаемся
+    // к порядку по умолчанию, который задаёт сервер.
+    sortBy.value = event.sortField || '';
+    sortDir.value = Number(event.sortOrder) === 1 ? 'ASC' : 'DESC';
+    saveState();
+    load(true);
 }
 
 // Смена отдела обнуляет фильтры: проекты, участники и стадии у другого отдела свои,
@@ -107,13 +147,13 @@ async function onDepartmentChange() {
     filters.value = { priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] };
     saveState();
     await loadMeta();
-    await load();
+    await load(true);
 }
 
 function resetFilters() {
     filters.value = { priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] };
     saveState();
-    load();
+    load(true);
 }
 
 const hasFilters = computed(() => Object.values(filters.value).some((v) => v && v.length));
@@ -169,6 +209,12 @@ onMounted(async () => {
     if (exists && saved?.filters) {
         filters.value = { ...filters.value, ...saved.filters };
     }
+    // Размер страницы и сортировку восстанавливаем всегда: они не привязаны к отделу,
+    // в отличие от фильтров с их id проектов и участников. Значения валидируем — в
+    // localStorage мог остаться размер из прошлой версии интерфейса.
+    if (PAGE_SIZES.includes(Number(saved?.perPage))) perPage.value = Number(saved.perPage);
+    if (typeof saved?.sortBy === 'string') sortBy.value = saved.sortBy;
+    if (saved?.sortDir === 'ASC' || saved?.sortDir === 'DESC') sortDir.value = saved.sortDir;
     if (departmentId.value) {
         await loadMeta();
         await load();
@@ -275,25 +321,30 @@ watch(() => filters.value, scheduleLoad, { deep: true });
 
             <div class="mxb-ov-status">
                 <span>{{ t('mxboard_ui_overview_count', { total }) }}</span>
-                <span v-if="truncated" class="mxb-ov-warn">
-                    <i class="pi pi-exclamation-triangle" />
-                    {{ t('mxboard_ui_overview_truncated', { shown: rows.length, total }) }}
-                </span>
             </div>
 
+            <!-- lazy: страницу, порядок и общее количество считает сервер. Без него
+                 таблица листала бы и сортировала только загруженную пачку. -->
             <DataTable
                 :value="rows"
                 :loading="loading"
                 data-key="id"
                 size="small"
                 striped-rows
+                lazy
                 paginator
-                :rows="25"
-                :rows-per-page-options="[25, 50, 100]"
+                :first="first"
+                :rows="perPage"
+                :total-records="total"
+                :rows-per-page-options="PAGE_SIZES"
+                :sort-field="sortBy || null"
+                :sort-order="sortOrder"
                 removable-sort
                 row-hover
                 scrollable
                 class="mxb-ov-table"
+                @page="onPage"
+                @sort="onSort"
                 @row-click="openRow"
             >
                 <!-- Пустое состояние разное: «фильтры отсекли всё» лечится кнопкой сброса,

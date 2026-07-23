@@ -215,7 +215,6 @@ $_lang['mxboard_ui_overview_no_departments'] = 'You do not manage any department
 $_lang['mxboard_ui_overview_empty'] = 'No task matches the selected filters.';
 $_lang['mxboard_ui_overview_empty_department'] = 'The department projects have no tasks yet. Create the first one on the “Board” tab.';
 $_lang['mxboard_ui_overview_count'] = 'Tasks: [[+total]]';
-$_lang['mxboard_ui_overview_truncated'] = 'Showing the first [[+shown]] of [[+total]] — narrow the filters.';
 $_lang['mxboard_ui_overview_back'] = 'Back to the list';
 $_lang['mxboard_ui_overview_col_num'] = '#';
 $_lang['mxboard_ui_overview_col_title'] = 'Task';

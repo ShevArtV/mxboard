@@ -212,13 +212,20 @@ export const AttachmentApi = {
 export const OverviewApi = {
     // Без department_id — только список подведомственных отделов (для селектора).
     meta: (departmentId = 0) => post(O + 'Meta', { department_id: departmentId }),
-    getList: (departmentId, filters = {}) => post(O + 'GetList', withJson({
+    // Страница, её размер и сортировка идут на сервер: таблица обзора lazy, в браузер
+    // приезжает ровно одна страница. Скаляры в withJson не заворачиваем — ломается только
+    // передача массивов (useApi раскладывает их в FormData поэлементно).
+    getList: (departmentId, filters = {}, paging = {}) => post(O + 'GetList', withJson({
         department_id: departmentId,
         priority: filters.priority || [],
         project_id: filters.project_id || [],
         author_id: filters.author_id || [],
         assignee_id: filters.assignee_id || [],
         stage: filters.stage || [],
+        page: paging.page || 1,
+        per_page: paging.per_page || 25,
+        sort_by: paging.sort_by || '',
+        sort_dir: paging.sort_dir || 'DESC',
     }, ['priority', 'project_id', 'author_id', 'assignee_id', 'stage'])),
 };
 

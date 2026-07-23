@@ -46,6 +46,22 @@ class GetList extends ServiceProcessor
             'stage' => $this->jsonProperty('stage') ?? [],
         ];
 
-        return $this->success('', (new BoardQuery($this->modx))->departmentTasks($user, $departmentId, $filters));
+        // Пагинация и сортировка — серверные: страница отдаётся одна, поэтому и порядок
+        // строк должен считаться по всей выдаче, а не по загруженной пачке. Валидацию
+        // размера страницы и имени колонки делает BoardQuery (там же и белый список).
+        $page = (int) $this->getProperty('page', 1);
+        $perPage = (int) $this->getProperty('per_page', BoardQuery::OVERVIEW_PAGE_SIZE);
+        $sortBy = (string) $this->getProperty('sort_by', '');
+        $sortDir = (string) $this->getProperty('sort_dir', 'DESC');
+
+        return $this->success('', (new BoardQuery($this->modx))->departmentTasks(
+            $user,
+            $departmentId,
+            $filters,
+            $page,
+            $perPage,
+            $sortBy,
+            $sortDir
+        ));
     }
 }
