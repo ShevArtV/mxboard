@@ -342,6 +342,7 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                 removable-sort
                 row-hover
                 scrollable
+                scroll-height="flex"
                 class="mxb-ov-table"
                 @page="onPage"
                 @sort="onSort"

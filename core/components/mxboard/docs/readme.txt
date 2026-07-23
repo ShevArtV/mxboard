@@ -1,5 +1,5 @@
 --------------------
- mxBoard 2.9.0-pl
+ mxBoard 2.10.1-pl
  --------------------
  Автор: Shevchenko Arthur
  По вопросам и ошибкам: shev.art.v@ya.ru
