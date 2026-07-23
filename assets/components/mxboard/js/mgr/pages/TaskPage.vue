@@ -166,12 +166,25 @@ async function copyId() {
 }
 
 // fields задачи, размеченные лейблами и типами из схемы типа.
+// Списочное поле считается заполненным всегда: его правят прямо в панели, и пустой
+// список надо видеть — иначе заполнить его можно только через общий режим правки.
 const fieldRows = computed(() => {
     const values = task.value?.fields || {};
     const defs = schema.value?.fields || [];
     return defs
-        .filter((f) => values[f.key] !== undefined && values[f.key] !== '' && values[f.key] !== null)
-        .map((f) => ({ key: f.key, label: f.label, type: f.type || 'textarea', value: values[f.key] }));
+        .filter((f) => {
+            if ((f.type || '') === 'select') return true;
+            const value = values[f.key];
+            return value !== undefined && value !== '' && value !== null;
+        })
+        .map((f) => ({
+            key: f.key,
+            label: f.label,
+            type: f.type || 'textarea',
+            value: values[f.key],
+            required: !!f.required,
+            options: Array.isArray(f.options) ? f.options : [],
+        }));
 });
 
 // Текстовые поля типа (Строка/Текст) сливаются в ОДИН оформленный документ:
@@ -183,7 +196,12 @@ const textFieldsMd = computed(() => fieldRows.value
     .filter((f) => TEXT_FIELD_TYPES.includes(f.type))
     .map((f) => `# ${f.label}\n\n${String(f.value)}`)
     .join('\n\n'));
+// Нетекстовые поля собираются в одну панель свойств (та же мета-карта, что у дедлайна,
+// стадии и проекта) — отдельным списком под описанием они выпадали из интерфейса.
 const otherFieldRows = computed(() => fieldRows.value.filter((f) => !TEXT_FIELD_TYPES.includes(f.type)));
+// Inline-правка полей — ровно там же, где сервер разрешает update карточки
+// (автор/менеджер, карточка не закрыта). Иначе контрол обещал бы то, чего не будет.
+const canEditFields = computed(() => canManage.value && !taskIsFinal.value);
 
 // Перемер высоты собранного текста после смены содержимого/задачи.
 function measureDesc() {
@@ -363,6 +381,28 @@ async function act(fn, okMessage) {
 async function moveTo(columnKey) {
     if (!columnKey || columnKey === task.value.column_key) return;
     const ok = await act(() => TaskApi.move(props.taskId, columnKey), t('mxboard_msg_stage_changed'));
+    if (ok) reload();
+}
+
+/**
+ * Inline-правка поля типа прямо в панели свойств — по образцу смены стадии,
+ * без общего режима правки карточки.
+ *
+ * Сервер (TaskService::validateFields) перезаписывает `fields` целиком и требует
+ * заполненности обязательных полей, поэтому шлём ВЕСЬ объект с изменённым ключом:
+ * отправка одной пары затёрла бы остальные значения. Пустое значение = ключ убран,
+ * ровно как это делает сама валидация.
+ */
+async function saveFieldValue(row, value) {
+    const next = { ...(task.value?.fields || {}) };
+    const clean = value === undefined ? null : value;
+    if ((next[row.key] ?? null) === clean) return;
+    if (clean === null || clean === '') {
+        delete next[row.key];
+    } else {
+        next[row.key] = clean;
+    }
+    const ok = await act(() => TaskApi.update({ id: props.taskId, fields: next }), t('mxboard_msg_saved'));
     if (ok) reload();
 }
 
@@ -698,34 +738,53 @@ function openSubtaskDialog() {
                 <h2 class="mxb-task-title">{{ task.title }}</h2>
 
                 <!-- Описание: собранные текстовые поля типа — первым блоком, длинный текст под катом. -->
-                <div v-if="!editing && (textFieldsMd || otherFieldRows.length)" class="mxb-section">
-                    <template v-if="textFieldsMd">
-                        <div
-                            ref="descEl"
-                            class="mxb-md"
-                            :class="{ 'mxb-md--clamp': descOverflow && !descExpanded }"
-                            v-html="renderMarkdown(textFieldsMd)"
-                        />
-                        <button
-                            v-if="descOverflow"
-                            type="button"
-                            class="mxb-md-toggle"
-                            @click="descExpanded = !descExpanded"
-                        >
-                            <i :class="descExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" />
-                            {{ descExpanded ? t('mxboard_ui_collapse') : t('mxboard_ui_expand') }}
-                        </button>
-                    </template>
-                    <!-- Нетекстовые поля — отдельными строками. -->
-                    <div v-for="f in otherFieldRows" :key="f.key" class="mxb-fieldrow">
-                        <template v-if="f.type === 'url'">
-                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                            <a :href="f.value" target="_blank" rel="noopener" class="mxb-fieldrow-link">{{ f.value }}</a>
-                        </template>
-                        <template v-else>
-                            <span class="mxb-fieldrow-label">{{ f.label }}:</span>
-                            <span class="mxb-fieldrow-value">{{ f.value }}</span>
-                        </template>
+                <div v-if="!editing && textFieldsMd" class="mxb-section">
+                    <div
+                        ref="descEl"
+                        class="mxb-md"
+                        :class="{ 'mxb-md--clamp': descOverflow && !descExpanded }"
+                        v-html="renderMarkdown(textFieldsMd)"
+                    />
+                    <button
+                        v-if="descOverflow"
+                        type="button"
+                        class="mxb-md-toggle"
+                        @click="descExpanded = !descExpanded"
+                    >
+                        <i :class="descExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'" />
+                        {{ descExpanded ? t('mxboard_ui_collapse') : t('mxboard_ui_expand') }}
+                    </button>
+                </div>
+
+                <!-- Поля типа: одна панель в том же вокабуляре, что и системные свойства ниже.
+                     Списочные правятся здесь же, как стадия, — общий режим правки для этого не нужен. -->
+                <div v-if="!editing && otherFieldRows.length" class="mxb-meta-card">
+                    <div v-for="f in otherFieldRows" :key="f.key" class="mxb-meta-row">
+                        <span class="mxb-meta-label">{{ f.label }}</span>
+                        <span class="mxb-meta-value">
+                            <template v-if="f.type === 'select'">
+                                <Select
+                                    v-if="canEditFields && f.options.length"
+                                    :model-value="f.value ?? null"
+                                    :options="f.options"
+                                    :placeholder="t('mxboard_ui_field_not_set')"
+                                    :show-clear="!f.required"
+                                    :loading="busy"
+                                    fluid
+                                    @update:model-value="saveFieldValue(f, $event)"
+                                />
+                                <span v-else-if="f.value" class="mxb-chip">{{ f.value }}</span>
+                                <span v-else class="mxb-meta-unset">{{ t('mxboard_ui_field_not_set') }}</span>
+                            </template>
+                            <a
+                                v-else-if="f.type === 'url'"
+                                :href="f.value"
+                                target="_blank"
+                                rel="noopener"
+                                class="mxb-fieldrow-link"
+                            >{{ f.value }}</a>
+                            <template v-else>{{ f.value }}</template>
+                        </span>
                     </div>
                 </div>
 

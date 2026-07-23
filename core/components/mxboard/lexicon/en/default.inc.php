@@ -258,6 +258,7 @@ $_lang['mxboard_ui_stage'] = 'Stage';
 $_lang['mxboard_ui_tor_section'] = 'Statement';
 $_lang['mxboard_ui_tor_empty'] = 'Statement is empty';
 $_lang['mxboard_ui_type_fields'] = 'Type fields';
+$_lang['mxboard_ui_field_not_set'] = 'Not set';
 $_lang['mxboard_ui_ai_verdict'] = 'AI completeness check';
 $_lang['mxboard_ui_ai_ok'] = 'complete';
 $_lang['mxboard_ui_ai_incomplete_short'] = 'incomplete';

@@ -1252,6 +1252,13 @@ function openNotif(n) {
     gap: 6px;
 }
 
+/* Незаполненное значение в панели свойств: состояние, а не текст. Приглушаем, но
+   курсивом и словами — прочерк не объясняет, что поле можно заполнить. */
+.mxb-meta-unset {
+    color: var(--mxb-ink-muted);
+    font-style: italic;
+}
+
 .mxb-meta-id code {
     background: var(--p-surface-100, #f1f3f5);
     padding: 2px 8px;
@@ -1905,12 +1912,6 @@ function openNotif(n) {
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
-}
-
-.mxb-fieldrow-value {
-    flex: 1;
-    word-break: break-word;
-    white-space: pre-wrap;
 }
 
 .mxb-fieldrow-link {

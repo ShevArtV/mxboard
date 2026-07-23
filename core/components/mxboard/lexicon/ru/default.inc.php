@@ -258,6 +258,7 @@ $_lang['mxboard_ui_stage'] = 'Стадия';
 $_lang['mxboard_ui_tor_section'] = 'Постановка';
 $_lang['mxboard_ui_tor_empty'] = 'Постановка не заполнена';
 $_lang['mxboard_ui_type_fields'] = 'Поля типа';
+$_lang['mxboard_ui_field_not_set'] = 'Не выбрано';
 $_lang['mxboard_ui_ai_verdict'] = 'ИИ-проверка полноты';
 $_lang['mxboard_ui_ai_ok'] = 'полная';
 $_lang['mxboard_ui_ai_incomplete_short'] = 'неполная';
