@@ -205,6 +205,18 @@ watch(() => props.taskId, (id) => {
     if (id) load(id);
 }, { immediate: true });
 
+// Карточку закрыли, пока была открыта форма правки (живой апдейт по SSE) — форму убираем:
+// сервер такую правку уже не примет, а открытые поля создают иллюзию, что примет.
+watch(taskIsFinal, (isFinal) => {
+    if (isFinal) {
+        editing.value = false;
+        editingCommentId.value = 0;
+        disputeOpen.value = false;
+        planDisputeOpen.value = false;
+        resolveOpen.value = false;
+    }
+});
+
 async function load(id, options = {}) {
     const preserveDraft = !!options.preserveDraft;
     const silent = !!options.silent;
@@ -617,7 +629,7 @@ function openSubtaskDialog() {
             <Button :label="t('mxboard_ui_to_board')" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="emit('back')" />
             <span class="mxb-toolbar-spacer" />
             <Button
-                v-if="canManage"
+                v-if="canManage && !taskIsFinal"
                 :label="editing ? t('mxboard_ui_cancel_edit') : t('mxboard_ui_edit')"
                 :icon="editing ? 'pi pi-times' : 'pi pi-pencil'"
                 size="small"
@@ -636,7 +648,7 @@ function openSubtaskDialog() {
                 @click="queueClick"
             />
             <Button
-                v-if="canManage"
+                v-if="canManage && !taskIsFinal"
                 :label="t('mxboard_ui_delete')"
                 icon="pi pi-trash"
                 size="small"
@@ -768,7 +780,7 @@ function openSubtaskDialog() {
                                 <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ fmtDay(task.deadline_proposed) }}
                             </span>
                             <Button
-                                v-if="task.deadline_disputed && canManage"
+                                v-if="task.deadline_disputed && canManage && !taskIsFinal"
                                 :label="t('mxboard_ui_resolve')"
                                 icon="pi pi-gavel"
                                 size="small"
@@ -778,7 +790,7 @@ function openSubtaskDialog() {
                         </span>
                     </div>
                     <!-- Оспорить дедлайн (исполнитель). Разрешение спора — кнопкой «Решить» в строке значения. -->
-                    <div v-if="!task.deadline_disputed && isAssignee" class="mxb-meta-row">
+                    <div v-if="!task.deadline_disputed && isAssignee && !taskIsFinal" class="mxb-meta-row">
                         <span class="mxb-meta-label" />
                         <span class="mxb-meta-value mxb-meta-deadline-actions">
                             <Button
@@ -799,7 +811,7 @@ function openSubtaskDialog() {
                                 <i class="pi pi-flag-fill" /> {{ t('mxboard_ui_disputed_to') }} → {{ task.plan_proposed }} {{ t('mxboard_ui_hours_short') }}
                             </span>
                             <Button
-                                v-if="task.plan_disputed && canManage"
+                                v-if="task.plan_disputed && canManage && !taskIsFinal"
                                 :label="t('mxboard_ui_resolve')"
                                 icon="pi pi-gavel"
                                 size="small"
@@ -809,7 +821,7 @@ function openSubtaskDialog() {
                         </span>
                     </div>
                     <!-- Оспорить оценку (исполнитель, только если план задан). Разрешение — «Решить» в строке значения. -->
-                    <div v-if="!task.plan_disputed && isAssignee && planHours" class="mxb-meta-row">
+                    <div v-if="!task.plan_disputed && isAssignee && planHours && !taskIsFinal" class="mxb-meta-row">
                         <span class="mxb-meta-label" />
                         <span class="mxb-meta-value mxb-meta-deadline-actions">
                             <Button
@@ -909,10 +921,11 @@ function openSubtaskDialog() {
                         :items="taskAttachments"
                         :user-id="userId"
                         :can-manage="canManage"
+                        :readonly="taskIsFinal"
                         @remove="removeAttachment"
                     />
                     <div v-if="!taskAttachments.length" class="mxb-empty">{{ t('mxboard_ui_no_files') }}</div>
-                    <FileDrop :busy="busy" @files="uploadTaskFiles" />
+                    <FileDrop v-if="!taskIsFinal" :busy="busy" @files="uploadTaskFiles" />
                 </div>
 
                 <!-- РЕЖИМ ПРАВКИ -->
@@ -1066,13 +1079,14 @@ function openSubtaskDialog() {
                                         :items="c.attachments"
                                         :user-id="userId"
                                         :can-manage="canManage"
+                                        :readonly="taskIsFinal"
                                         @remove="removeAttachment"
                                     />
                                     <div class="mxb-chat-meta">
                                         <span class="mxb-chat-time">{{ fmtTime(c.createdon) }}</span>
                                         <span v-if="c.updatedon" class="mxb-comment-edited">{{ t('mxboard_ui_comment_edited') }}</span>
                                     </div>
-                                    <div v-if="c.user_id === userId" class="mxb-chat-actions">
+                                    <div v-if="c.user_id === userId && !taskIsFinal" class="mxb-chat-actions">
                                         <Button icon="pi pi-pencil" size="small" severity="secondary" text @click="startEditComment(c)" />
                                         <Button icon="pi pi-trash" size="small" severity="danger" text @click="removeComment($event, c)" />
                                     </div>
@@ -1082,8 +1096,15 @@ function openSubtaskDialog() {
                     </div>
                 </div>
 
+                <!-- Закрытая карточка: композера нет — сервер всё равно откажет (ClosedGuard). -->
+                <div v-if="taskIsFinal" class="mxb-empty mxb-empty--rich mxb-chat-closed">
+                    <i class="pi pi-lock" />
+                    <span>{{ t('mxboard_ui_task_closed_hint') }}</span>
+                </div>
+
                 <!-- Композер: текст + прикрепление файлов к сообщению (drag-n-drop + мультивыбор) -->
                 <div
+                    v-else
                     class="mxb-chat-composer-wrap"
                     :class="{ 'mxb-composer-over': composerOver }"
                     @dragover.prevent="composerOver = true"

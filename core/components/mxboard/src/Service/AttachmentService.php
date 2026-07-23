@@ -7,6 +7,7 @@ namespace MxBoard\Service;
 use MODX\Revolution\modUser;
 use MODX\Revolution\modX;
 use MODX\Revolution\Sources\modMediaSource;
+use MxBoard\Helpers\ClosedGuard;
 use MxBoard\Helpers\Transitions;
 use MxBoard\Helpers\Visibility;
 use MxBoard\Model\MxBoardAttachment;
@@ -22,6 +23,10 @@ use MxBoard\Model\MxBoardTask;
  *
  * Каскад: DB-записи вложений задачи снимаются composite-связью MxBoardTask→Attachments,
  * но физфайлы удаляются ТОЛЬКО явным purgeForTask/purgeForComment — сам remove() их не трёт.
+ *
+ * Карточка в финальной стадии закрыта для вложений (ClosedGuard) — и для заливки, и для
+ * удаления. Служебные purgeFor* этой проверки не знают: они часть каскада удаления
+ * карточки/комментария, а не пользовательская операция над закрытой задачей.
  */
 class AttachmentService
 {
@@ -49,6 +54,10 @@ class AttachmentService
         $task = $this->modx->getObject(MxBoardTask::class, $taskId);
         if (!$task) {
             return $this->fail('mxboard_err_task_not_found');
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         if (!Visibility::canView($this->modx, $user, $task)) {
@@ -196,6 +205,10 @@ class AttachmentService
             $attachment->remove();
 
             return ['success' => true, 'message' => '', 'object' => null];
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         if (!$this->canRemove($user, $task, $attachment)) {

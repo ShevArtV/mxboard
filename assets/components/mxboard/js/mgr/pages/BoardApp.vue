@@ -1524,6 +1524,14 @@ function openNotif(n) {
     border-top: 1px solid var(--p-content-border-color, #e2e5e9);
 }
 
+/* Закрытая карточка: вместо композера — объяснение, почему писать нельзя. */
+.mxb-chat-closed {
+    flex: none;
+    border-top: 1px solid var(--p-content-border-color, #e2e5e9);
+    padding: 18px 16px;
+    text-align: center;
+}
+
 /* Выбранные, но не отправленные файлы над полем ввода. */
 .mxb-composer-files {
     display: flex;

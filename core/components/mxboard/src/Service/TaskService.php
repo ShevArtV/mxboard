@@ -6,6 +6,7 @@ namespace MxBoard\Service;
 
 use MODX\Revolution\modUser;
 use MODX\Revolution\modX;
+use MxBoard\Helpers\ClosedGuard;
 use MxBoard\Helpers\Columns;
 use MxBoard\Helpers\TaskNum;
 use MxBoard\Helpers\Transitions;
@@ -26,6 +27,10 @@ use MxBoard\Model\MxBoardTaskType;
  * Процессоры (менеджер), REST и MCP — тонкие обёртки над этим сервисом: правила
  * перехода, валидация и журнал не должны зависеть от того, каким каналом пришёл
  * запрос, иначе агент найдёт канал, где проверка слабее.
+ *
+ * Отсюда же действует read-only закрытой карточки: каждая мутация начинается с
+ * ClosedGuard (см. хелпер), и только move() его не спрашивает — вернуть задачу из
+ * финальной стадии должно быть можно всегда.
  */
 class TaskService
 {
@@ -318,6 +323,10 @@ class TaskService
             return $this->fail('mxboard_err_task_not_found');
         }
 
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
+        }
+
         if (!Visibility::canView($this->modx, $user, $task)) {
             return $this->fail('mxboard_err_view_denied');
         }
@@ -373,6 +382,10 @@ class TaskService
             return $this->fail('mxboard_err_task_not_found');
         }
 
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
+        }
+
         $comment->set('content', $content);
         $comment->set('updatedon', time());
 
@@ -412,6 +425,10 @@ class TaskService
             return $this->fail('mxboard_err_task_not_found');
         }
 
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
+        }
+
         // Вложения сообщения: физфайлы удаляем явно (composite снял бы лишь записи и только
         // по задаче) ДО удаления коммента.
         (new AttachmentService($this->modx))->purgeForComment($commentId);
@@ -437,6 +454,10 @@ class TaskService
         $task = $this->modx->getObject(MxBoardTask::class, $taskId);
         if (!$task) {
             return $this->fail('mxboard_err_task_not_found');
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         if ((int) $user->get('id') !== (int) $task->get('assignee_id')) {
@@ -480,6 +501,10 @@ class TaskService
         $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
         if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
             return $this->fail('mxboard_err_author_only');
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         if (!(bool) $task->get('deadline_disputed')) {
@@ -527,6 +552,10 @@ class TaskService
             return $this->fail('mxboard_err_dispute_assignee_only');
         }
 
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
+        }
+
         if ((int) $task->get('plan_hours') <= 0) {
             return $this->fail('mxboard_err_plan_not_set');
         }
@@ -570,6 +599,10 @@ class TaskService
             return $this->fail('mxboard_err_author_only');
         }
 
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
+        }
+
         if (!(bool) $task->get('plan_disputed')) {
             return $this->fail('mxboard_err_no_dispute');
         }
@@ -608,6 +641,10 @@ class TaskService
         $task = $this->modx->getObject(MxBoardTask::class, $taskId);
         if (!$task) {
             return $this->fail('mxboard_err_task_not_found');
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
@@ -712,6 +749,9 @@ class TaskService
      * они чужая работа: их открепляем (parent_id = 0), затем удаляем родителя
      * (его комментарии и журнал уйдут каскадом composite-связей).
      *
+     * Закрытую карточку удалить нельзя: финальная стадия делает её read-only целиком.
+     * Нужно удалить — сперва верните её из финала move(), потом удаляйте по обычным правам.
+     *
      * @return array{success: bool, message: string, object: null}
      */
     public function delete(modUser $user, int $taskId, string $channel = 'mgr'): array
@@ -725,6 +765,10 @@ class TaskService
         $isAuthor = (int) $user->get('id') === (int) $task->get('author_id');
         if (!$isAuthor && !Transitions::isManager($this->modx, $user, $task)) {
             return $this->fail('mxboard_err_author_only');
+        }
+
+        if (ClosedGuard::isClosed($this->modx, $task)) {
+            return $this->fail(ClosedGuard::ERROR);
         }
 
         // Открепляем подзадачи, чтобы каскад composite не снёс чужие задачи.

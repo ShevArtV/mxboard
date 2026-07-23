@@ -41,6 +41,14 @@ final class Server
 
     private const MAX_PER_COLUMN = 30;
 
+    /**
+     * Приписка к описаниям инструментов, которые сервер отклонит на закрытой карточке.
+     *
+     * Агент видит только описания: без этой строки он будет натыкаться на отказ вслепую
+     * и ретраить. Сам запрет живёт в ClosedGuard, здесь — только его объявление.
+     */
+    private const CLOSED_NOTE = ' Закрытую карточку (финальная стадия) менять нельзя: сперва верните её из финала через task_move.';
+
     private TaskService $tasks;
     private StructureService $structure;
     private BoardQuery $query;
@@ -178,25 +186,25 @@ final class Server
                 'column' => ['type' => 'string', 'description' => 'Ключ колонки назначения.'],
                 'note' => ['type' => 'string', 'description' => 'Пояснение — попадёт в журнал.'],
             ], ['task_id', 'column']),
-            $this->tool('task_comment', 'Комментарий к карточке: так вы отчитываетесь о ходе.', [
+            $this->tool('task_comment', 'Комментарий к карточке: так вы отчитываетесь о ходе.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'content' => ['type' => 'string', 'description' => 'Текст (markdown).'],
             ], ['task_id', 'content']),
-            $this->tool('task_comment_edit', 'Редактировать свой комментарий.', [
+            $this->tool('task_comment_edit', 'Редактировать свой комментарий.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
                 'content' => ['type' => 'string', 'description' => 'Новый текст (markdown).'],
             ], ['task_id', 'comment_id', 'content']),
-            $this->tool('task_comment_delete', 'Удалить свой комментарий.', [
+            $this->tool('task_comment_delete', 'Удалить свой комментарий.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'comment_id' => ['type' => 'integer', 'description' => 'ID комментария.'],
             ], ['task_id', 'comment_id']),
-            $this->tool('task_dispute_deadline', 'Оспорить дедлайн (исполнитель): предложить новую дату с причиной. Меняет её автор.', [
+            $this->tool('task_dispute_deadline', 'Оспорить дедлайн (исполнитель): предложить новую дату с причиной. Меняет её автор.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
                 'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос. До 1000 символов; хвост сверх лимита обрезается.'],
             ], ['task_id', 'proposed_date']),
-            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип, поля, ToR.', [
+            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип, поля, ToR.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'title' => ['type' => 'string'],
                 'deadline' => ['type' => 'string', 'description' => 'YYYY-MM-DD или unix.'],
@@ -206,20 +214,20 @@ final class Server
                 'fields' => ['type' => 'object', 'description' => 'Частичный патч полей типа. Без смены type непереданные ключи сохраняются; при смене type передавайте полный набор полей нового типа.'],
                 'tor' => ['type' => 'string'],
             ], ['task_id']),
-            $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.', [
+            $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'accept' => ['type' => 'boolean', 'description' => 'true — принять предложенную дату; false — отклонить.'],
             ], ['task_id', 'accept']),
-            $this->tool('task_dispute_plan', 'Оспорить плановое время (исполнитель): предложить свою оценку в часах с причиной. Меняет её автор.', [
+            $this->tool('task_dispute_plan', 'Оспорить плановое время (исполнитель): предложить свою оценку в часах с причиной. Меняет её автор.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'proposed_hours' => ['type' => 'integer', 'description' => 'Предлагаемая оценка в часах.'],
                 'reason' => ['type' => 'string', 'description' => 'Почему оценка не годится. До 1000 символов; хвост сверх лимита обрезается.'],
             ], ['task_id', 'proposed_hours']),
-            $this->tool('task_resolve_plan', 'Разрешить оспаривание планового времени (автор/менеджер): принять или отклонить.', [
+            $this->tool('task_resolve_plan', 'Разрешить оспаривание планового времени (автор/менеджер): принять или отклонить.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'accept' => ['type' => 'boolean', 'description' => 'true — принять предложенную оценку; false — отклонить.'],
             ], ['task_id', 'accept']),
-            $this->tool('task_delete', 'Удалить карточку (автор/менеджер). Подзадачи открепляются, не удаляются.', [
+            $this->tool('task_delete', 'Удалить карточку (автор/менеджер). Подзадачи открепляются, не удаляются.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
             ], ['task_id']),
             $this->tool('queue_list', 'Очереди проекта и задачи в них. Очередь запускает карточки по порядку: закрытие задачи очереди автоматически двигает следующую в стартовую стадию.', [
