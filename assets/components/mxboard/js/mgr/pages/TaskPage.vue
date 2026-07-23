@@ -25,6 +25,9 @@ const props = defineProps({
     projectKey: { type: String, default: '' },
     canMoveAny: { type: Boolean, default: false },
     userId: { type: Number, default: 0 },
+    // Подпись кнопки возврата: страницу задачи открывает не только доска, но и обзор
+    // отдела — и там «На доску» вело бы не туда, куда вернёт кнопка.
+    backLabel: { type: String, default: '' },
 });
 const emit = defineEmits(['back', 'open-task', 'changed', 'loaded']);
 
@@ -666,7 +669,7 @@ function openSubtaskDialog() {
 <template>
     <div class="mxb-taskpage">
         <div class="mxb-toolbar">
-            <Button :label="t('mxboard_ui_to_board')" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="emit('back')" />
+            <Button :label="props.backLabel || t('mxboard_ui_to_board')" icon="pi pi-arrow-left" size="small" severity="secondary" outlined @click="emit('back')" />
             <span class="mxb-toolbar-spacer" />
             <Button
                 v-if="canManage && !taskIsFinal"

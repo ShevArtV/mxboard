@@ -31,6 +31,13 @@ class BoardQuery
     /** Потолки выдачи: обзор доски, а не дамп базы в контекст агента. */
     private const MAX_TASKS = 300;
 
+    /**
+     * Потолок табличного обзора отдела. Выше, чем у доски (там карточки в колонках, а
+     * тут плоский список сразу по всем проектам отдела), но всё равно конечный: выдача
+     * сопровождается total/truncated, и UI честно говорит, что показал не всё.
+     */
+    private const MAX_OVERVIEW_TASKS = 1000;
+
     /** @var array<int, string> кеш username по userId — предотвращает N+1 в taskDetail. */
     private array $usernameCache = [];
 
@@ -241,6 +248,212 @@ class BoardQuery
             ],
             'columns' => $cols,
         ];
+    }
+
+    /**
+     * Табличный обзор отдела: задачи ВСЕХ его проектов одним плоским списком.
+     *
+     * Отличие от board(): точка отсчёта — отдел, а не проект, группировки по колонкам нет,
+     * а все фильтры МНОЖЕСТВЕННЫЕ (IN), потому что экран руководителя — это срез вида
+     * «эти два проекта, эти три исполнителя, эти стадии». Скоуп видимости — общий
+     * (Visibility::departmentCondition): не менеджер отдела увидит здесь только свои
+     * карточки, чем бы ни был открыт канал.
+     *
+     * Учитываются задачи только АКТИВНЫХ проектов отдела: список проектов в фильтре тоже
+     * активные, иначе строки неотключаемого проекта нельзя было бы отфильтровать.
+     *
+     * @param array<string, mixed> $filters priority[], project_id[], author_id[], assignee_id[], stage[] (ключи колонок)
+     *
+     * @return array{tasks: list<array<string, mixed>>, total: int, truncated: bool, limit: int}
+     */
+    public function departmentTasks(modUser $user, int $departmentId, array $filters = []): array
+    {
+        $c = $this->overviewQuery($user, $departmentId, $filters);
+
+        // Полное количество ДО потолка: UI должен показать «первые N из M», а не молчать.
+        $countQuery = $this->overviewQuery($user, $departmentId, $filters);
+        $total = (int) $this->modx->getCount(MxBoardTask::class, $countQuery);
+
+        $c->select([
+            'MxBoardTask.id',
+            'MxBoardTask.num',
+            'MxBoardTask.title',
+            'MxBoardTask.priority',
+            'MxBoardTask.author_id',
+            'MxBoardTask.assignee_id',
+            'MxBoardTask.parent_id',
+            'MxBoardTask.deadlineon',
+            'MxBoardTask.deadline_disputed',
+            'MxBoardTask.plan_hours',
+            'MxBoardTask.plan_disputed',
+            'MxBoardTask.startedon',
+            'MxBoardTask.closedon',
+            'MxBoardTask.createdon',
+            'MxBoardTask.queue_id',
+            'project_id' => 'Project.id',
+            'project_key' => 'Project.key',
+            'project_name' => 'Project.name',
+            'column_key' => 'Column.key',
+            'column_name' => 'Column.name',
+            'column_color' => 'Column.color',
+            'column_final' => 'Column.is_final',
+            'column_initial' => 'Column.is_initial',
+            // Позиция стадии нужна фронту не для сортировки, а для фолбэка цвета:
+            // у стадии без своего цвета оттенок берётся из палитры по позиции — так же,
+            // как на доске (utils/format.js::stageColor).
+            'column_position' => 'Column.position',
+            'type_key' => 'Type.key',
+            'type_name' => 'Type.name',
+            'author' => 'Author.username',
+            'assignee' => 'Assignee.username',
+        ]);
+
+        // Порядок по умолчанию — «важное сверху»: если выдача упрётся в потолок, срежется
+        // хвост наименее приоритетного, а не случайные строки. Дальше сортирует таблица.
+        $c->sortby('MxBoardTask.priority', 'DESC');
+        $c->sortby('MxBoardTask.id', 'DESC');
+        $c->limit(self::MAX_OVERVIEW_TASKS);
+
+        $rows = [];
+        $c->prepare();
+        if ($c->stmt && $c->stmt->execute()) {
+            $rows = (array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC);
+        }
+
+        $tasks = [];
+        foreach ($rows as $r) {
+            $tasks[] = [
+                'id' => (int) $r['id'],
+                'num' => (string) ($r['num'] ?? ''),
+                'title' => (string) ($r['title'] ?? ''),
+                'priority' => (int) $r['priority'],
+                'author_id' => (int) $r['author_id'],
+                'assignee_id' => (int) $r['assignee_id'],
+                'parent_id' => (int) $r['parent_id'],
+                'deadlineon' => (int) $r['deadlineon'],
+                'deadline_disputed' => (bool) $r['deadline_disputed'],
+                'plan_hours' => (int) $r['plan_hours'],
+                'plan_disputed' => (bool) $r['plan_disputed'],
+                'startedon' => (int) $r['startedon'],
+                'closedon' => (int) $r['closedon'],
+                'createdon' => (int) $r['createdon'],
+                'queue_id' => (int) $r['queue_id'],
+                'project_id' => (int) $r['project_id'],
+                'project_key' => (string) ($r['project_key'] ?? ''),
+                'project_name' => (string) ($r['project_name'] ?? ''),
+                'column_key' => (string) ($r['column_key'] ?? ''),
+                'column_name' => (string) ($r['column_name'] ?? ''),
+                'column_color' => (string) ($r['column_color'] ?: '#6c757d'),
+                'column_final' => (bool) $r['column_final'],
+                'column_initial' => (bool) $r['column_initial'],
+                'column_position' => (int) $r['column_position'],
+                'type_key' => (string) ($r['type_key'] ?? ''),
+                'type_name' => (string) ($r['type_name'] ?? ''),
+                'author' => (string) ($r['author'] ?? ''),
+                'assignee' => (string) ($r['assignee'] ?? ''),
+            ];
+        }
+
+        return [
+            'tasks' => $tasks,
+            'total' => $total,
+            'truncated' => $total > count($tasks),
+            'limit' => self::MAX_OVERVIEW_TASKS,
+        ];
+    }
+
+    /**
+     * Стадии отдела для фильтра обзора: уникальные по ключу колонки всех его активных
+     * проектов (с тем же fallback на глобальный шаблон, что и доска).
+     *
+     * Наборы колонок у проектов отдела могут различаться, поэтому фильтр работает по
+     * КЛЮЧУ: одноимённая стадия в разных проектах — одна позиция в списке. Имя и цвет
+     * берём у первой встреченной (проекты обходим по position), позицию — минимальную,
+     * чтобы порядок в фильтре читался как порядок стадий.
+     *
+     * @return list<array{key: string, name: string, color: string, position: int}>
+     */
+    public function departmentStages(int $departmentId): array
+    {
+        $scopes = [];
+        foreach ($this->departmentProjects($departmentId) as $project) {
+            $scopes[] = Columns::scope($this->modx, (int) $project['id']);
+        }
+        $scopes = array_values(array_unique($scopes));
+        if ($scopes === []) {
+            return [];
+        }
+
+        $c = $this->modx->newQuery(MxBoardColumn::class);
+        $c->where(['project_id:IN' => $scopes]);
+        $c->sortby('position', 'ASC');
+
+        /** @var array<string, array{key: string, name: string, color: string, position: int}> $byKey */
+        $byKey = [];
+        /** @var MxBoardColumn $column */
+        foreach ($this->modx->getCollection(MxBoardColumn::class, $c) as $column) {
+            $key = (string) $column->get('key');
+            $position = (int) $column->get('position');
+            if (isset($byKey[$key])) {
+                $byKey[$key]['position'] = min($byKey[$key]['position'], $position);
+                continue;
+            }
+            $byKey[$key] = [
+                'key' => $key,
+                'name' => (string) $column->get('name'),
+                'color' => (string) ($column->get('color') ?: '#6c757d'),
+                'position' => $position,
+            ];
+        }
+
+        $out = array_values($byKey);
+        usort($out, static fn (array $a, array $b): int => $a['position'] <=> $b['position']);
+
+        return $out;
+    }
+
+    /**
+     * Отделы, которыми пользователь РУКОВОДИТ (супер группы отдела либо глобальный sudo).
+     *
+     * Селектор обзора обязан показывать только их: обзор — экран руководителя, и
+     * предлагать отдел, на который процессор всё равно ответит отказом, — врать в UI.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function managedDepartments(modUser $user): array
+    {
+        $out = [];
+        foreach ($this->departments() as $department) {
+            if (Transitions::isDepartmentManager($this->modx, $user, (int) $department['id'])) {
+                $out[] = $department;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * Активные проекты отдела (фильтр обзора и скоуп его выборки).
+     *
+     * @return list<array{id: int, key: string, name: string}>
+     */
+    public function departmentProjects(int $departmentId): array
+    {
+        $c = $this->modx->newQuery(MxBoardProject::class);
+        $c->where(['department_id' => $departmentId, 'active' => true]);
+        $c->sortby('position', 'ASC');
+
+        $out = [];
+        /** @var MxBoardProject $project */
+        foreach ($this->modx->getCollection(MxBoardProject::class, $c) as $project) {
+            $out[] = [
+                'id' => (int) $project->get('id'),
+                'key' => (string) $project->get('key'),
+                'name' => (string) $project->get('name'),
+            ];
+        }
+
+        return $out;
     }
 
     /**
@@ -670,6 +883,109 @@ class BoardQuery
         }
 
         return (array) $c->stmt->fetchAll(\PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Каркас запроса обзора отдела: join'ы, скоуп отдела, скоуп видимости и IN-фильтры.
+     *
+     * Отдельным методом, потому что нужен ДВАЖДЫ — для строк (с select/limit) и для
+     * честного total (getCount по тем же условиям). Два независимых объекта, а не один:
+     * getCount оборачивает переданный запрос своим (wrap) и подменяет в нём columns на
+     * COUNT(DISTINCT id), разделяя с оригиналом sql/stmt — на общем объекте это грозит
+     * тем, что выборка строк выполнит COUNT.
+     *
+     * @param array<string, mixed> $filters
+     */
+    private function overviewQuery(modUser $user, int $departmentId, array $filters): \xPDO\Om\xPDOQuery
+    {
+        $c = $this->modx->newQuery(MxBoardTask::class);
+        $c->innerJoin(MxBoardProject::class, 'Project', 'Project.id = MxBoardTask.project_id');
+        $c->innerJoin(MxBoardColumn::class, 'Column', 'Column.id = MxBoardTask.column_id');
+        $c->leftJoin(MxBoardTaskType::class, 'Type', 'Type.id = MxBoardTask.type_id');
+        $c->leftJoin(modUser::class, 'Author', 'Author.id = MxBoardTask.author_id');
+        $c->leftJoin(modUser::class, 'Assignee', 'Assignee.id = MxBoardTask.assignee_id');
+
+        $c->where(['Project.department_id' => $departmentId, 'Project.active' => true]);
+
+        // Множественные фильтры: пустой набор = «без ограничения по этому полю».
+        $priorities = $this->intList($filters['priority'] ?? null);
+        if ($priorities !== []) {
+            $c->where(['MxBoardTask.priority:IN' => $priorities]);
+        }
+        $projectIds = $this->intList($filters['project_id'] ?? null);
+        if ($projectIds !== []) {
+            $c->where(['MxBoardTask.project_id:IN' => $projectIds]);
+        }
+        $authorIds = $this->intList($filters['author_id'] ?? null);
+        if ($authorIds !== []) {
+            $c->where(['MxBoardTask.author_id:IN' => $authorIds]);
+        }
+        $assigneeIds = $this->intList($filters['assignee_id'] ?? null);
+        if ($assigneeIds !== []) {
+            $c->where(['MxBoardTask.assignee_id:IN' => $assigneeIds]);
+        }
+        $stages = $this->stringList($filters['stage'] ?? null);
+        if ($stages !== []) {
+            $c->where(['Column.key:IN' => $stages]);
+        }
+
+        // Скоуп видимости — последним, чтобы никакой фильтр его не «перекрыл».
+        // Процессоры обзора и так пускают только менеджера отдела; это второй рубеж на
+        // случай, если канал когда-нибудь откроют шире (агентский REST, киоск).
+        $visibility = Visibility::departmentCondition($this->modx, $user, $departmentId);
+        if (!empty($visibility)) {
+            $c->where($visibility);
+        }
+
+        return $c;
+    }
+
+    /**
+     * Нормализация множественного фильтра в список int: мусор и нули отбрасываем,
+     * дубликаты схлопываем. Пустой результат = фильтр не задан.
+     *
+     * @return list<int>
+     */
+    private function intList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            if (is_bool($item) || $item === null || $item === '' || (is_string($item) && !is_numeric($item))) {
+                continue;
+            }
+            $out[] = (int) $item;
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Нормализация множественного фильтра в список непустых строк.
+     *
+     * @return list<string>
+     */
+    private function stringList(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($value as $item) {
+            if (!is_scalar($item)) {
+                continue;
+            }
+            $item = trim((string) $item);
+            if ($item !== '') {
+                $out[] = $item;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     private function columnKey(int $columnId): string

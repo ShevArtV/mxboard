@@ -4,12 +4,13 @@ import { Toast, ConfirmPopup, Tabs, TabList, Tab, TabPanels, TabPanel, Popover, 
 import BoardView from './BoardView.vue';
 import TokensView from './TokensView.vue';
 import StructureView from './StructureView.vue';
+import OverviewView from './OverviewView.vue';
 import { t } from '../utils/i18n.js';
 import { useNotifications } from '../utils/useNotifications.js';
 import { fmtDate } from '../utils/format.js';
 
 // Гейты вкладок (UI лишь прячет; финальную проверку делают процессоры/плагин):
-// «Структура» — менеджеру (sudo/супер отдела); «Токены агентов» — только sudo.
+// «Обзор» и «Структура» — менеджеру (sudo/супер отдела); «Токены агентов» — только sudo.
 const cfg = window.MxBoardConfig || {};
 const isManager = !!cfg.is_manager;
 const isSudo = !!cfg.is_sudo;
@@ -67,6 +68,7 @@ function openNotif(n) {
             <div class="mxb-tabbar">
                 <TabList>
                     <Tab value="board"><i class="pi pi-th-large mxb-tab-icon" /> {{ t('mxboard_ui_board') }}</Tab>
+                    <Tab v-if="isManager" value="overview"><i class="pi pi-table mxb-tab-icon" /> {{ t('mxboard_ui_overview') }}</Tab>
                     <Tab v-if="isManager" value="structure"><i class="pi pi-sitemap mxb-tab-icon" /> {{ t('mxboard_ui_structure') }}</Tab>
                     <Tab v-if="isSudo" value="tokens"><i class="pi pi-key mxb-tab-icon" /> {{ t('mxboard_ui_tokens') }}</Tab>
                 </TabList>
@@ -88,6 +90,9 @@ function openNotif(n) {
             <TabPanels>
                 <TabPanel value="board">
                     <BoardView />
+                </TabPanel>
+                <TabPanel v-if="isManager" value="overview">
+                    <OverviewView />
                 </TabPanel>
                 <TabPanel v-if="isManager" value="structure">
                     <StructureView />
@@ -2004,6 +2009,189 @@ function openNotif(n) {
     max-height: calc(100vh - 200px);
     overflow-y: auto;
     overscroll-behavior: contain;
+}
+
+/* ── Обзор задач отдела ─────────────────────────────────────────────────────
+   Плотная таблица: строк много, поэтому вертикальный ритм жёстче, чем на доске,
+   а цветом выделены только два носителя смысла — приоритет и стадия. */
+.mxb-ov-toolbar {
+    flex-wrap: wrap;
+}
+
+.mxb-ov-filter {
+    min-width: 170px;
+    max-width: 230px;
+}
+
+.mxb-ov-status {
+    display: flex;
+    align-items: center;
+    gap: var(--mxb-space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--mxb-space-3);
+    font-size: 12px;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-ov-warn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mxb-space-1);
+    padding: 2px 8px;
+    border-radius: var(--mxb-radius-pill);
+    background: color-mix(in srgb, var(--p-orange-500, #f59e0b) 16%, transparent);
+    color: var(--p-orange-600, #d97706);
+    font-weight: 600;
+}
+
+.mxb-ov-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--mxb-space-2);
+    padding: var(--mxb-space-5);
+    color: var(--mxb-ink-muted);
+}
+
+/* Строки кликабельны целиком — курсор обязан об этом сообщать. */
+.mxb-ov-table .p-datatable-tbody > tr {
+    cursor: pointer;
+}
+
+.mxb-ov-table .p-datatable-tbody > tr > td {
+    vertical-align: middle;
+}
+
+/* Плотная таблица не сплющивается: ниже этой ширины колонки начинают рвать заголовки
+   на 5–6 строк, и ритм разваливается. Вместо этого — горизонтальная прокрутка. */
+.mxb-ov-table .p-datatable-table {
+    min-width: 1100px;
+}
+
+/* Маркер приоритета: единственная «краска» в начале строки. Цвет дублируется
+   названием в title и в тексте для скринридера — цветом смысл не исчерпывается. */
+.mxb-ov-prio {
+    display: block;
+    width: 4px;
+    height: 18px;
+    border-radius: var(--mxb-radius-pill);
+}
+
+/* Текст только для скринридеров: подпись столбца-маркера и название приоритета. */
+.mxb-ov-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Номер задачи — кнопка открытия карточки (клавиатурный путь к тому же, что делает
+   клик по строке), поэтому сбрасываем кнопочные дефолты, но фокус оставляем видимым. */
+.mxb-ov-num {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--mxb-ink-muted);
+    cursor: pointer;
+}
+
+.mxb-ov-num:hover {
+    color: var(--p-primary-600, #059669);
+    text-decoration: underline;
+}
+
+.mxb-ov-num:focus-visible {
+    outline: none;
+    border-radius: var(--mxb-radius-sm);
+    box-shadow: var(--mxb-focus);
+}
+
+/* Две строки максимум: длинный заголовок иначе растягивает строку на пол-экрана и
+   ломает вертикальный ритм плотной таблицы. Полный текст — в title. */
+.mxb-ov-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+/* Проект — второй строкой подписью: отдельного столбца ТЗ не просит, но без него
+   в сквозном списке непонятно, из какого проекта задача. */
+.mxb-ov-project {
+    display: block;
+    font-size: 11px;
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-ov-stage {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mxb-space-1);
+    padding: 2px 8px;
+    border-radius: var(--mxb-radius-pill);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--stage-color, #6c757d) 14%, transparent);
+    color: color-mix(in srgb, var(--stage-color, #6c757d) 75%, #000);
+}
+
+.mxb-ov-muted {
+    color: var(--mxb-ink-muted);
+    font-size: 12px;
+}
+
+.mxb-ov-deadline {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.mxb-ov-deadline[data-tone='overdue'] {
+    color: var(--p-red-600, #dc2626);
+    font-weight: 600;
+}
+
+.mxb-ov-deadline[data-tone='soon'] {
+    color: var(--p-orange-600, #d97706);
+    font-weight: 600;
+}
+
+.mxb-ov-deadline[data-tone='none'] {
+    color: var(--mxb-ink-muted);
+}
+
+.mxb-ov-time {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--mxb-space-1);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.mxb-ov-sep {
+    color: var(--p-content-border-color, #e2e5e9);
+}
+
+/* Идущий замер подсвечен — видно, что время по задаче сейчас капает. */
+.mxb-ov-running {
+    color: var(--p-blue-600, #2563eb);
+    font-weight: 600;
+}
+
+.mxb-ov-running .pi {
+    font-size: 11px;
 }
 
 .mxb-fields-panel {

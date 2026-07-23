@@ -92,6 +92,33 @@ class Visibility
         ];
     }
 
+    /**
+     * Условие видимости для КРОСС-ПРОЕКТНОЙ выборки задач отдела (обзор руководителя),
+     * добавляемое к уже scoped-по-отделу запросу.
+     *
+     * То же правило, что и на доске, но точка отсчёта — отдел, а не проект: у обзора
+     * проекта на входе нет вовсе. Пустой массив = ограничения нет (менеджер отдела
+     * видит все карточки его проектов). Иначе — «мои»: автор ИЛИ исполнитель.
+     *
+     * @return array<mixed> фрагмент условия для xPDOQuery::where (AND к department-scope)
+     */
+    public static function departmentCondition(modX $modx, modUser $user, int $departmentId): array
+    {
+        if (Transitions::isDepartmentManager($modx, $user, $departmentId)) {
+            return [];
+        }
+
+        $userId = (int) $user->get('id');
+
+        // (author_id = uid OR assignee_id = uid)
+        return [
+            [
+                'MxBoardTask.author_id' => $userId,
+                'OR:MxBoardTask.assignee_id:=' => $userId,
+            ],
+        ];
+    }
+
     /** Является ли пользователь автором или исполнителем хотя бы одной подзадачи данной задачи. */
     private static function isSubtaskParty(modX $modx, int $userId, int $taskId): bool
     {

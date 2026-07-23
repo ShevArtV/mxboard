@@ -44,6 +44,7 @@ const PRI = P + 'Priority\\';
 const K = P + 'Token\\';
 const N = P + 'Notification\\';
 const Q = P + 'Queue\\';
+const O = P + 'Overview\\';
 
 /**
  * Текст ошибки из проваленного вызова useApi. Тело ответа MODX — в err.data:
@@ -203,6 +204,22 @@ export const AttachmentApi = {
         return data;
     },
     remove: (attachmentId) => post(T + 'AttachmentRemove', { attachment_id: attachmentId }),
+};
+
+// Обзор задач отдела (вкладка руководителя): плоская таблица по всем проектам отдела.
+// Все фильтры множественные, поэтому массивы уходят JSON-строкой через withJson —
+// иначе useApi разложит их в FormData поэлементно и процессор получит мусор.
+export const OverviewApi = {
+    // Без department_id — только список подведомственных отделов (для селектора).
+    meta: (departmentId = 0) => post(O + 'Meta', { department_id: departmentId }),
+    getList: (departmentId, filters = {}) => post(O + 'GetList', withJson({
+        department_id: departmentId,
+        priority: filters.priority || [],
+        project_id: filters.project_id || [],
+        author_id: filters.author_id || [],
+        assignee_id: filters.assignee_id || [],
+        stage: filters.stage || [],
+    }, ['priority', 'project_id', 'author_id', 'assignee_id', 'stage'])),
 };
 
 export const TokenApi = {

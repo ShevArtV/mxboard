@@ -7,7 +7,7 @@ import { Button, Select, Panel, Dialog, useToast, useConfirm } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, QueueApi, errorMessage, listOf,
 } from '../api/connector.js';
-import { normalizeBoard, normalizeTask, PRIORITIES } from '../utils/format.js';
+import { normalizeBoard, normalizeTask, stageColor, PRIORITIES } from '../utils/format.js';
 import { liveEvents, revisions } from '../utils/bus.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
@@ -78,18 +78,9 @@ const filteredColumns = computed(() => {
     }));
 });
 
-// Цвет стадии для тонировки шапки колонки. Если у колонки не задан свой цвет
-// (BoardQuery отдаёт дефолтный серый #6c757d), берём из палитры по позиции —
-// чисто презентационный фолбэк, чтобы стадии читались цветом, как в референсе.
-// Реальный заданный цвет (из «Структуры») уважаем как есть.
-const STAGE_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
-function columnColor(column, index) {
-    const c = String(column.color || '').toLowerCase();
-    if (c && c !== '#6c757d') return column.color;
-    if (column.is_final) return '#10b981';
-    if (column.is_initial) return '#64748b';
-    return STAGE_PALETTE[index % STAGE_PALETTE.length];
-}
+// Цвет стадии для тонировки шапки колонки. Общий помощник (utils/format.js): та же
+// стадия должна краситься одинаково и на доске, и в обзоре отдела.
+const columnColor = stageColor;
 
 // Ручной switch «доска ↔ страница задачи» (без vue-router).
 // Синхронизирован с URL-хэшем (#task-<id>), чтобы перезагрузка страницы на

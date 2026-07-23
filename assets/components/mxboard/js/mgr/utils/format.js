@@ -24,6 +24,31 @@ export function priorityMeta(value) {
     return PRIORITIES.find((p) => p.value === v) || { value: v, label: `P${v}`, color: '' };
 }
 
+/**
+ * Палитра-фолбэк для стадий, которым цвет в «Структуре» не задан (BoardQuery отдаёт
+ * дефолтный серый #6c757d). Без неё все такие стадии сливаются в один серый, и на
+ * доске, и в обзоре.
+ */
+const STAGE_PALETTE = ['#6366f1', '#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'];
+
+/**
+ * Цвет стадии для тонировки: заданный в «Структуре» уважаем как есть, иначе —
+ * финальная зелёная, начальная серо-синяя, остальные из палитры по позиции.
+ *
+ * Общая для доски и обзора отдела: одна и та же стадия обязана краситься одинаково
+ * на обоих экранах, иначе цвет перестаёт быть признаком.
+ *
+ * @param {{color?: string, is_final?: boolean, is_initial?: boolean}} column
+ * @param {number} index позиция стадии (для фолбэка из палитры)
+ */
+export function stageColor(column, index = 0) {
+    const c = String(column?.color || '').toLowerCase();
+    if (c && c !== '#6c757d') return column.color;
+    if (column?.is_final) return '#10b981';
+    if (column?.is_initial) return '#64748b';
+    return STAGE_PALETTE[Math.abs(Number(index) || 0) % STAGE_PALETTE.length];
+}
+
 /** Контрастный цвет текста (чёрный/белый) для фона бейджа приоритета. */
 export function contrastText(hex) {
     const h = String(hex || '').replace('#', '');
