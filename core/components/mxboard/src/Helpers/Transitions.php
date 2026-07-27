@@ -252,6 +252,32 @@ class Transitions
     }
 
     /**
+     * Вправе ли пользователь заводить карточки в этом проекте.
+     *
+     * Правило: проект принадлежит отделу, отдел — группе MODX; создавать задачи в проект
+     * может только член этой группы. Суперпользователь доски — вне ограничения.
+     *
+     * Роль внутри группы не важна: обычный участник (role = 0) тоже ставит задачи, иначе
+     * членство в отделе не давало бы работать. Проверяется именно членство, а не право
+     * перехода: сюда приходят и создания без карточки, для которых isManager неприменим.
+     *
+     * Проект без отдела (usergroup_id = 0) закрыт для всех, кроме sudo — это порченая
+     * конфигурация, и открывать её «по умолчанию всем» опаснее, чем закрыть.
+     */
+    public static function canCreateInProject(modX $modx, modUser $user, MxBoardProject $project): bool
+    {
+        if (self::isSuperuser($modx, $user)) {
+            return true;
+        }
+
+        /** @var MxBoardDepartment|null $department */
+        $department = $modx->getObject(MxBoardDepartment::class, (int) $project->get('department_id'));
+        $usergroupId = $department ? (int) $department->get('usergroup_id') : 0;
+
+        return self::isDepartmentMember($modx, (int) $user->get('id'), $usergroupId);
+    }
+
+    /**
      * Роли колонки: CSV вида "author,assignee" или "group:Managers".
      *
      * @return list<string>

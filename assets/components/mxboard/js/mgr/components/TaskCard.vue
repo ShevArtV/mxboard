@@ -10,6 +10,9 @@ import { t } from '../utils/i18n.js';
 const props = defineProps({
     task: { type: Object, required: true },
     dragging: { type: Boolean, default: false },
+    // Проект открытой доски. Нужен, чтобы отличить межпроектную подзадачу от обычной:
+    // сама карточка своего проекта не несёт — она и так лежит на доске этого проекта.
+    boardProjectKey: { type: String, default: '' },
 });
 
 const emit = defineEmits(['open', 'dragstart', 'dragend', 'delete']);
@@ -29,6 +32,21 @@ const priorityStyle = computed(() => {
         ? { backgroundColor: c, color: contrastText(c), border: 'none' }
         : { backgroundColor: '#6c757d', color: '#fff', border: 'none' };
 });
+// Подсказка у иконки подзадачи. Номер родителя и его проект приходят с доски одним
+// запросом (BoardQuery::fetchTasks), поэтому подпись не стоит лишних обращений. Проект
+// дописываем, только когда родитель на другой доске (#2607-132): для обычной подзадачи
+// это был бы шум — проект и так совпадает с текущим.
+const subtaskHint = computed(() => {
+    const task = props.task;
+    let hint = t('mxboard_ui_subtask');
+    if (task.parent_num) hint += ` · ${task.parent_num}`;
+    const boardProject = props.boardProjectKey;
+    if (task.parent_project_key && boardProject && task.parent_project_key !== boardProject) {
+        hint += ` · ${t('mxboard_ui_parent_in_project')}: ${task.parent_project_name || task.parent_project_key}`;
+    }
+    return hint;
+});
+
 const assignee = computed(() => userName(props.task, 'assignee'));
 const overdue = computed(() => isOverdue(props.task));
 const deadlineRel = computed(() => fmtRelativeDay(props.task.deadlineon));
@@ -90,7 +108,7 @@ function onCardClick(event) {
         </button>
 
         <div class="mxb-card-title">
-            <i v-if="task.parent_id" class="pi pi-sitemap mxb-sub-icon" :title="t('mxboard_ui_subtask')" />
+            <i v-if="task.parent_id" class="pi pi-sitemap mxb-sub-icon" :title="subtaskHint" />
             {{ task.title }}
         </div>
 

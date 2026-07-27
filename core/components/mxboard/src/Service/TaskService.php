@@ -55,8 +55,16 @@ class TaskService
      * Валидация (встроенные инварианты + поля типа): тип обязателен и «рабочий»,
      * title непустой ≤250, deadline > 0, обязательные поля типа заполнены. Плановое
      * время (plan_hours) — необязательное: 0/пусто значит «не оценивали». Если задан
-     * parent_id — это подзадача: родитель обязан существовать, быть в том же проекте,
-     * быть не в финальной стадии, а создающий — его автором или исполнителем.
+     * parent_id — это подзадача: родитель обязан существовать, быть не в финальной
+     * стадии, а создающий — его автором или исполнителем.
+     *
+     * Подзадача может жить в ДРУГОМ проекте, чем родитель (#2607-132): крупная задача
+     * разбивается между досками без дублирования карточек. Проект при этом наследуется
+     * от родителя, если не задан явно. Колонка, тип и исполнитель берутся по проекту
+     * подзадачи, а не родителя — это делают columnBy/resolveType/resolveAssignee ниже.
+     *
+     * Куда именно можно создавать, решает членство в отделе: чужой проект закрыт даже
+     * для запроса, пришедшего в обход UI.
      *
      * @param array<string, mixed> $data
      *
@@ -64,12 +72,9 @@ class TaskService
      */
     public function create(modUser $user, array $data, string $channel = 'mgr'): array
     {
-        $project = $this->resolveProject($data);
-        if (!$project) {
-            return $this->fail('mxboard_err_project_not_found');
-        }
-
-        // Подзадача: проверяем родителя и права до всего остального.
+        // Родителя достаём до проекта: подзадача без явного проекта наследует его от
+        // родителя, иначе агент, создающий подзадачу одним parent_id, молча уводил бы её
+        // в mxboard.default_project — на чужую доску.
         $parentId = (int) ($data['parent_id'] ?? 0);
         $parent = null;
         if ($parentId > 0) {
@@ -78,9 +83,22 @@ class TaskService
             if (!$parent) {
                 return $this->fail('mxboard_err_parent_not_found');
             }
-            if ((int) $parent->get('project_id') !== (int) $project->get('id')) {
-                return $this->fail('mxboard_err_parent_other_project');
+            if (!$this->hasProjectRef($data)) {
+                $data['project_id'] = (int) $parent->get('project_id');
             }
+        }
+
+        $project = $this->resolveProject($data);
+        if (!$project) {
+            return $this->fail('mxboard_err_project_not_found');
+        }
+
+        if (!Transitions::canCreateInProject($this->modx, $user, $project)) {
+            return $this->fail('mxboard_err_project_denied');
+        }
+
+        // Подзадача: проверяем родителя и права до всего остального.
+        if ($parent) {
             /** @var MxBoardColumn|null $parentColumn */
             $parentColumn = $this->modx->getObject(MxBoardColumn::class, (int) $parent->get('column_id'));
             if ($parentColumn && (bool) $parentColumn->get('is_final')) {
@@ -207,8 +225,14 @@ class TaskService
         $this->fireEvent('mxbOnTaskCreate', $task, $user, ['channel' => $channel]);
 
         if ($parent) {
-            // Отметка в журнале родителя: у него появилась (блокирующая) подзадача.
-            $this->log($parent, $user, 'subtask_add', '', '', 'task#' . (int) $task->get('id'), $channel);
+            // Отметка в журнале родителя: у него появилась (блокирующая) подзадача. Для
+            // межпроектной дописываем ключ проекта — иначе по журналу не понять, что
+            // подзадача уехала на другую доску, а искать её пришлось бы вручную.
+            $note = 'task#' . (int) $task->get('id');
+            if ((int) $parent->get('project_id') !== (int) $project->get('id')) {
+                $note .= ' @' . (string) $project->get('key');
+            }
+            $this->log($parent, $user, 'subtask_add', '', '', $note, $channel);
         }
 
         return $this->ok($task);
@@ -794,6 +818,19 @@ class TaskService
      *
      * @param array<string, mixed> $data
      */
+    /**
+     * Указан ли проект в запросе явно.
+     *
+     * Нужно отличать «проект не передали» от «передали» до resolveProject: тот на пустом
+     * вводе подставляет mxboard.default_project и потому сам ответить на вопрос не может.
+     *
+     * @param array<string, mixed> $data
+     */
+    private function hasProjectRef(array $data): bool
+    {
+        return (int) ($data['project_id'] ?? 0) > 0 || trim((string) ($data['project'] ?? '')) !== '';
+    }
+
     public function resolveProject(array $data): ?MxBoardProject
     {
         $projectId = (int) ($data['project_id'] ?? 0);

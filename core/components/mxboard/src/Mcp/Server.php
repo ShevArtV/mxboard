@@ -171,11 +171,11 @@ final class Server
                 'deadline' => ['type' => 'string', 'description' => 'Дедлайн: дата YYYY-MM-DD или unix-время.'],
                 'assignee' => ['type' => 'string', 'description' => 'Исполнитель: username или id. Строго из отдела проекта (department_users).'],
                 'fields' => ['type' => 'object', 'description' => 'Значения полей типа: {ключ_поля: значение}.'],
-                'project' => ['type' => 'string', 'description' => 'Ключ проекта. По умолчанию — из настроек.'],
+                'project' => ['type' => 'string', 'description' => 'Ключ проекта. Создавать можно только в проектах своего отдела. По умолчанию — проект родителя (если задан parent_id), иначе из настроек.'],
                 'tor' => ['type' => 'string', 'description' => 'Постановка (ToR) в markdown.'],
                 'priority' => $this->priorityField(),
                 'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах. Необязательно; исполнитель вправе оспорить (task_dispute_plan).'],
-                'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя).'],
+                'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя). Подзадача может уйти в ДРУГОЙ проект — укажите project; тип, стадия и исполнитель тогда берутся из его отдела.'],
                 'meta' => ['type' => 'object', 'description' => 'Произвольные метаданные интегратора.'],
             ], ['type', 'title', 'deadline', 'assignee']),
             $this->tool('department_users', 'Кого можно назначить исполнителем — члены отдела проекта.', [
@@ -548,7 +548,7 @@ final class Server
                 continue;
             }
             foreach (array_slice($tasks, 0, self::MAX_PER_COLUMN) as $row) {
-                $out[] = '  ' . $this->taskLine($row, $userId);
+                $out[] = '  ' . $this->taskLine($row, $userId, (string) $data['project']['key']);
             }
             $hidden = count($tasks) - self::MAX_PER_COLUMN;
             if ($hidden > 0) {
@@ -560,8 +560,14 @@ final class Server
         return $this->content(rtrim(implode("\n", $out)));
     }
 
-    /** @param array<string, mixed> $row */
-    private function taskLine(array $row, int $userId): string
+    /**
+     * Строка карточки для сводки доски.
+     *
+     * @param array<string, mixed> $row
+     * @param string $boardProjectKey ключ проекта доски — по нему видно, что родитель
+     *                                подзадачи лежит на другой доске
+     */
+    private function taskLine(array $row, int $userId, string $boardProjectKey = ''): string
     {
         $assigneeId = (int) $row['assignee_id'];
         if ($assigneeId === 0) {
@@ -574,7 +580,14 @@ final class Server
         $priority = (int) $row['priority'];
         $flags = [];
         if ((int) ($row['parent_id'] ?? 0) > 0) {
-            $flags[] = 'подзадача #' . (int) $row['parent_id'];
+            // Родитель на другой доске — говорим об этом сразу: иначе агент пойдёт искать
+            // его в текущем проекте и не найдёт.
+            $parentFlag = 'подзадача #' . (int) $row['parent_id'];
+            $parentProject = (string) ($row['parent_project_key'] ?? '');
+            if ($parentProject !== '' && $boardProjectKey !== '' && $parentProject !== $boardProjectKey) {
+                $parentFlag .= ' в проекте ' . $parentProject;
+            }
+            $flags[] = $parentFlag;
         }
         if (!empty($row['deadline_disputed'])) {
             $flags[] = 'дедлайн оспорен';

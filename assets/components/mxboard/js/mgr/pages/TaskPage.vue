@@ -18,7 +18,10 @@ import FileDrop from '../components/FileDrop.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 
 // Страница задачи — отдельная вью (ручной switch в BoardView, без vue-router).
-// departmentId/projectKey постоянны при навигации родитель↔подзадача (тот же проект).
+// departmentId/projectKey приходят с доски и годятся лишь как fallback: подзадача может
+// жить в другом проекте, чем родитель (#2607-132), и при переходе между ними проектный
+// контекст обязан следовать за ОТКРЫТОЙ карточкой — иначе список исполнителей и форма
+// создания подзадачи возьмутся из чужого отдела. Источник истины — ответ сервера.
 const props = defineProps({
     taskId: { type: Number, required: true },
     departmentId: { type: Number, default: 0 },
@@ -41,6 +44,18 @@ const detail = ref({ subtasks: [], comments: [], log: [], parent: null });
 const schema = ref(null);
 const columns = ref([]);
 const users = ref([]);
+// Отдел, для которого загружен users: при переходе между проектами кэш обязан протухнуть.
+const usersDeptId = ref(0);
+
+// Проектный контекст ОТКРЫТОЙ карточки. Сервер отдаёт их в taskDetail; props с доски —
+// запасной вариант для первого кадра, пока ответ не пришёл.
+const taskProjectKey = computed(() => task.value?.project_key || props.projectKey);
+const taskDepartmentId = computed(() => Number(task.value?.department_id) || props.departmentId);
+// Проект родителя/подзадачи отличается от проекта карточки → связь межпроектная.
+const parentOtherProject = computed(() => {
+    const key = detail.value.parent?.project_key;
+    return !!key && !!taskProjectKey.value && key !== taskProjectKey.value;
+});
 
 const comment = ref('');
 const pendingFiles = ref([]); // выбранные, но ещё не отправленные файлы композера
@@ -335,10 +350,14 @@ async function runQueueAction(action, successText) {
 }
 
 async function ensureUsers() {
-    if (users.value.length || !props.departmentId) return;
+    const deptId = taskDepartmentId.value;
+    // Кэш привязан к отделу: перешли на карточку другого проекта — прежний список
+    // исполнителей уже не тот, и переиспользовать его нельзя.
+    if (!deptId || (users.value.length && usersDeptId.value === deptId)) return;
     try {
-        users.value = listOf(await DepartmentApi.users(props.departmentId));
-    } catch { users.value = []; }
+        users.value = listOf(await DepartmentApi.users(deptId));
+        usersDeptId.value = deptId;
+    } catch { users.value = []; usersDeptId.value = 0; }
 }
 
 function reload() {
@@ -804,6 +823,15 @@ function openSubtaskDialog() {
                                 <i class="pi pi-arrow-up-right" />
                                 <span>{{ parentLabel }}</span>
                             </button>
+                            <!-- Родитель на другой доске: без пометки связь неотличима от
+                                 внутрипроектной, и переход выглядел бы как сбой навигации. -->
+                            <span
+                                v-if="parentOtherProject"
+                                class="mxb-chip mxb-chip--cross"
+                                :title="`${t('mxboard_ui_parent_in_project')}: ${detail.parent.project_name || detail.parent.project_key}`"
+                            >
+                                <i class="pi pi-external-link" />{{ detail.parent.project_key }}
+                            </span>
                         </span>
                     </div>
                     <div class="mxb-meta-row">
@@ -920,9 +948,9 @@ function openSubtaskDialog() {
                         <span class="mxb-meta-label">{{ t('mxboard_ui_queue') }}</span>
                         <span class="mxb-meta-value"><span class="mxb-chip">{{ queueName || `#${task.queue_id}` }}</span></span>
                     </div>
-                    <div v-if="projectKey" class="mxb-meta-row">
+                    <div v-if="taskProjectKey" class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_project') }}</span>
-                        <span class="mxb-meta-value"><span class="mxb-chip">{{ projectKey }}</span></span>
+                        <span class="mxb-meta-value"><span class="mxb-chip">{{ taskProjectKey }}</span></span>
                     </div>
                     <div v-if="task.createdon" class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_created') }}</span>
@@ -1070,6 +1098,13 @@ function openSubtaskDialog() {
                         >
                             <i :class="s.closed ? 'pi pi-check-circle mxb-done' : 'pi pi-circle'" />
                             <span class="mxb-subtask-title">{{ s.title }}</span>
+                            <span
+                                v-if="s.project_key && s.project_key !== taskProjectKey"
+                                class="mxb-chip mxb-chip--cross"
+                                :title="`${t('mxboard_ui_subtask_in_project')}: ${s.project_name || s.project_key}`"
+                            >
+                                <i class="pi pi-external-link" />{{ s.project_key }}
+                            </span>
                             <span v-if="s.assignee" class="mxb-subtask-assignee"><i class="pi pi-user" />{{ s.assignee }}</span>
                         </div>
                         <div v-if="!detail.subtasks.length" class="mxb-empty mxb-empty--rich">
@@ -1217,8 +1252,8 @@ function openSubtaskDialog() {
 
         <NewTaskDialog
             v-model:visible="subtaskOpen"
-            :department-id="departmentId"
-            :project-key="projectKey"
+            :department-id="taskDepartmentId"
+            :project-key="taskProjectKey"
             :parent-id="taskId"
             :parent-title="task ? task.title : ''"
             @created="reload"

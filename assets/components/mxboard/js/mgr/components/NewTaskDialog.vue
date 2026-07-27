@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { Dialog, Button, InputText, Select, ConfirmDialog, useToast, useConfirm } from 'primevue';
-import { TaskApi, TypeApi, DepartmentApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
+import { TaskApi, TypeApi, DepartmentApi, ProjectApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
 import { PRIORITIES, fmtSize } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
 import TypeFields from './TypeFields.vue';
@@ -11,7 +11,8 @@ const props = defineProps({
     visible: { type: Boolean, default: false },
     departmentId: { type: Number, default: 0 },
     projectKey: { type: String, default: '' },
-    // >0 — создаём подзадачу указанной задачи (тот же проект).
+    // >0 — создаём подзадачу указанной задачи. Проект по умолчанию — проект родителя,
+    // но его можно сменить: подзадача вправе уехать на другую доску (#2607-132).
     parentId: { type: Number, default: 0 },
     parentTitle: { type: String, default: '' },
 });
@@ -42,6 +43,36 @@ const pendingFiles = ref([]);
 // Файловая зона показывается, только если у выбранного типа есть поле `files` (лейбл = его заголовок).
 const filesField = computed(() => (schema.value?.fields || []).find((f) => f.type === 'files') || null);
 
+// Проект создаваемой карточки. Обычно это проект доски, но у подзадачи его можно
+// сменить — тогда всё остальное (типы, исполнители, схема, стадия) должно считаться по
+// ВЫБРАННОМУ проекту, иначе форма отправит тип и исполнителя чужого отдела и получит отказ.
+const activeProject = ref('');
+const projects = ref([]);
+// Отдел выбранного проекта; пока список проектов не загружен — отдел доски.
+const activeDepartmentId = computed(() => {
+    const found = projects.value.find((p) => p.key === activeProject.value);
+    return Number(found?.department_id) || props.departmentId;
+});
+// Селектор проекта нужен только у подзадачи: обычная задача создаётся на текущей доске.
+const canChooseProject = computed(() => props.parentId > 0 && projects.value.length > 1);
+
+// Загрузка справочников отдела. Вынесена из watch: её же зовёт смена проекта.
+async function loadRefs(departmentId) {
+    types.value = [];
+    users.value = [];
+    if (!departmentId) return;
+    try {
+        const [ty, u] = await Promise.all([
+            TypeApi.getList(departmentId),
+            DepartmentApi.users(departmentId),
+        ]);
+        types.value = listOf(ty);
+        users.value = listOf(u);
+    } catch (e) {
+        toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
+    }
+}
+
 // При открытии — сбрасываем форму и подгружаем типы отдела и его пользователей.
 watch(() => props.visible, async (open) => {
     if (!open) return;
@@ -50,29 +81,42 @@ watch(() => props.visible, async (open) => {
     aiVerdict.value = null;
     aiCanOverride.value = false;
     schema.value = null;
-    types.value = [];
-    users.value = [];
-    if (!props.departmentId) return;
-    try {
-        const [ty, u] = await Promise.all([
-            TypeApi.getList(props.departmentId),
-            DepartmentApi.users(props.departmentId),
-        ]);
-        types.value = listOf(ty);
-        users.value = listOf(u);
-    } catch (e) {
-        toast.add({ severity: 'error', summary: t('mxboard_msg_refs_load'), detail: errorMessage(e), life: 8000 });
+    activeProject.value = props.projectKey;
+    projects.value = [];
+
+    // Проекты спрашиваем только для подзадачи и только те, где создавать разрешено:
+    // на обычной задаче выбора нет, лишний запрос не нужен.
+    if (props.parentId > 0) {
+        try {
+            projects.value = listOf(await ProjectApi.getList({ creatable: true }));
+        } catch (e) {
+            // Не блокируем создание: без списка останется проект родителя.
+            projects.value = [];
+        }
     }
+
+    await loadRefs(activeDepartmentId.value);
+});
+
+// Смена проекта у подзадачи: справочники отдела и уже выбранные тип/исполнитель
+// перестают быть валидными — тип и исполнитель принадлежат отделу, а не задаче.
+watch(activeProject, async (key, prev) => {
+    if (!props.visible || !key || !prev || key === prev) return;
+    form.value.type = '';
+    form.value.assignee_id = 0;
+    form.value.fields = {};
+    schema.value = null;
+    await loadRefs(activeDepartmentId.value);
 });
 
 // Смена типа → тянем схему (builtin + поля) под текущий проект и чистим значения полей.
 watch(() => form.value.type, async (typeKey) => {
     schema.value = null;
     form.value.fields = {};
-    if (!typeKey || !props.projectKey) return;
+    if (!typeKey || !activeProject.value) return;
     loadingType.value = true;
     try {
-        const res = await TypeApi.schema({ project: props.projectKey, type: typeKey });
+        const res = await TypeApi.schema({ project: activeProject.value, type: typeKey });
         schema.value = res.object ?? null;
     } catch (e) {
         toast.add({ severity: 'error', summary: t('mxboard_msg_schema_load'), detail: errorMessage(e), life: 8000 });
@@ -108,7 +152,7 @@ async function save(override = false) {
     saving.value = true;
     try {
         const res = await TaskApi.create({
-            project: props.projectKey,
+            project: activeProject.value || props.projectKey,
             parent_id: props.parentId || 0,
             type: form.value.type,
             title: form.value.title.trim(),
@@ -202,6 +246,23 @@ function removeStaged(idx) {
     >
         <div v-if="parentId" class="mxb-parent-note">
             <i class="pi pi-sitemap" /> {{ t('mxboard_ui_subtask_for') }}: <strong>{{ parentTitle }}</strong>
+        </div>
+
+        <!-- Проект подзадачи. Показывается только когда выбор реально есть: на одном
+             доступном проекте селектор был бы декорацией. -->
+        <div v-if="canChooseProject" class="mxb-field">
+            <label>{{ t('mxboard_ui_project') }}</label>
+            <Select
+                v-model="activeProject"
+                :options="projects"
+                option-label="name"
+                option-value="key"
+                :placeholder="t('mxboard_ui_project')"
+                fluid
+            />
+            <div v-if="activeProject !== projectKey" class="mxb-hint">
+                {{ t('mxboard_ui_subtask_other_project') }}
+            </div>
         </div>
 
         <div class="mxb-field">

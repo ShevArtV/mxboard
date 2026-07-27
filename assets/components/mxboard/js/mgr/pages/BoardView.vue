@@ -780,6 +780,7 @@ async function onQueueDrop(queue, target) {
                         v-for="task in column.tasks"
                         :key="task.id"
                         :task="task"
+                        :board-project-key="projectKey"
                         :dragging="dragTaskKey === String(task.id)"
                         @open="openTask(task)"
                         @delete="deleteTask(task, $event)"

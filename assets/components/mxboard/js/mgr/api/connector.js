@@ -84,7 +84,9 @@ export const DepartmentApi = {
 };
 
 export const ProjectApi = {
-    getList: () => post(PR + 'GetList'),
+    // creatable=true — только проекты, где пользователь вправе заводить карточки. Нужен
+    // селектору проекта у подзадачи: предлагать проект, на котором сервер откажет, нельзя.
+    getList: (params = {}) => post(PR + 'GetList', params),
     create: (data) => post(PR + 'Create', withJson(data, ['columns'])),
     update: (id, data) => post(PR + 'Update', { id, ...data }),
     remove: (id) => post(PR + 'Remove', { id }),

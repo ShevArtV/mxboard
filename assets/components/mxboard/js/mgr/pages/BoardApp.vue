@@ -1240,6 +1240,18 @@ function openNotif(n) {
     letter-spacing: 0.2px;
 }
 
+/* Связь с другой доской: тот же чип, но с иконкой и акцентом — читатель должен
+   заметить, что переход уведёт его в другой проект, а не в соседнюю карточку. */
+.mxb-chip--cross {
+    gap: 4px;
+    background: var(--p-primary-50, #ecfdf5);
+    color: var(--p-primary-700, #047857);
+}
+
+.mxb-chip--cross > .pi {
+    font-size: 10px;
+}
+
 .mxb-sub-icon {
     margin-right: 4px;
     opacity: 0.6;

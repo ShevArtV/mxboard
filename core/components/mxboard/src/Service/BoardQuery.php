@@ -74,6 +74,9 @@ class BoardQuery
     /** @var array<int, string> кеш username по userId — предотвращает N+1 в taskDetail. */
     private array $usernameCache = [];
 
+    /** @var array<int, array{id: int, key: string, name: string, department_id: int}> кеш проектов по id. */
+    private array $projectCache = [];
+
     public function __construct(private modX $modx)
     {
     }
@@ -234,6 +237,28 @@ class BoardQuery
      *
      * @return array{project: array<string, mixed>, columns: list<array<string, mixed>>}
      */
+    /**
+     * Проекты, в которых пользователь вправе создавать карточки (#2607-132).
+     *
+     * Правило одно с серверной проверкой в TaskService::create — оба спрашивают
+     * Transitions::canCreateInProject, поэтому список в UI и ответ сервера не разъезжаются.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function creatableProjects(modUser $user): array
+    {
+        $out = [];
+        foreach ($this->projects() as $row) {
+            /** @var MxBoardProject|null $project */
+            $project = $this->modx->getObject(MxBoardProject::class, (int) $row['id']);
+            if ($project && Transitions::canCreateInProject($this->modx, $user, $project)) {
+                $out[] = $row;
+            }
+        }
+
+        return $out;
+    }
+
     public function board(modUser $user, MxBoardProject $project, array $filters = []): array
     {
         $projectId = (int) $project->get('id');
@@ -570,15 +595,28 @@ class BoardQuery
         $out['author'] = $this->username((int) $task->get('author_id'));
         $out['assignee'] = $this->username((int) $task->get('assignee_id'));
 
+        // Проектный контекст самой карточки. Фронт до #2607-132 брал проект и отдел из
+        // выбранной доски, но у межпроектной связи родитель и подзадача лежат на разных
+        // досках: при переходе между ними форма правки и список исполнителей должны
+        // строиться по проекту ОТКРЫТОЙ карточки, а не по тому, откуда пришли.
+        $ownProject = $this->projectInfo((int) $task->get('project_id'));
+        $out['project_key'] = $ownProject['key'];
+        $out['project_name'] = $ownProject['name'];
+        $out['department_id'] = $ownProject['department_id'];
+
         $parentId = (int) $task->get('parent_id');
         if ($parentId > 0) {
             /** @var MxBoardTask|null $parent */
             $parent = $this->modx->getObject(MxBoardTask::class, $parentId);
+            $parentProject = $parent ? $this->projectInfo((int) $parent->get('project_id')) : null;
             $out['parent'] = $parent
                 ? [
                     'id' => $parentId,
                     'num' => (string) $parent->get('num'),
                     'title' => (string) $parent->get('title'),
+                    'project_id' => $parentProject['id'],
+                    'project_key' => $parentProject['key'],
+                    'project_name' => $parentProject['name'],
                 ]
                 : null;
         } else {
@@ -592,11 +630,16 @@ class BoardQuery
         $subtasks = [];
         /** @var MxBoardTask $sub */
         foreach ($this->modx->getCollection(MxBoardTask::class, $sq) as $sub) {
+            $subProject = $this->projectInfo((int) $sub->get('project_id'));
             $subtasks[] = [
                 'id' => (int) $sub->get('id'),
+                'num' => (string) $sub->get('num'),
                 'title' => (string) $sub->get('title'),
                 'assignee' => $this->username((int) $sub->get('assignee_id')),
                 'closed' => (int) $sub->get('closedon') > 0,
+                'project_id' => $subProject['id'],
+                'project_key' => $subProject['key'],
+                'project_name' => $subProject['name'],
             ];
         }
         $out['subtasks'] = $subtasks;
@@ -920,6 +963,12 @@ class BoardQuery
         $c->leftJoin(modUser::class, 'Author');
         $c->leftJoin(modUser::class, 'Assignee');
         $c->leftJoin(MxBoardTaskType::class, 'Type');
+        // Родитель и его проект — только ради подписи на карточке подзадачи (#2607-132).
+        // LEFT JOIN: у подавляющего большинства карточек parent_id = 0, и они обязаны
+        // остаться в выдаче. Условие пишем явной строкой — алиас Parent к той же таблице,
+        // что и корневой класс, xPDO сам по связи его не выведет.
+        $c->leftJoin(MxBoardTask::class, 'Parent', 'Parent.id = MxBoardTask.parent_id');
+        $c->leftJoin(MxBoardProject::class, 'ParentProject', 'ParentProject.id = Parent.project_id');
 
         $c->where(['MxBoardTask.project_id' => $projectId]);
 
@@ -972,6 +1021,12 @@ class BoardQuery
             'type_key' => 'Type.key',
             'author' => 'Author.username',
             'assignee' => 'Assignee.username',
+            // Подпись связи на карточке подзадачи. project_key нужен, чтобы отличить
+            // межпроектную подзадачу от обычной: у обычной он равен ключу текущей доски.
+            'parent_num' => 'Parent.num',
+            'parent_title' => 'Parent.title',
+            'parent_project_key' => 'ParentProject.key',
+            'parent_project_name' => 'ParentProject.name',
         ]);
 
         $c->sortby('Column.position', 'ASC');
@@ -1158,6 +1213,31 @@ class BoardQuery
         $type = $typeId > 0 ? $this->modx->getObject(MxBoardTaskType::class, $typeId) : null;
 
         return $type ? (string) $type->get('key') : '';
+    }
+
+    /**
+     * Проект по id: ключ, имя, отдел. Кэшируется — в карточке с подзадачами один и тот же
+     * проект спрашивается многократно (сама задача, родитель, каждая подзадача).
+     *
+     * @return array{id: int, key: string, name: string, department_id: int}
+     */
+    private function projectInfo(int $projectId): array
+    {
+        if (isset($this->projectCache[$projectId])) {
+            return $this->projectCache[$projectId];
+        }
+
+        /** @var MxBoardProject|null $project */
+        $project = $projectId > 0 ? $this->modx->getObject(MxBoardProject::class, $projectId) : null;
+        $info = [
+            'id' => $projectId,
+            'key' => $project ? (string) $project->get('key') : '',
+            'name' => $project ? (string) $project->get('name') : '',
+            'department_id' => $project ? (int) $project->get('department_id') : 0,
+        ];
+        $this->projectCache[$projectId] = $info;
+
+        return $info;
     }
 
     private function username(int $userId): string
