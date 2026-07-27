@@ -1,0 +1,7 @@
+# Исключения сверх DEFAULT_PATTERNS билдера (.git, node_modules, phpstan.neon, package.json и пр.).
+# Файл читается билдером ИЗ ПРОЕКТА: ComponentBuilder::createIgnoreFilter() берёт его по пути
+# getcwd()/package_builder/packages/<name>/.packignore — поэтому лежит здесь, а не в install-папке.
+
+# Локальное состояние ревьюера impeccable: кэш сессий с абсолютными путями рабочей машины.
+# В поставку не входит и никем в рантайме не читается.
+.impeccable/
