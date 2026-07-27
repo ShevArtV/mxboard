@@ -54,6 +54,15 @@ function onSearchInput() {
     searchTimer = window.setTimeout(() => load(), SEARCH_DEBOUNCE);
 }
 
+// Очистка поля (крестик в поле или Esc): отложенный запрос от последней буквы снимаем и
+// перечитываем доску сразу — ждать debounce после явного действия пользователя незачем.
+function clearSearch() {
+    window.clearTimeout(searchTimer);
+    if (!search.value) return;
+    search.value = '';
+    load();
+}
+
 // Фильтры доски переживают перезагрузку: пишем в localStorage и восстанавливаем в init().
 // Ключ привязан к пользователю — на общем браузере фильтры не «протекают» между аккаунтами.
 const FILTERS_KEY = `mxb_board_filters_${userId}`;
@@ -607,7 +616,8 @@ async function onQueueDrop(queue, target) {
                 :placeholder="t('mxboard_ui_project')"
                 @change="load"
             />
-            <!-- Свободный поиск. Применяется по вводу с задержкой, поэтому кнопки нет. -->
+            <!-- Свободный поиск. Применяется по вводу с задержкой, поэтому кнопки «искать»
+                 нет; вместо неё — крестик очистки, он же по Esc. -->
             <span class="mxb-search">
                 <i class="pi pi-search" aria-hidden="true" />
                 <InputText
@@ -615,9 +625,19 @@ async function onQueueDrop(queue, target) {
                     :placeholder="t('mxboard_ui_search')"
                     :aria-label="t('mxboard_ui_search_hint')"
                     :title="t('mxboard_ui_search_hint')"
-                    size="small"
                     @input="onSearchInput"
+                    @keydown.esc="clearSearch"
                 />
+                <button
+                    v-if="search"
+                    type="button"
+                    class="mxb-search-clear"
+                    :aria-label="t('mxboard_ui_search_clear')"
+                    :title="t('mxboard_ui_search_clear')"
+                    @click="clearSearch"
+                >
+                    <i class="pi pi-times" aria-hidden="true" />
+                </button>
             </span>
             <Select
                 v-model="filter"

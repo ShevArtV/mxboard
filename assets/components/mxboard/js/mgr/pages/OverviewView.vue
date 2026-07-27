@@ -161,6 +161,12 @@ function resetFilters() {
     load(true);
 }
 
+// Очистка только поискового поля: остальные фильтры остаются, перезагрузку делает общий
+// watch фильтров — свой load() дал бы второй запрос поверх запланированного.
+function clearSearch() {
+    if (filters.value.search) filters.value.search = '';
+}
+
 const hasFilters = computed(() => Object.values(filters.value).some((v) => v && v.length));
 
 // Ручной switch «таблица ↔ карточка», как на доске. Хэш здесь НЕ трогаем: `#task-<id>`
@@ -263,7 +269,8 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                     @change="onDepartmentChange"
                 />
                 <!-- Свободный поиск. Иконка внутри поля, а не отдельной кнопкой: поиск
-                     применяется по вводу (общий debounce фильтров), нажимать нечего. -->
+                     применяется по вводу (общий debounce фильтров), нажимать нечего.
+                     Крестик очистки (он же Esc) идёт через тот же watch фильтров. -->
                 <span class="mxb-search">
                     <i class="pi pi-search" aria-hidden="true" />
                     <InputText
@@ -271,8 +278,18 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                         :placeholder="t('mxboard_ui_search')"
                         :aria-label="t('mxboard_ui_search_hint')"
                         :title="t('mxboard_ui_search_hint')"
-                        size="small"
+                        @keydown.esc="clearSearch"
                     />
+                    <button
+                        v-if="filters.search"
+                        type="button"
+                        class="mxb-search-clear"
+                        :aria-label="t('mxboard_ui_search_clear')"
+                        :title="t('mxboard_ui_search_clear')"
+                        @click="clearSearch"
+                    >
+                        <i class="pi pi-times" aria-hidden="true" />
+                    </button>
                 </span>
                 <MultiSelect
                     v-model="filters.priority"

@@ -208,6 +208,7 @@ $_lang['mxboard_ui_reset_filters'] = 'Reset filters';
 // Free-text search: shared by the board and the department overview.
 $_lang['mxboard_ui_search'] = 'Search tasks';
 $_lang['mxboard_ui_search_hint'] = 'Search by title, task number or id';
+$_lang['mxboard_ui_search_clear'] = 'Clear search';
 $_lang['mxboard_ui_new_task'] = 'New task';
 $_lang['mxboard_ui_no_projects'] = 'No projects in this department. Create one on the “Structure” tab.';
 

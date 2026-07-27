@@ -128,6 +128,10 @@ function openNotif(n) {
     --mxb-space-3: 12px;
     --mxb-space-4: 16px;
     --mxb-space-5: 20px;
+    /* Высота контрола в тулбаре: PrimeVue Select в этой сборке рисуется в 40px, и всё,
+       что стоит с ним в одном ряду (поле поиска, MultiSelect фильтров обзора), должно
+       совпадать — иначе ряд читается как набор случайных элементов. */
+    --mxb-control-h: 40px;
     /* Приглушённый, но проходящий по контрасту текст (не полупрозрачный серый). */
     --mxb-ink-muted: var(--p-text-color-secondary, #5b6472);
     --mxb-focus: 0 0 0 2px var(--p-surface-0, #fff), 0 0 0 4px var(--p-primary-400, #34d399);
@@ -346,6 +350,9 @@ function openNotif(n) {
 .mxb-toolbar {
     display: flex;
     align-items: center;
+    /* Переносим строки: контролов в тулбаре доски семь, и на узкой рабочей области
+       nowrap выдавливал крайние кнопки за границу фрейма менеджера. */
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 16px;
     padding-bottom: 12px;
@@ -356,27 +363,79 @@ function openNotif(n) {
     flex: 1;
 }
 
-/* Поле свободного поиска: иконка внутри, поэтому обёртка позиционирующая. Ширина
-   фиксированная — тулбар и так плотный, а растянутое поле выдавливало бы кнопки. */
+/* Поле свободного поиска.
+
+   Высота (--mxb-control-h) равна высоте соседних Select/MultiSelect: поле ввода в одном
+   ряду с ними и обязано читаться как такой же контрол, иначе тулбар «проваливается»
+   на нём. Иконка и кнопка очистки лежат внутри поля абсолютом, поэтому обёртка
+   позиционирующая, а горизонтальные паддинги ввода считаются от их размеров. */
 .mxb-search {
+    --mxb-search-icon: 14px;
     position: relative;
     display: inline-flex;
     align-items: center;
-    flex: 0 1 220px;
-    min-width: 150px;
+    flex: 0 1 240px;
+    min-width: 180px;
 }
 
 .mxb-search > .pi-search {
     position: absolute;
-    left: 10px;
-    font-size: 12px;
+    left: var(--mxb-space-3);
+    font-size: var(--mxb-search-icon);
+    line-height: 1;
     color: var(--mxb-ink-muted);
     pointer-events: none;
+    transition: color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Фокус в поле подсвечивает иконку — тот же язык состояний, что у рамки инпута. */
+.mxb-search:focus-within > .pi-search {
+    color: var(--p-primary-color, #10b981);
 }
 
 .mxb-search > .p-inputtext {
     width: 100%;
-    padding-left: 30px;
+    min-height: var(--mxb-control-h);
+    /* Слева — отступ + иконка + зазор; справа место под кнопку очистки держим всегда,
+       иначе текст прыгал бы при её появлении. */
+    padding-left: calc(var(--mxb-space-3) + var(--mxb-search-icon) + var(--mxb-space-2));
+    padding-right: calc(var(--mxb-space-3) + var(--mxb-search-icon) + var(--mxb-space-2));
+}
+
+.mxb-search-clear {
+    position: absolute;
+    right: var(--mxb-space-2);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--mxb-radius-pill);
+    background: transparent;
+    color: var(--mxb-ink-muted);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1), color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mxb-search-clear:hover {
+    background: var(--p-content-hover-background, #eef1f5);
+    color: var(--p-text-color, #334155);
+}
+
+.mxb-search-clear:focus-visible {
+    outline: none;
+    box-shadow: var(--mxb-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mxb-search > .pi-search,
+    .mxb-search-clear {
+        transition: none;
+    }
 }
 
 /* Колонки в ряд с горизонтальной прокруткой — доску не должно «складывать». */
@@ -2070,6 +2129,8 @@ function openNotif(n) {
 .mxb-ov-filter {
     min-width: 170px;
     max-width: 230px;
+    /* MultiSelect рисуется на 2px ниже Select — в ряду из шести контролов это заметно. */
+    min-height: var(--mxb-control-h);
 }
 
 .mxb-ov-status {
