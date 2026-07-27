@@ -205,6 +205,9 @@ $_lang['mxboard_ui_filter_author'] = 'Я автор';
 $_lang['mxboard_ui_filter_assignee'] = 'Я исполнитель';
 $_lang['mxboard_ui_filter_all_priorities'] = 'Все приоритеты';
 $_lang['mxboard_ui_reset_filters'] = 'Сбросить фильтры';
+// Свободный поиск: общий для доски и обзора отдела.
+$_lang['mxboard_ui_search'] = 'Поиск задачи';
+$_lang['mxboard_ui_search_hint'] = 'Поиск по названию, номеру карточки или id';
 $_lang['mxboard_ui_new_task'] = 'Новая задача';
 $_lang['mxboard_ui_no_projects'] = 'Нет проектов в этом отделе. Создайте проект на вкладке «Структура».';
 

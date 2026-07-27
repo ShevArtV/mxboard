@@ -13,7 +13,7 @@ use MxBoard\Service\TaskService;
  * Доска проекта одним запросом: колонки (по position) с видимыми карточками.
  *
  * Видимость — как во всех каналах: свои карточки, менеджер — все (Visibility
- * внутри BoardQuery). Фильтры: column (ключ), mine, author_id, assignee_id.
+ * внутри BoardQuery). Фильтры: column (ключ), mine, author_id, assignee_id, search.
  */
 class Get extends ServiceProcessor
 {
@@ -32,6 +32,10 @@ class Get extends ServiceProcessor
             'mine' => (bool) $this->getProperty('mine', false),
             'author_id' => (int) $this->getProperty('author_id', 0),
             'assignee_id' => (int) $this->getProperty('assignee_id', 0),
+            // Свободный поиск по названию/номеру/id — скаляр, а не JSON: заворачивать в
+            // jsonProperty нужно только массивы (useApi раскладывает их в FormData
+            // поэлементно и ломает).
+            'search' => (string) $this->getProperty('search', ''),
         ]);
 
         return $this->success('', $board);

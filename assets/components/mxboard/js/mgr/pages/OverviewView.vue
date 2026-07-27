@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue';
-import { DataTable, Column, Select, MultiSelect, Button, useToast } from 'primevue';
+import { DataTable, Column, Select, MultiSelect, InputText, Button, useToast } from 'primevue';
 import { OverviewApi, errorMessage } from '../api/connector.js';
 import {
     PRIORITIES, priorityMeta, stageColor, fmtDay, deadlineTone, factHours, factRunning,
@@ -27,8 +27,13 @@ const total = ref(0);
 const loading = ref(false);
 const metaLoaded = ref(false);
 
-// Множественные фильтры: пустой массив = «любой», как и на сервере.
-const filters = ref({ priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] });
+// Множественные фильтры: пустой массив = «любой», как и на сервере. `search` — свободный
+// ввод (название/номер/id); он живёт здесь же, а не отдельным ref, чтобы бесплатно
+// получить общую обвязку фильтров: debounce, сохранение, сброс на первую страницу.
+const EMPTY_FILTERS = () => ({
+    priority: [], project_id: [], author_id: [], assignee_id: [], stage: [], search: '',
+});
+const filters = ref(EMPTY_FILTERS());
 
 // Страница, её размер и сортировка — состояние ЗАПРОСА, а не таблицы: в браузер приезжает
 // одна страница, поэтому и листание, и порядок строк считает сервер.
@@ -144,14 +149,14 @@ function onSort(event) {
 // Смена отдела обнуляет фильтры: проекты, участники и стадии у другого отдела свои,
 // и сохранённый выбор дал бы пустую выдачу по несуществующим id.
 async function onDepartmentChange() {
-    filters.value = { priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] };
+    filters.value = EMPTY_FILTERS();
     saveState();
     await loadMeta();
     await load(true);
 }
 
 function resetFilters() {
-    filters.value = { priority: [], project_id: [], author_id: [], assignee_id: [], stage: [] };
+    filters.value = EMPTY_FILTERS();
     saveState();
     load(true);
 }
@@ -208,6 +213,9 @@ onMounted(async () => {
     departmentId.value = exists ? savedId : (Number(departments.value[0]?.id) || 0);
     if (exists && saved?.filters) {
         filters.value = { ...filters.value, ...saved.filters };
+        // Поиск приводим к строке: в localStorage мог остаться другой тип (ручная правка,
+        // прошлая версия формата), а в запрос он уходит скаляром.
+        filters.value.search = typeof saved.filters.search === 'string' ? saved.filters.search : '';
     }
     // Размер страницы и сортировку восстанавливаем всегда: они не привязаны к отделу,
     // в отличие от фильтров с их id проектов и участников. Значения валидируем — в
@@ -254,6 +262,18 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                     :placeholder="t('mxboard_ui_department')"
                     @change="onDepartmentChange"
                 />
+                <!-- Свободный поиск. Иконка внутри поля, а не отдельной кнопкой: поиск
+                     применяется по вводу (общий debounce фильтров), нажимать нечего. -->
+                <span class="mxb-search">
+                    <i class="pi pi-search" aria-hidden="true" />
+                    <InputText
+                        v-model="filters.search"
+                        :placeholder="t('mxboard_ui_search')"
+                        :aria-label="t('mxboard_ui_search_hint')"
+                        :title="t('mxboard_ui_search_hint')"
+                        size="small"
+                    />
+                </span>
                 <MultiSelect
                     v-model="filters.priority"
                     :options="priorityOptions"

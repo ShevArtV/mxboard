@@ -222,6 +222,8 @@ export const OverviewApi = {
         author_id: filters.author_id || [],
         assignee_id: filters.assignee_id || [],
         stage: filters.stage || [],
+        // Свободный поиск по названию/номеру/id — скаляр, поэтому вне списка withJson.
+        search: filters.search || '',
         page: paging.page || 1,
         per_page: paging.per_page || 25,
         sort_by: paging.sort_by || '',

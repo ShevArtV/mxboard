@@ -356,6 +356,29 @@ function openNotif(n) {
     flex: 1;
 }
 
+/* Поле свободного поиска: иконка внутри, поэтому обёртка позиционирующая. Ширина
+   фиксированная — тулбар и так плотный, а растянутое поле выдавливало бы кнопки. */
+.mxb-search {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex: 0 1 220px;
+    min-width: 150px;
+}
+
+.mxb-search > .pi-search {
+    position: absolute;
+    left: 10px;
+    font-size: 12px;
+    color: var(--mxb-ink-muted);
+    pointer-events: none;
+}
+
+.mxb-search > .p-inputtext {
+    width: 100%;
+    padding-left: 30px;
+}
+
 /* Колонки в ряд с горизонтальной прокруткой — доску не должно «складывать». */
 .mxb-columns {
     display: flex;

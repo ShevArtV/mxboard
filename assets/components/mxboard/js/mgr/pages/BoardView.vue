@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 // ВНИМАНИЕ: сборка PrimeVue из Import Map пакета VueTools содержит НЕ все компоненты —
 // Accordion* в ней нет вовсе (проверено на стенде: 105 экспортов, ни одного Accordion).
 // Аккордеон очередей собран из Panel toggleable: поведение то же, зависимость доступна.
-import { Button, Select, Panel, Dialog, useToast, useConfirm } from 'primevue';
+import { Button, Select, InputText, Panel, Dialog, useToast, useConfirm } from 'primevue';
 import {
     BoardApi, TaskApi, DepartmentApi, ProjectApi, QueueApi, errorMessage, listOf,
 } from '../api/connector.js';
@@ -39,6 +39,21 @@ const filter = ref('all');
 const PRIORITY_FILTERS = [{ value: -1, label: t('mxboard_ui_filter_all_priorities') }, ...PRIORITIES];
 const priorityFilter = ref(-1);
 
+// Свободный поиск по названию, номеру карточки или внутреннему id. Считает СЕРВЕР
+// (BoardQuery::searchCondition): доска отдаёт не больше MAX_TASKS карточек, и поиск по
+// уже загруженной пачке молча не находил бы всё, что за этим потолком.
+const search = ref('');
+
+// Каждая буква — запрос к доске, поэтому перезагрузку схлопываем таймером (та же схема,
+// что у фильтров обзора). Вешаем на событие ввода, а не на watch: тогда программная
+// очистка поля (сброс фильтров) не ставит лишний отложенный запрос поверх своего.
+const SEARCH_DEBOUNCE = 300;
+let searchTimer = 0;
+function onSearchInput() {
+    window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(() => load(), SEARCH_DEBOUNCE);
+}
+
 // Фильтры доски переживают перезагрузку: пишем в localStorage и восстанавливаем в init().
 // Ключ привязан к пользователю — на общем браузере фильтры не «протекают» между аккаунтами.
 const FILTERS_KEY = `mxb_board_filters_${userId}`;
@@ -49,6 +64,7 @@ function saveFilters() {
             projectKey: projectKey.value,
             filter: filter.value,
             priorityFilter: priorityFilter.value,
+            search: search.value,
         }));
     } catch (e) { /* localStorage недоступен — не критично */ }
 }
@@ -57,12 +73,15 @@ function readSavedFilters() {
         return JSON.parse(localStorage.getItem(FILTERS_KEY) || 'null');
     } catch (e) { return null; }
 }
-watch([departmentId, projectKey, filter, priorityFilter], saveFilters);
+watch([departmentId, projectKey, filter, priorityFilter, search], saveFilters);
 
-// Сброс фильтров: роль/приоритет в дефолт, отдел/проект — на первый.
+// Сброс фильтров: роль/приоритет/поиск в дефолт, отдел/проект — на первый.
 function resetFilters() {
     filter.value = 'all';
     priorityFilter.value = -1;
+    // Отложенный запрос от последней буквы снимаем: доску всё равно перечитает сам сброс.
+    window.clearTimeout(searchTimer);
+    search.value = '';
     departmentId.value = departments.value.length ? (Number(departments.value[0].id) || 0) : 0;
     pickFirstProject();
     columns.value = [];
@@ -179,6 +198,7 @@ const projectsInDepartment = computed(
 onMounted(init);
 onUnmounted(() => {
     if (liveReloadTimer) window.clearTimeout(liveReloadTimer);
+    if (searchTimer) window.clearTimeout(searchTimer);
 });
 
 async function init() {
@@ -205,6 +225,7 @@ async function init() {
         if (saved) {
             if (['all', 'author', 'assignee'].includes(saved.filter)) filter.value = saved.filter;
             if (Number.isInteger(saved.priorityFilter)) priorityFilter.value = saved.priorityFilter;
+            if (typeof saved.search === 'string') search.value = saved.search;
         }
         // Проект восстанавливаем, только если он есть в выбранном отделе; иначе — первый.
         const validProj = saved && projectsInDepartment.value.some((p) => p.key === saved.projectKey);
@@ -238,6 +259,7 @@ async function load(options = {}) {
             mine: filter.value === 'assignee' ? 1 : 0,
             author_id: filter.value === 'author' ? userId : 0,
             assignee_id: filter.value === 'assignee' ? userId : 0,
+            search: search.value,
         });
         columns.value = normalizeBoard(res).columns;
     } catch (e) {
@@ -585,6 +607,18 @@ async function onQueueDrop(queue, target) {
                 :placeholder="t('mxboard_ui_project')"
                 @change="load"
             />
+            <!-- Свободный поиск. Применяется по вводу с задержкой, поэтому кнопки нет. -->
+            <span class="mxb-search">
+                <i class="pi pi-search" aria-hidden="true" />
+                <InputText
+                    v-model="search"
+                    :placeholder="t('mxboard_ui_search')"
+                    :aria-label="t('mxboard_ui_search_hint')"
+                    :title="t('mxboard_ui_search_hint')"
+                    size="small"
+                    @input="onSearchInput"
+                />
+            </span>
             <Select
                 v-model="filter"
                 :options="FILTERS"

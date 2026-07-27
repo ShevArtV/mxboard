@@ -44,6 +44,9 @@ class BoardQuery
     /** Размер страницы обзора по умолчанию. */
     public const OVERVIEW_PAGE_SIZE = 25;
 
+    /** Потолок длины строки свободного поиска (символов). */
+    private const SEARCH_MAX_LENGTH = 100;
+
     /**
      * Сортируемые колонки обзора: имя из запроса → выражение для ORDER BY.
      *
@@ -296,7 +299,7 @@ class BoardQuery
      * отдельным запросом. Потолка у выборки нет — обрезать список молча нельзя, у отдела
      * с тысячей карточек «хвост» так же нужен, как голова.
      *
-     * @param array<string, mixed> $filters priority[], project_id[], author_id[], assignee_id[], stage[] (ключи колонок)
+     * @param array<string, mixed> $filters priority[], project_id[], author_id[], assignee_id[], stage[] (ключи колонок), search (строка)
      * @param int                  $page    номер страницы, 1-based
      * @param int                  $perPage размер страницы; вне OVERVIEW_PAGE_SIZES — дефолт
      * @param string               $sortBy  колонка сортировки из OVERVIEW_SORTS; иное — дефолтный порядок
@@ -934,6 +937,13 @@ class BoardQuery
             $c->where(['MxBoardTask.assignee_id' => (int) $filters['assignee_id']]);
         }
 
+        // Свободный поиск — обычное AND-условие рядом с остальными фильтрами: он СУЖАЕТ
+        // уже отобранное, а не заменяет выборку. Пустая строка условия не добавляет.
+        $search = $this->searchCondition((string) ($filters['search'] ?? ''));
+        if ($search !== []) {
+            $c->where($search);
+        }
+
         // Скоуп видимости: свои карточки — либо все, если менеджер (пустое условие).
         $visibility = Visibility::boardCondition($this->modx, $user, $project);
         if (!empty($visibility)) {
@@ -1021,6 +1031,14 @@ class BoardQuery
             $c->where(['Column.key:IN' => $stages]);
         }
 
+        // Свободный поиск — такое же AND-условие, как фильтры выше: он сужает уже
+        // отобранное. Собирается здесь, а не в departmentTasks(), чтобы автоматически
+        // попасть и в getCount() — иначе `total` и листалка считали бы выдачу без поиска.
+        $search = $this->searchCondition((string) ($filters['search'] ?? ''));
+        if ($search !== []) {
+            $c->where($search);
+        }
+
         // Скоуп видимости — последним, чтобы никакой фильтр его не «перекрыл».
         // Процессоры обзора и так пускают только менеджера отдела; это второй рубеж на
         // случай, если канал когда-нибудь откроют шире (агентский REST, киоск).
@@ -1053,6 +1071,52 @@ class BoardQuery
         }
 
         return array_values(array_unique($out));
+    }
+
+    /**
+     * Условие свободного поиска задачи: по части заголовка, по номеру карточки (`num`)
+     * и по внутреннему id.
+     *
+     * Один метод на оба экрана (доска и обзор отдела) — правило «что считается
+     * совпадением» должно быть одно, иначе один и тот же запрос находил бы на канбане и
+     * в обзоре разное.
+     *
+     * По id ищем, только если введено целое число: `id:=` со строкой отдал бы в SQL
+     * приведение к нулю и вернул бы карточку с id 0, которой нет.
+     *
+     * Джокеры `%` и `_` во вводе экранируются: без этого один символ `%` от пользователя
+     * означает «совпадает всё» и поиск возвращает доску целиком. Экранирующий символ —
+     * бэкслеш, дефолт MySQL для LIKE.
+     *
+     * Возвращается ВЛОЖЕННЫМ массивом: xPDO берёт группу условий в скобки, только если
+     * она собрана отдельным массивом (xPDOQuery::buildConditionalClause). Плоский набор
+     * с `OR:` приклеился бы к соседним условиям запроса, и `AND (мои карточки)` из скоупа
+     * видимости превратилось бы в `OR (чужие)` — поиск раскрывал бы чужие задачи.
+     *
+     * @return array{0: array<string, mixed>}|array{} пустой массив = поиск не задан
+     */
+    private function searchCondition(string $search): array
+    {
+        $search = trim($search);
+        if ($search === '') {
+            return [];
+        }
+        // Потолок длины: строка из запроса уходит в LIKE, и километровый ввод незачем
+        // тащить в SQL. Обрезаем по символам, а не байтам — иначе кириллица рвётся.
+        $search = mb_substr($search, 0, self::SEARCH_MAX_LENGTH);
+
+        $like = '%' . addcslashes($search, '%_\\') . '%';
+
+        $condition = [
+            'MxBoardTask.title:LIKE' => $like,
+            'OR:MxBoardTask.num:LIKE' => $like,
+        ];
+        // ctype_digit, а не is_numeric: id — целое, «12.5» и «1e3» искать по нему нечего.
+        if (ctype_digit($search)) {
+            $condition['OR:MxBoardTask.id:='] = (int) $search;
+        }
+
+        return [$condition];
     }
 
     /**
