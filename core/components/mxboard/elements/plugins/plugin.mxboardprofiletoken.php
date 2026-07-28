@@ -54,4 +54,9 @@ $modx->controller->addHtml(
     . 'window.MODx=window.MODx||{};MODx.lang=Object.assign(MODx.lang||{}, ' . $langJson . ');'
     . '</script>'
 );
-$modx->controller->addLastJavascript($assetsUrl . 'js/mgr/profile-token.js?v=' . urlencode((string) $modx->getOption('mxboard.version', null, '2.0.0')));
+// Cache-bust по mtime файла — как в контроллере доски (board.class.php). Настройки
+// mxboard.version в пакете нет, поэтому прежний getOption всегда отдавал дефолт: URL
+// виджета не менялся между версиями и браузер продолжал крутить закэшированный JS.
+$jsPath = MODX_ASSETS_PATH . 'components/mxboard/js/mgr/profile-token.js';
+$ver = @filemtime($jsPath) ?: $modx->getOption('mxboard.version', null, '2.0.0');
+$modx->controller->addLastJavascript($assetsUrl . 'js/mgr/profile-token.js?v=' . rawurlencode((string) $ver));

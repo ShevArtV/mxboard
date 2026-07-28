@@ -129,9 +129,21 @@
             : base + '#d1d5db;background:#fff;color:#333';
     }
 
-    function mount() {
+    // Скроллом формы владеет тело ExtJS-панели контента: ему Viewport проставляет
+    // height по высоте окна и overflow-y:auto. Сам #modx-content — absolute-панель,
+    // и свой узел в её корень вставлять нельзя: он сдвигает скроллер вниз на свою
+    // высоту, ExtJS про это не знает, а <body> с overflow:hidden отрезает низ формы
+    // вместе с кнопками сохранения (#2607-199).
+    function scroller() {
+        return document.querySelector('#modx-content > .x-panel-bwrap > .x-panel-body');
+    }
+
+    // fallback=true — последняя попытка: разметка не наша (чужая тема менеджера,
+    // другая версия ExtJS), лучше показать виджет как раньше, чем не показать вовсе.
+    function mount(fallback) {
         if (document.getElementById('mxb-profile-token')) return true;
-        var target = document.getElementById('modx-content') || document.body;
+        var target = scroller();
+        if (!target && fallback) target = document.getElementById('modx-content') || document.body;
         if (!target) return false;
 
         var w = build();
@@ -147,10 +159,11 @@
         return true;
     }
 
-    // ExtJS рендерит контент асинхронно — ждём появления контейнера.
+    // ExtJS рендерит контент асинхронно — ждём появления скроллера панели.
     var tries = 0;
     var timer = setInterval(function () {
         tries += 1;
-        if (mount() || tries > 40) clearInterval(timer);
+        var last = tries > 40;
+        if (mount(last) || last) clearInterval(timer);
     }, 250);
 })();
