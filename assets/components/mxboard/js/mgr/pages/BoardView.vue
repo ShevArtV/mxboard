@@ -146,9 +146,11 @@ const createOpen = ref(false);
 // пустая очередь на доске — шум, управлять её составом надо из карточки задачи.
 const queues = ref([]);
 const queuesOpen = ref(false);
-// Свёрнутость очередей держим сами: клик по заголовку и клик по кнопке должны менять
-// одно и то же состояние, а внутреннее состояние Panel снаружи не переключить.
-const queueCollapsed = ref({});
+// Раскрытая очередь ровно одна (0 — все свёрнуты). Состояние держим сами: клик по
+// заголовку и клик по кнопке должны менять одно и то же, а внутреннее состояние Panel
+// снаружи не переключить. Аккордеон здесь не роскошь: список очередей ограничен по
+// высоте, и две раскрытые очереди делят её пополам, отрезая хвост каждой.
+const openQueueId = ref(0);
 const queueDrag = ref({ queueId: 0, taskId: 0, overId: 0 });
 // Предупреждение «задача не первая в очереди» — модальный диалог, а не ConfirmPopup:
 // попап цепляется к элементу-якорю, а при drop надёжного якоря нет (currentTarget к
@@ -174,9 +176,7 @@ function toggleQueues() {
 
 /** Каждое открытие окна начинается со свёрнутых очередей. */
 function collapseAllQueues() {
-    const map = {};
-    for (const queue of queues.value) map[queue.id] = true;
-    queueCollapsed.value = map;
+    openQueueId.value = 0;
 }
 
 /**
@@ -186,11 +186,17 @@ function collapseAllQueues() {
  */
 function onQueueHeaderClick(queue, ev) {
     if (ev?.target?.closest?.('.p-panel-toggle-button')) return;
-    queueCollapsed.value = { ...queueCollapsed.value, [queue.id]: !isQueueCollapsed(queue) };
+    toggleQueue(queue);
+}
+
+/** Раскрыть очередь (свернув остальную) либо свернуть, если она уже раскрыта. */
+function toggleQueue(queue) {
+    const id = Number(queue.id);
+    openQueueId.value = openQueueId.value === id ? 0 : id;
 }
 
 function isQueueCollapsed(queue) {
-    return queueCollapsed.value[queue.id] !== false;
+    return openQueueId.value !== Number(queue.id);
 }
 
 /** Очередь задачи по её queue_id — нужна, чтобы понять, первая ли она в очереди. */
@@ -295,11 +301,12 @@ async function loadQueues() {
     }
     if (!hasQueues.value) queuesOpen.value = false;
 
-    const map = { ...queueCollapsed.value };
-    for (const queue of queues.value) {
-        if (map[queue.id] === undefined) map[queue.id] = true;
+    // Раскрытая очередь могла исчезнуть — например, при смене проекта или когда её
+    // последняя задача закрылась. Тогда состояние сбрасываем, иначе id повиснет и
+    // «раскрытой» окажется чужая очередь, если новая получит тот же id.
+    if (openQueueId.value && !queues.value.some((q) => Number(q.id) === openQueueId.value)) {
+        openQueueId.value = 0;
     }
-    queueCollapsed.value = map;
 }
 
 // Реактивная синхронизация со «Структурой» (без перезагрузки страницы):
@@ -714,7 +721,7 @@ async function onQueueDrop(queue, target) {
                     toggleable
                     :collapsed="isQueueCollapsed(queue)"
                     :pt="{ header: { onClick: (ev) => onQueueHeaderClick(queue, ev) } }"
-                    @update:collapsed="queueCollapsed = { ...queueCollapsed, [queue.id]: $event }"
+                    @update:collapsed="toggleQueue(queue)"
                 >
                     <template #header>
                         <span class="mxb-queue-head">
