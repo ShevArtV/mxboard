@@ -146,7 +146,6 @@ if (is_array($vague['object']) && isset($vague['object']['verdict'])) {
 $good = $service->create($author, [
     'type' => 'bugfix',
     'title' => 'Корзина падает при добавлении товара из акции',
-    'tor' => 'При добавлении акционного товара в корзину страница отдаёт 500.',
     'deadline' => $DEADLINE,
     'assignee_id' => $assignee,
     'fields' => [

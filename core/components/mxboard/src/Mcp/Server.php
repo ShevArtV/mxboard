@@ -172,7 +172,6 @@ final class Server
                 'assignee' => ['type' => 'string', 'description' => 'Исполнитель: username или id. Строго из отдела проекта (department_users).'],
                 'fields' => ['type' => 'object', 'description' => 'Значения полей типа: {ключ_поля: значение}.'],
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта. Создавать можно только в проектах своего отдела. По умолчанию — проект родителя (если задан parent_id), иначе из настроек.'],
-                'tor' => ['type' => 'string', 'description' => 'Постановка (ToR) в markdown.'],
                 'priority' => $this->priorityField(),
                 'plan_hours' => ['type' => 'integer', 'description' => 'Плановое время в часах. Необязательно; исполнитель вправе оспорить (task_dispute_plan).'],
                 'parent_id' => ['type' => 'integer', 'description' => 'ID родителя → создать как подзадачу (нужно быть автором/исполнителем родителя). Подзадача может уйти в ДРУГОЙ проект — укажите project; тип, стадия и исполнитель тогда берутся из его отдела.'],
@@ -204,7 +203,7 @@ final class Server
                 'proposed_date' => ['type' => 'string', 'description' => 'Предлагаемая дата: YYYY-MM-DD или unix.'],
                 'reason' => ['type' => 'string', 'description' => 'Почему нужен перенос. До 1000 символов; хвост сверх лимита обрезается.'],
             ], ['task_id', 'proposed_date']),
-            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип, поля, ToR.' . self::CLOSED_NOTE, [
+            $this->tool('task_update', 'Правка карточки (автор/менеджер): заголовок, дедлайн, план, приоритет, тип и поля.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
                 'title' => ['type' => 'string'],
                 'deadline' => ['type' => 'string', 'description' => 'YYYY-MM-DD или unix.'],
@@ -212,7 +211,6 @@ final class Server
                 'priority' => $this->priorityField(),
                 'type' => ['type' => 'string', 'description' => 'Новый ключ типа.'],
                 'fields' => ['type' => 'object', 'description' => 'Частичный патч полей типа. Без смены type непереданные ключи сохраняются; при смене type передавайте полный набор полей нового типа.'],
-                'tor' => ['type' => 'string'],
             ], ['task_id']),
             $this->tool('task_resolve_dispute', 'Разрешить оспаривание дедлайна (автор/менеджер): принять или отклонить.' . self::CLOSED_NOTE, [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
@@ -633,9 +631,6 @@ final class Server
         if (!empty($detail['parent'])) {
             $out[] = 'Родитель: #' . $detail['parent']['id'] . ' ' . $detail['parent']['title'];
         }
-        if (!empty($detail['tor'])) {
-            $out[] = "ToR:\n" . $detail['tor'];
-        }
         $fields = is_array($detail['fields'] ?? null) ? $detail['fields'] : [];
         if ($fields) {
             $out[] = 'Поля:';
@@ -724,7 +719,6 @@ final class Server
             'deadline' => $args['deadline'] ?? null,
             'assignee' => $args['assignee'] ?? null,
             'fields' => isset($args['fields']) && is_array($args['fields']) ? $args['fields'] : null,
-            'tor' => $this->str($args['tor'] ?? null),
             // Сырым, как deadline: приведение к int здесь тихо схлопнуло бы 2.5 → 2.
             // Валидацию (только целое из справочника) делает TaskService::resolvePriority.
             'priority' => $args['priority'] ?? null,
@@ -953,7 +947,7 @@ final class Server
         $taskId = (int) $task->get('id');
 
         $data = [];
-        foreach (['title', 'type', 'tor'] as $k) {
+        foreach (['title', 'type'] as $k) {
             if (array_key_exists($k, $args)) {
                 $data[$k] = $this->str($args[$k]);
             }

@@ -41,7 +41,7 @@ class AiReviewer
     /**
      * Оценить полноту постановки. Возвращает вердикт или null при сбое (fail-open).
      *
-     * @param array{title: string, tor: string, fields: array<string, mixed>} $task
+     * @param array{title: string, fields: array<string, mixed>} $task
      * @param list<array{key: string, label: string, type: string, required: bool}> $fieldDefs
      *
      * @return array{complete: bool, score: int, missing: list<string>, summary: string, model: string, checkedon: int}|null
@@ -90,7 +90,6 @@ class AiReviewer
         }
         $lines[] = '';
         $lines[] = 'Заголовок: ' . (string) ($task['title'] ?? '');
-        $lines[] = 'Постановка (ToR): ' . (trim((string) ($task['tor'] ?? '')) ?: '(пусто)');
         $lines[] = '';
         $lines[] = 'Поля типа (каждое — вопрос, на который должна отвечать постановка):';
 

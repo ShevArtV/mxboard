@@ -19,7 +19,7 @@ class Create extends ServiceProcessor
     {
         $data = $this->presentProperties([
             'project', 'project_id', 'parent_id',
-            'type', 'type_id', 'title', 'tor', 'priority',
+            'type', 'type_id', 'title', 'priority',
             'deadline', 'plan_hours', 'assignee', 'assignee_id', 'ai_override',
         ]);
 

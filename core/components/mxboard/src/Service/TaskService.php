@@ -139,7 +139,7 @@ class TaskService
         $aiVerdict = null;
         if ((bool) $type->get('ai_check')) {
             $verdict = (new AiReviewer($this->modx))->review(
-                ['title' => $title, 'tor' => (string) ($data['tor'] ?? ''), 'fields' => $fields],
+                ['title' => $title, 'fields' => $fields],
                 $type,
                 $this->fieldDefs($type)
             );
@@ -195,7 +195,6 @@ class TaskService
             'column_id' => (int) $column->get('id'),
             'num' => $num,
             'title' => $title,
-            'tor' => (string) ($data['tor'] ?? ''),
             'author_id' => (int) $user->get('id'),
             'assignee_id' => $assigneeId,
             'priority' => $priority,
@@ -652,8 +651,8 @@ class TaskService
     }
 
     /**
-     * Правка карточки автором/менеджером: заголовок, ToR, приоритет, дедлайн,
-     * плановое время, тип, поля.
+     * Правка карточки автором/менеджером: заголовок, приоритет, дедлайн,
+     * плановое время, тип и поля.
      *
      * @param array<string, mixed> $data
      *
@@ -690,10 +689,6 @@ class TaskService
                 return $this->fail('mxboard_err_title_too_long');
             }
             $task->set('title', $title);
-        }
-
-        if (array_key_exists('tor', $data)) {
-            $task->set('tor', (string) $data['tor']);
         }
 
         if (array_key_exists('priority', $data)) {

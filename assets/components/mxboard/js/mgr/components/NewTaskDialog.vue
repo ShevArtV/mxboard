@@ -35,7 +35,7 @@ const aiCanOverride = ref(false);
 // Дефолт приоритета — из справочника (первый по значению), а не хардкод: значение
 // могли переименовать/удалить. Пусто → 0 (backend всё равно подставит свой дефолт).
 const DEFAULT_PRIORITY = PRIORITIES[0]?.value ?? 0;
-const blankForm = () => ({ type: '', title: '', tor: '', priority: DEFAULT_PRIORITY, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
+const blankForm = () => ({ type: '', title: '', priority: DEFAULT_PRIORITY, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
 
 const form = ref(blankForm());
 // Файлы, приложенные ДО создания задачи: копятся в памяти, грузятся после успешного create.
@@ -156,7 +156,6 @@ async function save(override = false) {
             parent_id: props.parentId || 0,
             type: form.value.type,
             title: form.value.title.trim(),
-            tor: form.value.tor,
             priority: form.value.priority,
             deadline: form.value.deadline,
             plan_hours: Number(form.value.plan_hours) || 0,
@@ -195,11 +194,11 @@ async function save(override = false) {
 }
 
 // Есть ли во форме несохранённый ввод. Сверяемся с начальным состоянием (blankForm):
-// пустые тип/заголовок/ToR/дедлайн/исполнитель, план null, приоритет = DEFAULT_PRIORITY,
+// пустые тип/заголовок/дедлайн/исполнитель, план null, приоритет = DEFAULT_PRIORITY,
 // поля и файлы пусты.
 const isDirty = computed(() => {
     const f = form.value;
-    if (f.type || f.title.trim() || f.tor.trim() || f.deadline) return true;
+    if (f.type || f.title.trim() || f.deadline) return true;
     if (f.assignee_id || f.priority !== DEFAULT_PRIORITY) return true;
     if (f.plan_hours !== null && f.plan_hours !== '' && Number(f.plan_hours) > 0) return true;
     if (Object.values(f.fields || {}).some((v) => v !== '' && v !== null && v !== undefined && !(Array.isArray(v) && !v.length))) return true;

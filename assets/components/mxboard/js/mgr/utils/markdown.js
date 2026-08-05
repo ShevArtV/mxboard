@@ -1,10 +1,10 @@
 /**
- * Мини-рендер markdown для ToR и комментариев.
+ * Мини-рендер markdown для комментариев.
  *
  * Внешних либ (marked/markdown-it) сознательно нет: пакет не должен тащить
  * зависимости ради подсветки заголовков. Поддержаны заголовки, списки, цитаты,
- * hr, fenced-код, inline code/bold/italic/ссылки — этого хватает для ToR.
- * Весь текст экранируется ДО разметки, поэтому HTML из ToR не исполняется.
+ * hr, fenced-код, inline code/bold/italic/ссылки — этого хватает для сообщений.
+ * Весь текст экранируется ДО разметки, поэтому HTML из комментариев не исполняется.
  */
 
 function esc(s) {
@@ -21,7 +21,7 @@ function inline(raw) {
     t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     t = t.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
     t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, url) => {
-        // Только безопасные схемы: javascript:/data: в ToR ходить не должны.
+        // Только безопасные схемы: javascript:/data: из комментариев исполняться не должны.
         const safe = /^(https?:\/\/|\/|#)/i.test(url) ? url : '#';
         return `<a href="${safe}" target="_blank" rel="noopener noreferrer">${label}</a>`;
     });

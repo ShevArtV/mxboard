@@ -12,7 +12,6 @@ use xPDO\xPDO;
  * @property integer $column_id
  * @property string $num
  * @property string $title
- * @property string $tor
  * @property integer $author_id
  * @property integer $assignee_id
  * @property integer $priority

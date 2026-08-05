@@ -980,7 +980,7 @@ function openNotif(n) {
     color: var(--p-orange-500, #f59e0b);
 }
 
-/* Рендер markdown (ToR, комментарии) — контент из v-html, scoped-стили его не достанут. */
+/* Рендер markdown-комментариев: контент из v-html, scoped-стили его не достанут. */
 .mxb-md {
     line-height: 1.5;
     word-break: break-word;

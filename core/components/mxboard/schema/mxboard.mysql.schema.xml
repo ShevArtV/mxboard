@@ -217,8 +217,6 @@
              null допускается только на миг миграции (unique + NULL) — create() всегда проставляет. -->
         <field key="num" dbtype="varchar" precision="32" phptype="string" null="true" default="null" index="unique"/>
         <field key="title" dbtype="varchar" precision="255" phptype="string" null="false" default=""/>
-        <!-- Постановка задачи (ToR) в markdown. -->
-        <field key="tor" dbtype="mediumtext" phptype="string" null="true"/>
         <!-- Кто поставил задачу. Только автор/супер/sudo переводит карточку в финальную колонку. -->
         <field key="author_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- Кто взял задачу. 0 — свободна, доступна для захвата. -->

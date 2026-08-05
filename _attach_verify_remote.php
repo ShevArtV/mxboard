@@ -133,7 +133,6 @@ $fileArg = function (string $tmp, string $name) : array {
 $create = $service->create($author, [
     'type' => 'bugfix',
     'title' => 'Проверка вложений',
-    'tor' => 'Тест файловой подсистемы.',
     'deadline' => time() + 7 * 86400,
     'assignee_id' => (int) $worker->get('id'),
     'fields' => ['where' => 'x', 'what' => 'y', 'steps' => 'z', 'expected' => 'w'],

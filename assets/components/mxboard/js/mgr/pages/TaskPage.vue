@@ -64,7 +64,7 @@ const composerOver = ref(false); // подсветка drop-зоны компо�
 const editingCommentId = ref(0);
 const editingCommentText = ref('');
 const editing = ref(false);
-const form = ref({ title: '', tor: '', priority: 0, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
+const form = ref({ title: '', priority: 0, deadline: '', plan_hours: null, assignee_id: 0, fields: {} });
 
 const queues = ref([]);
 const queueDialogOpen = ref(false);
@@ -99,7 +99,6 @@ const priorityStyle = computed(() => {
         ? { backgroundColor: c, color: contrastText(c), border: 'none' }
         : { backgroundColor: '#6c757d', color: '#fff', border: 'none' };
 });
-const torHtml = computed(() => renderMarkdown(task.value?.tor));
 const overdue = computed(() => isOverdue(task.value));
 
 // Факт: замер идёт от стартовой стадии. Пока карточка не дошла до неё (или её вернули
@@ -550,7 +549,6 @@ async function startEdit() {
     await ensureUsers();
     form.value = {
         title: task.value.title || '',
-        tor: task.value.tor || '',
         priority: Number(task.value.priority) || 0,
         deadline: toDateInput(task.value.deadlineon),
         plan_hours: Number(task.value.plan_hours) || null,
@@ -564,7 +562,6 @@ async function saveEdit() {
     const ok = await act(() => TaskApi.update({
         id: props.taskId,
         title: form.value.title,
-        tor: form.value.tor,
         priority: form.value.priority,
         deadline: form.value.deadline,
         plan_hours: Number(form.value.plan_hours) || 0,

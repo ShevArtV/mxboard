@@ -58,6 +58,96 @@ $classes = [
 
 $manager = $modx->getManager();
 
+// До 3.0.0 у задачи был отдельный MEDIUMTEXT `tor`. В интерфейсе его давно заменили
+// поля типа, но MCP продолжал складывать туда постановки. При обновлении переносим
+// каждый непустой текст в обычный комментарий от автора задачи и только после
+// проверки полного совпадения удаляем колонку.
+//
+// INSERT идемпотентен: если установка оборвётся до DROP COLUMN, повторный запуск
+// увидит уже созданный комментарий по точному бинарному совпадению и не задублирует
+// его. События/уведомления намеренно не генерируются — массовая миграция истории не
+// является пользовательским комментированием.
+try {
+    $taskTable = $modx->getTableName(\MxBoard\Model\MxBoardTask::class);
+    $commentTable = $modx->getTableName(\MxBoard\Model\MxBoardComment::class);
+    $taskBare = trim((string) $taskTable, '`');
+    $commentBare = trim((string) $commentTable, '`');
+
+    $tableExists = static function (modX $modx, string $table): bool {
+        if ($table === '') {
+            return false;
+        }
+        $stmt = $modx->prepare(
+            'SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?'
+        );
+        $stmt->execute([$table]);
+
+        return (int) $stmt->fetchColumn() > 0;
+    };
+    $columnExists = static function (modX $modx, string $table, string $column): bool {
+        $stmt = $modx->prepare(
+            'SELECT COUNT(*) FROM information_schema.COLUMNS '
+            . 'WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?'
+        );
+        $stmt->execute([$table, $column]);
+
+        return (int) $stmt->fetchColumn() > 0;
+    };
+
+    if ($tableExists($modx, $taskBare) && $columnExists($modx, $taskBare, 'tor')) {
+        if (!$tableExists($modx, $commentBare)) {
+            throw new \RuntimeException('таблица комментариев не существует');
+        }
+
+        $sourceCount = (int) $modx->query(
+            "SELECT COUNT(*) FROM {$taskTable} WHERE tor IS NOT NULL AND OCTET_LENGTH(tor) > 0"
+        )->fetchColumn();
+
+        if ($sourceCount > 0) {
+            $insert = $modx->prepare(
+                "INSERT INTO {$commentTable} (task_id, user_id, content, createdon) "
+                . "SELECT t.id, t.author_id, t.tor, t.createdon FROM {$taskTable} t "
+                . "WHERE t.tor IS NOT NULL AND OCTET_LENGTH(t.tor) > 0 "
+                . "AND NOT EXISTS ("
+                . "SELECT 1 FROM {$commentTable} c "
+                . "WHERE c.task_id = t.id AND c.user_id = t.author_id AND BINARY c.content = BINARY t.tor"
+                . ')'
+            );
+            if (!$insert->execute()) {
+                throw new \RuntimeException('INSERT комментариев не выполнен');
+            }
+        }
+
+        $unmatched = (int) $modx->query(
+            "SELECT COUNT(*) FROM {$taskTable} t "
+            . "WHERE t.tor IS NOT NULL AND OCTET_LENGTH(t.tor) > 0 "
+            . "AND NOT EXISTS ("
+            . "SELECT 1 FROM {$commentTable} c "
+            . "WHERE c.task_id = t.id AND c.user_id = t.author_id AND BINARY c.content = BINARY t.tor"
+            . ')'
+        )->fetchColumn();
+
+        if ($unmatched !== 0) {
+            throw new \RuntimeException("не перенесено значений tor: {$unmatched} из {$sourceCount}");
+        }
+
+        $modx->exec("ALTER TABLE {$taskTable} DROP COLUMN `tor`");
+        if ($columnExists($modx, $taskBare, 'tor')) {
+            throw new \RuntimeException('DROP COLUMN tor не выполнен');
+        }
+        $modx->log(
+            modX::LOG_LEVEL_INFO,
+            "[mxBoard] Миграция tor → comments: перенесено/проверено {$sourceCount}, колонка удалена."
+        );
+    }
+} catch (\Throwable $e) {
+    // Не продолжаем upgrade без завершённого переноса: старый пакет и колонка с
+    // исходными данными безопаснее частично установленной новой версии.
+    $modx->log(modX::LOG_LEVEL_ERROR, '[mxBoard] Миграция tor → comments остановлена: ' . $e->getMessage());
+
+    return false;
+}
+
 // Миграции: ALTER TABLE ДО createObjectContainer (иначе xPDO падает на новом поле).
 // Ключ — FQCN модели: имя таблицы из mxboard_task_type в класс через str_replace+ucfirst
 // не разворачивается (дал бы MxBoardTask_type), поэтому маппим напрямую.

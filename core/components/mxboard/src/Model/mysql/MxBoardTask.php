@@ -23,7 +23,6 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
             'column_id' => 0,
             'num' => NULL,
             'title' => '',
-            'tor' => NULL,
             'author_id' => 0,
             'assignee_id' => 0,
             'priority' => 0,
@@ -102,12 +101,6 @@ class MxBoardTask extends \MxBoard\Model\MxBoardTask
                 'phptype' => 'string',
                 'null' => false,
                 'default' => '',
-            ),
-            'tor' => 
-            array (
-                'dbtype' => 'mediumtext',
-                'phptype' => 'string',
-                'null' => true,
             ),
             'author_id' => 
             array (
