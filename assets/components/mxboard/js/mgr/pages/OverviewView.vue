@@ -1,10 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { DataTable, Column, Select, MultiSelect, InputText, Button, useToast } from 'primevue';
 import { OverviewApi, errorMessage } from '../api/connector.js';
 import {
     PRIORITIES, priorityMeta, stageColor, fmtDay, deadlineTone, factHours, factRunning,
 } from '../utils/format.js';
+import { liveEvents } from '../utils/bus.js';
 import { t } from '../utils/i18n.js';
 import TaskNum from '../components/TaskNum.vue';
 import TaskPage from './TaskPage.vue';
@@ -13,6 +14,14 @@ import TaskPage from './TaskPage.vue';
 // колонка = одна стадия», а срез руководителя: пять множественных фильтров и сортировка
 // по любому столбцу. Выборку и права считает сервер (Overview\GetList), здесь только
 // представление.
+// `active` — открыта ли вкладка «Обзор» прямо сейчас. Сам компонент об этом не знает:
+// у PrimeVue Tabs `lazy` по умолчанию false, панели монтируются все сразу и прячутся
+// через v-show, поэтому скрытый Обзор без этого признака обновлялся бы в фоне всё время,
+// пока менеджер работает на доске.
+const props = defineProps({
+    active: { type: Boolean, default: true },
+});
+
 const toast = useToast();
 const cfg = window.MxBoardConfig || {};
 const userId = Number(cfg.user_id) || 0;
@@ -99,14 +108,20 @@ async function loadMeta(withDepartment = true) {
     }
 }
 
-async function load(resetPage = false) {
+/**
+ * `silent` — фоновое обновление по живому событию доски, а не действие пользователя:
+ * оно не поднимает оверлей загрузки поверх таблицы и при сбое оставляет на экране то,
+ * что уже было. Иначе моргание и — при обрыве сети — пустая таблица с красным тостом
+ * там, где пользователь ничего не нажимал.
+ */
+async function load(resetPage = false, silent = false) {
     if (resetPage) page.value = 1;
     if (!departmentId.value) {
         rows.value = [];
         total.value = 0;
         return;
     }
-    loading.value = true;
+    if (!silent) loading.value = true;
     try {
         const res = await OverviewApi.getList(departmentId.value, filters.value, {
             page: page.value,
@@ -121,11 +136,15 @@ async function load(resetPage = false) {
         // и рассинхрон дал бы листалку, показывающую страницу, которой уже нет.
         page.value = Number(data.page) || 1;
     } catch (e) {
-        rows.value = [];
-        total.value = 0;
-        toast.add({ severity: 'error', detail: errorMessage(e), life: 6000 });
+        // Фоновая попытка права на очистку экрана не имеет: следующее событие доски
+        // (или кнопка «Обновить») повторит запрос, а до тех пор данные остаются прежними.
+        if (!silent) {
+            rows.value = [];
+            total.value = 0;
+            toast.add({ severity: 'error', detail: errorMessage(e), life: 6000 });
+        }
     } finally {
-        loading.value = false;
+        if (!silent) loading.value = false;
     }
 }
 
@@ -187,8 +206,76 @@ function openRow(event) {
 
 function closeTask() {
     openTask.value = null;
+    // Возврат к списку и так перечитывает данные, поэтому накопленное за время просмотра
+    // карточки гасим здесь: иначе следом отработает ещё и разрядка `stale` — два запроса
+    // подряд об одном и том же.
+    window.clearTimeout(liveTimer);
+    stale.value = false;
     load();
 }
+
+// Живое обновление таблицы по событиям доски. Механизм тот же, что у канбана и карточки:
+// SSE-поток (useNotifications) кладёт событие журнала в общую шину, а подписчик сам
+// решает, касается ли оно его данных. Своего опроса сервера здесь нет — Обзор ходит за
+// данными только тогда, когда на доске действительно что-то произошло.
+
+// Комментарии и появление подзадачи у родителя ни одной колонки таблицы не меняют, а идут
+// потоком. Список именно чёрный: незнакомое действие лучше отработает лишним обновлением,
+// чем молча потеряется, когда в журнале появится новый вид записи.
+const IGNORED_ACTIONS = ['comment', 'comment_update', 'comment_delete', 'subtask_add'];
+
+let liveTimer = 0;
+// Событие пришло, но обновлять сейчас некому — сделаем это, когда таблица вернётся на экран.
+const stale = ref(false);
+// Отдельный ref, потому что `document.hidden` сам по себе не реактивен: computed на нём
+// не пересчитался бы при сворачивании окна.
+const docHidden = ref(document.hidden);
+
+// Обновляться есть смысл, только когда таблица на экране: вкладка «Обзор» активна, окно
+// браузера видимо и поверх не открыта карточка задачи — у неё своя подписка на ту же шину,
+// а её закрытие и так перечитывает список.
+const canRefresh = computed(() => props.active && !openTask.value && !docHidden.value);
+
+function applyLiveRefresh() {
+    if (!canRefresh.value) {
+        stale.value = true;
+        return;
+    }
+    stale.value = false;
+    // Тихо и без сброса страницы: менеджера, ушедшего на пятую страницу, чужая правка не
+    // должна возвращать на первую.
+    load(false, true);
+}
+
+// Серия событий (перенос нескольких карточек, автозапуск очереди) схлопывается в один
+// запрос — иначе каждая запись журнала стоила бы отдельной выборки по всему отделу.
+function scheduleLiveRefresh() {
+    window.clearTimeout(liveTimer);
+    liveTimer = window.setTimeout(applyLiveRefresh, 250);
+}
+
+watch(() => liveEvents.seq, () => {
+    const event = liveEvents.last;
+    if (!event || IGNORED_ACTIONS.includes(event.action)) return;
+    // Обзор показывает один отдел: событие чужого проекта его таблицу не меняет.
+    if (!projects.value.some((p) => Number(p.id) === Number(event.project_id))) return;
+    scheduleLiveRefresh();
+});
+
+// Возврат к таблице разряжает накопленное одним запросом, а не серией по числу событий.
+watch(canRefresh, (visible) => {
+    if (visible && stale.value) applyLiveRefresh();
+});
+
+function onVisibilityChange() {
+    docHidden.value = document.hidden;
+}
+
+onMounted(() => document.addEventListener('visibilitychange', onVisibilityChange));
+onUnmounted(() => {
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.clearTimeout(liveTimer);
+});
 
 // Цвет стадии — общий помощник доски: у стадии без своего цвета берётся фолбэк по
 // позиции, иначе «Готово» и «Бэклог» слились бы в один серый на всю таблицу.

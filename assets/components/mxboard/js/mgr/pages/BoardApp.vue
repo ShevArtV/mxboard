@@ -99,7 +99,10 @@ function openNotif(n, event) {
                     <BoardView />
                 </TabPanel>
                 <TabPanel v-if="isManager" value="overview">
-                    <OverviewView />
+                    <!-- Панели вкладок монтируются все сразу и прячутся через v-show,
+                         поэтому «Обзор» сам не знает, смотрят на него или нет: без этого
+                         признака он обновлялся бы в фоне по каждому событию доски. -->
+                    <OverviewView :active="tab === 'overview'" />
                 </TabPanel>
                 <TabPanel v-if="isManager" value="structure">
                     <StructureView />
