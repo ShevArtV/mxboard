@@ -6,12 +6,16 @@ import {
 import {
     ProjectApi, QueueApi, errorMessage, listOf,
 } from '../../api/connector.js';
+import { projectFilterProps } from '../../utils/projectFilter.js';
 import { t } from '../../utils/i18n.js';
+import ProjectOption from '../ProjectOption.vue';
 
 // Очереди — сущность проекта: у одного проекта их может быть сколько угодно.
 // Управлять ими вправе тот же, кто управляет проектом (проверка на сервере).
 const toast = useToast();
 const confirm = useConfirm();
+// Поиск в списке проектов: набор пропов общий для всех селекторов проекта в интерфейсе.
+const projectFilter = projectFilterProps();
 
 const projects = ref([]);
 const queues = ref([]);
@@ -152,7 +156,18 @@ function removeQueue(event, queue) {
         <Dialog v-model:visible="createOpen" modal dismissable-mask :header="t('mxboard_ui_queue_new')" :style="{ width: '560px' }">
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_queue_project') }}</label>
-                <Select v-model="createForm.project_id" :options="projects" option-label="name" option-value="id" fluid />
+                <Select
+                    v-model="createForm.project_id"
+                    :options="projects"
+                    option-label="name"
+                    option-value="id"
+                    fluid
+                    v-bind="projectFilter"
+                >
+                    <template #option="{ option }">
+                        <ProjectOption :option="option" />
+                    </template>
+                </Select>
             </div>
             <div class="mxb-row">
                 <div class="mxb-field mxb-col">

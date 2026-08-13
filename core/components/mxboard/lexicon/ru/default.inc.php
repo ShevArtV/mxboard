@@ -196,9 +196,14 @@ $_lang['mxboard_ui_edit'] = 'Редактировать';
 $_lang['mxboard_ui_send'] = 'Отправить';
 $_lang['mxboard_ui_empty'] = 'Пусто';
 $_lang['mxboard_ui_loading'] = 'Загрузка…';
+// Пустые состояния списков PrimeVue: без них показываются английские строки его локали.
+$_lang['mxboard_ui_no_results'] = 'Ничего не найдено';
+$_lang['mxboard_ui_nothing_selected'] = 'Ничего не выбрано';
 
 $_lang['mxboard_ui_department'] = 'Отдел';
 $_lang['mxboard_ui_project'] = 'Проект';
+// Поиск внутри селекторов проекта: ищет и по названию, и по ключу.
+$_lang['mxboard_ui_filter_projects'] = 'Название или ключ проекта';
 $_lang['mxboard_ui_filter_all'] = 'Все';
 $_lang['mxboard_ui_filter_author'] = 'Я автор';
 $_lang['mxboard_ui_filter_assignee'] = 'Я исполнитель';

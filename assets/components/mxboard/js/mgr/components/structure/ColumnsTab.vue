@@ -7,10 +7,14 @@ import {
     ProjectApi, ColumnApi, errorMessage, listOf,
 } from '../../api/connector.js';
 import { revisions, bumpColumns } from '../../utils/bus.js';
+import { projectFilterProps } from '../../utils/projectFilter.js';
 import { t } from '../../utils/i18n.js';
+import ProjectOption from '../ProjectOption.vue';
 
 const toast = useToast();
 const confirm = useConfirm();
+// Поиск в списке проектов: набор пропов общий для всех селекторов проекта в интерфейсе.
+const projectFilter = projectFilterProps();
 
 const projects = ref([]);
 const projectId = ref(null);
@@ -51,10 +55,12 @@ function moveLabel(roles) {
     return t(map[rolesToMode(roles)]);
 }
 
-// Опции селектора: «шаблон новых проектов» (project_id=0) + реальные проекты.
+// Опции селектора: «шаблон новых проектов» (project_id=0) + реальные проекты. Ключ проекта
+// нужен здесь не для отображения, а для поиска: список ищет по названию И по ключу.
+// У шаблона ключа нет — он и не проект, ищется только по названию.
 const projectOptions = computed(() => [
-    { id: 0, name: t('mxboard_ui_struct_template') },
-    ...projects.value.map((p) => ({ id: Number(p.id), name: p.name })),
+    { id: 0, name: t('mxboard_ui_struct_template'), key: '' },
+    ...projects.value.map((p) => ({ id: Number(p.id), name: p.name, key: p.key })),
 ]);
 
 // Fallback: выбран реальный проект (>0), но показанные колонки принадлежат шаблону
@@ -267,7 +273,18 @@ async function doCopy(sourceId) {
 <template>
     <div>
         <div class="mxb-toolbar">
-            <Select v-model="projectId" :options="projectOptions" option-label="name" option-value="id" :placeholder="t('mxboard_ui_struct_pick_project')" />
+            <Select
+                v-model="projectId"
+                :options="projectOptions"
+                option-label="name"
+                option-value="id"
+                :placeholder="t('mxboard_ui_struct_pick_project')"
+                v-bind="projectFilter"
+            >
+                <template #option="{ option }">
+                    <ProjectOption :option="option" />
+                </template>
+            </Select>
             <Button v-if="canEdit" :label="t('mxboard_ui_struct_new_column')" icon="pi pi-plus" size="small" :disabled="projectId === null" @click="openCreate" />
             <Button v-if="canCopy" :label="t('mxboard_ui_struct_copy_columns')" icon="pi pi-copy" size="small" severity="secondary" @click="openCopy" />
             <Button v-if="canEdit && Number(projectId) > 0" :label="t('mxboard_ui_struct_reset')" icon="pi pi-undo" size="small" severity="danger" outlined @click="resetColumns" />
@@ -411,7 +428,18 @@ async function doCopy(sourceId) {
             <div class="mxb-hint" style="margin-bottom: 8px">{{ t('mxboard_ui_struct_copy_hint') }}</div>
             <div class="mxb-field">
                 <label>{{ t('mxboard_ui_struct_copy_source') }}</label>
-                <Select v-model="copySourceId" :options="copySources" option-label="name" option-value="id" fluid />
+                <Select
+                    v-model="copySourceId"
+                    :options="copySources"
+                    option-label="name"
+                    option-value="id"
+                    fluid
+                    v-bind="projectFilter"
+                >
+                    <template #option="{ option }">
+                        <ProjectOption :option="option" />
+                    </template>
+                </Select>
             </div>
             <template #footer>
                 <div class="mxb-dialog-actions">

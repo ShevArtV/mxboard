@@ -3,9 +3,11 @@ import { ref, computed, watch } from 'vue';
 import { Dialog, Button, InputText, Select, ConfirmDialog, useToast, useConfirm } from 'primevue';
 import { TaskApi, TypeApi, DepartmentApi, ProjectApi, AttachmentApi, errorMessage, listOf } from '../api/connector.js';
 import { PRIORITIES, fmtSize } from '../utils/format.js';
+import { projectFilterProps } from '../utils/projectFilter.js';
 import { t } from '../utils/i18n.js';
 import TypeFields from './TypeFields.vue';
 import FileDrop from './FileDrop.vue';
+import ProjectOption from './ProjectOption.vue';
 
 const props = defineProps({
     visible: { type: Boolean, default: false },
@@ -17,6 +19,8 @@ const props = defineProps({
     parentTitle: { type: String, default: '' },
 });
 const emit = defineEmits(['update:visible', 'created']);
+// Поиск в списке проектов: набор пропов общий для всех селекторов проекта в интерфейсе.
+const projectFilter = projectFilterProps();
 
 const toast = useToast();
 const confirm = useConfirm();
@@ -258,7 +262,12 @@ function removeStaged(idx) {
                 option-value="key"
                 :placeholder="t('mxboard_ui_project')"
                 fluid
-            />
+                v-bind="projectFilter"
+            >
+                <template #option="{ option }">
+                    <ProjectOption :option="option" />
+                </template>
+            </Select>
             <div v-if="activeProject !== projectKey" class="mxb-hint">
                 {{ t('mxboard_ui_subtask_other_project') }}
             </div>

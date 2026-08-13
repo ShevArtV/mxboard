@@ -6,8 +6,10 @@ import {
     PRIORITIES, priorityMeta, stageColor, fmtDay, deadlineTone, factHours, factRunning,
 } from '../utils/format.js';
 import { liveEvents } from '../utils/bus.js';
+import { projectFilterProps } from '../utils/projectFilter.js';
 import { t } from '../utils/i18n.js';
 import TaskNum from '../components/TaskNum.vue';
+import ProjectOption from '../components/ProjectOption.vue';
 import TaskPage from './TaskPage.vue';
 
 // Обзор отдела: плоская таблица задач ВСЕХ его проектов. Отличие от доски — не «одна
@@ -25,6 +27,8 @@ const props = defineProps({
 const toast = useToast();
 const cfg = window.MxBoardConfig || {};
 const userId = Number(cfg.user_id) || 0;
+// Поиск в списке проектов: набор пропов общий для всех селекторов проекта в интерфейсе.
+const projectFilter = projectFilterProps();
 
 const departments = ref([]);
 const departmentId = ref(0);
@@ -398,10 +402,14 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                     :options="projects"
                     option-label="name"
                     option-value="id"
-                    filter
                     :placeholder="t('mxboard_ui_overview_filter_project')"
                     class="mxb-ov-filter"
-                />
+                    v-bind="projectFilter"
+                >
+                    <template #option="{ option }">
+                        <ProjectOption :option="option" />
+                    </template>
+                </MultiSelect>
                 <MultiSelect
                     v-model="filters.author_id"
                     :options="users"
