@@ -9,9 +9,11 @@ import {
 } from '../api/connector.js';
 import { normalizeBoard, normalizeTask, stageColor, PRIORITIES } from '../utils/format.js';
 import { liveEvents, revisions } from '../utils/bus.js';
+import { projectFilterProps } from '../utils/projectFilter.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
 import TaskNum from '../components/TaskNum.vue';
+import ProjectOption from '../components/ProjectOption.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 import TaskPage from './TaskPage.vue';
 
@@ -19,6 +21,8 @@ const toast = useToast();
 const confirm = useConfirm();
 const cfg = window.MxBoardConfig || {};
 const userId = Number(cfg.user_id) || 0;
+// Поиск в списке проектов: набор пропов общий для всех селекторов проекта в интерфейсе.
+const projectFilter = projectFilterProps();
 
 const departments = ref([]);
 const projects = ref([]);
@@ -628,8 +632,13 @@ async function onQueueDrop(queue, target) {
                 option-label="name"
                 option-value="key"
                 :placeholder="t('mxboard_ui_project')"
+                v-bind="projectFilter"
                 @change="load"
-            />
+            >
+                <template #option="{ option }">
+                    <ProjectOption :option="option" />
+                </template>
+            </Select>
             <!-- Свободный поиск. Применяется по вводу с задержкой, поэтому кнопки «искать»
                  нет; вместо неё — крестик очистки, он же по Esc. -->
             <span class="mxb-search">

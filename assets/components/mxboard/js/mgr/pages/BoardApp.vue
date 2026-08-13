@@ -1219,6 +1219,31 @@ function openNotif(n, event) {
     margin-top: 4px;
 }
 
+/* Строка проекта в выпадающем списке: название и приглушённый ключ. Ключ показан потому,
+   что список ищет и по нему — иначе непонятно, почему ввод «kb-graph» оставил на экране
+   «Граф БЗ». Длинное название ужимается, ключ остаётся целиком: он короткий и он же
+   ответ на вопрос «то ли это».
+   Значения продублированы литералами: выпадающий список PrimeVue телепортируется в body,
+   где переменные --mxb-* уже не видны — без фолбэка ключ слипался с названием. */
+.mxb-project-opt {
+    display: flex;
+    align-items: baseline;
+    gap: var(--mxb-space-2, 8px);
+    min-width: 0;
+}
+
+.mxb-project-opt-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.mxb-project-opt-key {
+    flex: none;
+    font-size: 12px;
+    color: var(--mxb-ink-muted, #5b6472);
+}
+
 .mxb-dialog-actions {
     display: flex;
     gap: 8px;

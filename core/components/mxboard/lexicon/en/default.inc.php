@@ -196,9 +196,14 @@ $_lang['mxboard_ui_edit'] = 'Edit';
 $_lang['mxboard_ui_send'] = 'Send';
 $_lang['mxboard_ui_empty'] = 'Empty';
 $_lang['mxboard_ui_loading'] = 'Loading…';
+// PrimeVue list empty states: without these its own English locale strings show up.
+$_lang['mxboard_ui_no_results'] = 'Nothing found';
+$_lang['mxboard_ui_nothing_selected'] = 'Nothing selected';
 
 $_lang['mxboard_ui_department'] = 'Department';
 $_lang['mxboard_ui_project'] = 'Project';
+// Search inside project selectors: matches both the name and the project key.
+$_lang['mxboard_ui_filter_projects'] = 'Project name or key';
 $_lang['mxboard_ui_filter_all'] = 'All';
 $_lang['mxboard_ui_filter_author'] = 'I am author';
 $_lang['mxboard_ui_filter_assignee'] = 'I am assignee';
