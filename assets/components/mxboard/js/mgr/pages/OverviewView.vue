@@ -6,6 +6,7 @@ import {
     PRIORITIES, priorityMeta, stageColor, fmtDay, deadlineTone, factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
+import TaskNum from '../components/TaskNum.vue';
 import TaskPage from './TaskPage.vue';
 
 // Обзор отдела: плоская таблица задач ВСЕХ его проектов. Отличие от доски — не «одна
@@ -174,7 +175,12 @@ const hasFilters = computed(() => Object.values(filters.value).some((v) => v && 
 // грузить ту же задачу. Плата — открытая карточка не переживает перезагрузку страницы.
 const openTask = ref(null);
 
+// Клик по номеру копирует номер и карточку не открывает — иначе поверх скопированного
+// значения тут же выехала бы модалка. Сама DataTable клики по <button> до row-click уже
+// не доводит (isClickable в её onRowClick), но отсев по классу оставлен явной страховкой:
+// он не зависит от внутренней эвристики PrimeVue и совпадает с доской и очередями.
 function openRow(event) {
+    if (event?.originalEvent?.target?.closest('.mxb-num')) return;
     const row = event?.data;
     if (row?.id) openTask.value = row;
 }
@@ -418,11 +424,23 @@ watch(() => filters.value, scheduleLoad, { deep: true });
                     </template>
                 </Column>
 
-                <!-- Номер — настоящая кнопка: клик по строке мышью удобен, но карточку
-                     нужно уметь открыть и с клавиатуры (строка таблицы не фокусируется). -->
-                <Column field="num" :header="t('mxboard_ui_overview_col_num')" :sortable="true" style="width: 110px">
+                <!-- Клик по номеру копирует номер, как и везде. Открытие карточки при этом
+                     не теряется: мышью работает клик по строке, а для клавиатуры рядом стоит
+                     отдельная фокусируемая кнопка — строка таблицы сама не фокусируется. -->
+                <Column field="num" :header="t('mxboard_ui_overview_col_num')" :sortable="true" style="width: 130px">
                     <template #body="{ data }">
-                        <button type="button" class="mxb-ov-num" @click.stop="openTask = data">{{ data.num }}</button>
+                        <span class="mxb-ov-numcell">
+                            <TaskNum :num="data.num" class="mxb-ov-num" />
+                            <button
+                                type="button"
+                                class="mxb-ov-open"
+                                :title="t('mxboard_ui_open_task')"
+                                :aria-label="`${t('mxboard_ui_open_task')}: ${data.num}`"
+                                @click.stop="openTask = data"
+                            >
+                                <i class="pi pi-external-link" />
+                            </button>
+                        </span>
                     </template>
                 </Column>
 

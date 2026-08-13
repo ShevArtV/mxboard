@@ -5,6 +5,7 @@ import BoardView from './BoardView.vue';
 import TokensView from './TokensView.vue';
 import StructureView from './StructureView.vue';
 import OverviewView from './OverviewView.vue';
+import TaskNum from '../components/TaskNum.vue';
 import { t } from '../utils/i18n.js';
 import { useNotifications } from '../utils/useNotifications.js';
 import { fmtDate } from '../utils/format.js';
@@ -17,7 +18,7 @@ const isSudo = !!cfg.is_sudo;
 const tab = ref('board');
 
 // Уведомления: живой SSE-поток + тосты внутри useNotifications, здесь — колокольчик и список.
-const { state: notif, markAllSeen, summary, detail, typeLabel } = useNotifications();
+const { state: notif, markAllSeen, taskNum, taskTitle, detail, typeLabel } = useNotifications();
 const notifPanel = ref(null);
 
 function toggleNotif(e) {
@@ -30,7 +31,10 @@ function onNotifShow() {
 }
 
 // Навигация к задаче — через hash, как в BoardView (он слушает hashchange).
-function openNotif(n) {
+// Клик по номеру копирует номер и панель не закрывает: иначе копирование уводило бы
+// со страницы. Отсеиваем по классу, а не через stop — всплытие до document нужно оверлеям.
+function openNotif(n, event) {
+    if (event?.target?.closest('.mxb-num')) return;
     if (n.task_id) window.location.hash = '#task-' + n.task_id;
     notifPanel.value?.hide();
 }
@@ -53,10 +57,13 @@ function openNotif(n) {
                         :key="n.id"
                         class="mxb-notif-item"
                         :class="{ 'mxb-notif-item--unseen': !n.seen }"
-                        @click="openNotif(n)"
+                        @click="openNotif(n, $event)"
                     >
                         <span class="mxb-notif-type">{{ typeLabel(n) }}</span>
-                        <span class="mxb-notif-summary">{{ summary(n) }}</span>
+                        <span class="mxb-notif-summary">
+                            <TaskNum :num="taskNum(n)" class="mxb-notif-num" />
+                            {{ taskTitle(n) }}
+                        </span>
                         <span class="mxb-notif-detail">{{ detail(n) }}</span>
                         <span class="mxb-notif-time">{{ fmtDate(n.createdon) }}</span>
                     </li>
@@ -150,6 +157,40 @@ function openNotif(n) {
 .mxb-att-remove:focus-visible {
     outline: none;
     box-shadow: var(--mxb-focus);
+}
+
+/* Номер задачи (TaskNum) — кнопка, копирующая номер. Блок стоит выше остальных
+   намеренно: он лишь снимает кнопочные дефолты, а внешний вид в каждом месте задаёт
+   свой класс (.mxb-queue-num, .mxb-ov-num, .mxb-chip--num...), который идёт ниже и
+   потому переопределяет базу при равной специфичности. */
+.mxb-num {
+    appearance: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+    line-height: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+.mxb-num:hover {
+    text-decoration: underline;
+}
+
+.mxb-num:focus-visible {
+    outline: none;
+    border-radius: var(--mxb-radius-sm);
+    box-shadow: var(--mxb-focus);
+}
+
+/* Подтверждение копирования на самом номере: тост уезжает в угол экрана, а взгляд
+   в этот момент на номере — без локального отклика клик кажется не сработавшим. */
+.mxb-num--copied {
+    color: var(--p-primary-600, #059669);
 }
 
 /* Аватар пользователя (инициалы) — общий для доски, меты и чата. */
@@ -329,6 +370,13 @@ function openNotif(n) {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: var(--p-text-color, #1f2733);
+}
+
+/* Номер в уведомлении — тот же вес, что у заголовка рядом, но приглушённым цветом:
+   строка читается как «номер + о чём», а копируется только номер. */
+.mxb-notif-num {
+    margin-right: 4px;
+    color: var(--mxb-ink-muted);
 }
 
 .mxb-notif-detail {
@@ -1248,6 +1296,11 @@ function openNotif(n) {
     font-size: 11px;
 }
 
+/* Номер на карточке — адрес задачи: тот же чип, но чуть плотнее по весу, чем тип. */
+.mxb-chip--num {
+    font-weight: 600;
+}
+
 /* Тип задачи — приглушённый тег, уступает приоритету по весу. */
 .mxb-chip--type {
     letter-spacing: 0.2px;
@@ -1371,7 +1424,10 @@ function openNotif(n) {
     font-style: italic;
 }
 
-.mxb-meta-id code {
+/* Номер и id в мете выглядят одинаково, хотя это <button> и <code>: номер стал
+   кнопкой копирования, но остаться должен той же «плашкой адреса», что и рядом. */
+.mxb-meta-id code,
+.mxb-meta-num {
     background: var(--p-surface-100, #f1f3f5);
     padding: 2px 8px;
     border-radius: 4px;
@@ -1934,6 +1990,15 @@ function openNotif(n) {
     text-align: left;
 }
 
+/* Номер родителя стоит перед ссылкой и весом уступает ей: ведёт к задаче заголовок,
+   номер только копируется. */
+.mxb-parent-num {
+    margin-right: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--mxb-ink-muted);
+}
+
 .mxb-parent-link span {
     min-width: 0;
     overflow-wrap: anywhere;
@@ -2223,26 +2288,42 @@ function openNotif(n) {
     border: 0;
 }
 
-/* Номер задачи — кнопка открытия карточки (клавиатурный путь к тому же, что делает
-   клик по строке), поэтому сбрасываем кнопочные дефолты, но фокус оставляем видимым. */
+/* Ячейка номера в обзоре: сам номер (клик копирует) и отдельная иконка открытия
+   карточки. Две разные кнопки, потому что клик по строке в таблице открывает задачу,
+   а номер это делать перестал — без иконки у клавиатуры не осталось бы входа в карточку. */
+.mxb-ov-numcell {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
 .mxb-ov-num {
-    appearance: none;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: inherit;
     font-size: 12px;
-    font-variant-numeric: tabular-nums;
     color: var(--mxb-ink-muted);
-    cursor: pointer;
 }
 
 .mxb-ov-num:hover {
     color: var(--p-primary-600, #059669);
-    text-decoration: underline;
 }
 
-.mxb-ov-num:focus-visible {
+/* Иконка открытия карточки. Приглушена, но видна всегда: скрывать её до наведения
+   значило бы прятать единственный явный вход в задачу из таблицы. */
+.mxb-ov-open {
+    appearance: none;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--p-surface-400, #94a3b8);
+    font-size: 11px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.mxb-ov-open:hover {
+    color: var(--p-primary-600, #059669);
+}
+
+.mxb-ov-open:focus-visible {
     outline: none;
     border-radius: var(--mxb-radius-sm);
     box-shadow: var(--mxb-focus);

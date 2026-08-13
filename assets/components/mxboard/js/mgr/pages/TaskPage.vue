@@ -11,7 +11,9 @@ import {
 import { t } from '../utils/i18n.js';
 import { renderMarkdown } from '../utils/markdown.js';
 import { capFiles } from '../utils/upload.js';
+import { copyText } from '../utils/clipboard.js';
 import { liveEvents } from '../utils/bus.js';
+import TaskNum from '../components/TaskNum.vue';
 import TypeFields from '../components/TypeFields.vue';
 import Attachments from '../components/Attachments.vue';
 import FileDrop from '../components/FileDrop.vue';
@@ -139,11 +141,12 @@ const queueName = computed(() => {
     const q = queues.value.find((x) => Number(x.id) === Number(task.value?.queue_id));
     return q ? q.name : '';
 });
-const parentLabel = computed(() => {
+// Номер родителя выводится отдельным TaskNum (его клик копирует), поэтому в подписи
+// ссылки остаётся только заголовок — иначе номер оказался бы на строке дважды.
+const parentTitle = computed(() => {
     const parent = detail.value.parent;
     if (!parent) return '';
-    const num = parent.num ? `${parent.num} · ` : '';
-    return `${num}${parent.title || `#${parent.id}`}`;
+    return parent.title || `#${parent.id}`;
 });
 
 // Комментарии как лента чата: «свои»/«чужие» + группировка подряд идущих сообщений
@@ -173,12 +176,13 @@ function scrollChatToBottom() {
     });
 }
 
+// Копируем через общий хелпер: прямой navigator.clipboard есть только в secure context,
+// и в менеджере по http эта кнопка молча уходила в catch с сообщением «отклонено».
 async function copyId() {
-    try {
-        await navigator.clipboard.writeText(String(props.taskId));
+    if (await copyText(String(props.taskId))) {
         toast.add({ severity: 'success', summary: t('mxboard_msg_id_copied'), life: 2000 });
-    } catch {
-        toast.add({ severity: 'warn', summary: t('mxboard_msg_rejected'), life: 3000 });
+    } else {
+        toast.add({ severity: 'warn', summary: t('mxboard_msg_copy_failed'), life: 3000 });
     }
 }
 
@@ -812,13 +816,17 @@ function openSubtaskDialog() {
                     <div v-if="detail.parent" class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_parent') }}</span>
                         <span class="mxb-meta-value">
+                            <!-- Номер отдельной кнопкой рядом со ссылкой, а не внутри неё:
+                                 <button> внутри <button> невалиден и в браузерах ведёт себя
+                                 непредсказуемо. Кликом номер копируется, ссылкой открывается родитель. -->
+                            <TaskNum v-if="detail.parent.num" :num="detail.parent.num" class="mxb-parent-num" />
                             <button
                                 type="button"
                                 class="mxb-parent-link"
                                 @click="emit('open-task', detail.parent.id)"
                             >
                                 <i class="pi pi-arrow-up-right" />
-                                <span>{{ parentLabel }}</span>
+                                <span>{{ parentTitle }}</span>
                             </button>
                             <!-- Родитель на другой доске: без пометки связь неотличима от
                                  внутрипроектной, и переход выглядел бы как сбой навигации. -->
@@ -956,7 +964,7 @@ function openSubtaskDialog() {
                     <div class="mxb-meta-row">
                         <span class="mxb-meta-label">{{ t('mxboard_ui_task_id') }}</span>
                         <span class="mxb-meta-value mxb-meta-id">
-                            <code v-if="task.num" class="mxb-meta-num">{{ task.num }}</code>
+                            <TaskNum v-if="task.num" :num="task.num" class="mxb-meta-num" />
                             <code>#{{ task.id }}</code>
                             <Button icon="pi pi-copy" size="small" severity="secondary" text v-tooltip="t('mxboard_ui_copy')" @click="copyId" />
                         </span>

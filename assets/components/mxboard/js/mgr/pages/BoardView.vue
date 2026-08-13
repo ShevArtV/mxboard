@@ -11,6 +11,7 @@ import { normalizeBoard, normalizeTask, stageColor, PRIORITIES } from '../utils/
 import { liveEvents, revisions } from '../utils/bus.js';
 import { t } from '../utils/i18n.js';
 import TaskCard from '../components/TaskCard.vue';
+import TaskNum from '../components/TaskNum.vue';
 import NewTaskDialog from '../components/NewTaskDialog.vue';
 import TaskPage from './TaskPage.vue';
 
@@ -341,8 +342,14 @@ function openTask(task) {
     openTaskId.value = task.id;
 }
 
-/** Переход к задаче из окна очередей: сначала закрываем окно, иначе карточка откроется под ним. */
-function openQueueTask(task) {
+/**
+ * Переход к задаче из окна очередей: сначала закрываем окно, иначе карточка откроется под ним.
+ * Клик по номеру задачи из перехода исключён — номер копируется. Отсеиваем так же, как на
+ * карточке канбана (closest вместо stopPropagation): всплытие до document нужно живым, на
+ * нём позиционируются оверлеи PrimeVue.
+ */
+function openQueueTask(task, event) {
+    if (event?.target?.closest('.mxb-num')) return;
     queuesOpen.value = false;
     openTask(task);
 }
@@ -745,12 +752,12 @@ async function onQueueDrop(queue, target) {
                             @dragend="onQueueDragEnd"
                             @dragover="onQueueDragOver(queue, task, $event)"
                             @drop.prevent="onQueueDrop(queue, task)"
-                            @click="openQueueTask(task)"
+                            @click="openQueueTask(task, $event)"
                             @keydown="onQueueKeydown(queue, index, $event)"
                         >
                             <i class="pi pi-bars mxb-queue-grip" aria-hidden="true" />
                             <span class="mxb-queue-pos">{{ index + 1 }}</span>
-                            <span class="mxb-queue-num">{{ task.num || `#${task.id}` }}</span>
+                            <TaskNum :num="task.num || `#${task.id}`" class="mxb-queue-num" />
                             <span class="mxb-queue-title">{{ task.title }}</span>
                             <span v-if="index === nextIndex(queue)" class="mxb-queue-next">{{ t('mxboard_ui_queue_next') }}</span>
                             <span v-else-if="!task.is_initial" class="mxb-queue-stage">{{ task.column_name || task.column_key }}</span>
