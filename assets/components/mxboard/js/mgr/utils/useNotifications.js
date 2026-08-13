@@ -28,10 +28,20 @@ export function useNotifications() {
         return label === key ? n.type : label;
     }
 
-    function summary(n) {
+    // Номер и заголовок порознь: в панели номер выводится отдельным кликабельным элементом
+    // (клик копирует), и склеенная строка там больше не годится. Тост остаётся текстом —
+    // копировать из него нечего, поэтому для него склейка сохраняется в summary().
+    function taskNum(n) {
         const p = n.payload || {};
-        const num = p.num ? '#' + p.num : ('#' + n.task_id);
-        return num + ' ' + (p.title || '');
+        return p.num ? String(p.num) : '#' + n.task_id;
+    }
+
+    function taskTitle(n) {
+        return (n.payload || {}).title || '';
+    }
+
+    function summary(n) {
+        return (taskNum(n) + ' ' + taskTitle(n)).trim();
     }
 
     function detail(n) {
@@ -117,5 +127,5 @@ export function useNotifications() {
         if (es) { es.close(); es = null; }
     });
 
-    return { state, markAllSeen, summary, detail, typeLabel };
+    return { state, markAllSeen, summary, taskNum, taskTitle, detail, typeLabel };
 }

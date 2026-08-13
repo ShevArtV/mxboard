@@ -6,6 +6,7 @@ import {
     factHours, factRunning,
 } from '../utils/format.js';
 import { t } from '../utils/i18n.js';
+import TaskNum from './TaskNum.vue';
 
 const props = defineProps({
     task: { type: Object, required: true },
@@ -69,13 +70,14 @@ const timeChipTitle = computed(
         + (factRunning(props.task) ? ` · ${t('mxboard_ui_fact_running')}` : ''),
 );
 
-// Клик по карточке открывает задачу, но клик по иконке удаления — нет. Не глушим
-// событие через stop: PrimeVue ConfirmPopup делает первичное позиционирование в
-// обработчике клика на document (isTargetClicked → alignOverlay), и stopPropagation
-// оставил бы попап неспозиционированным в углу экрана. Поэтому просто отсеиваем клик
-// по кнопке здесь, а всплытие до document сохраняем.
+// Клик по карточке открывает задачу, но клик по иконке удаления и по номеру задачи
+// (номер копируется, а не открывает) — нет. Не глушим событие через stop: PrimeVue
+// ConfirmPopup делает первичное позиционирование в обработчике клика на document
+// (isTargetClicked → alignOverlay), и stopPropagation оставил бы попап неспозиционированным
+// в углу экрана. Поэтому просто отсеиваем клик по этим кнопкам здесь, а всплытие до
+// document сохраняем.
 function onCardClick(event) {
-    if (event.target.closest('.mxb-card-del')) return;
+    if (event.target.closest('.mxb-card-del, .mxb-num')) return;
     emit('open');
 }
 </script>
@@ -113,7 +115,7 @@ function onCardClick(event) {
         </div>
 
         <div class="mxb-card-tags">
-            <span v-if="task.num" class="mxb-chip mxb-chip--num">{{ task.num }}</span>
+            <TaskNum v-if="task.num" :num="task.num" class="mxb-chip mxb-chip--num" />
             <Tag :value="priority.label" :style="priorityStyle" />
             <span v-if="task.type_key" class="mxb-chip mxb-chip--type">{{ task.type_key }}</span>
         </div>
