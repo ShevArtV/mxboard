@@ -257,10 +257,23 @@ class TaskService
         }
 
         $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
-        $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
         if (!$project) {
             return $this->fail('mxboard_err_project_not_found');
         }
+
+        // Самолечение колонки (#2607-217): карточка со старым column_id из чужого scope
+        // (шаблон при своих колонках проекта) приводится к колонке своего проекта по ключу
+        // ДО расчёта перехода — иначе Transitions и замер времени считали бы по чужой строке.
+        $wasColumnId = (int) $task->get('column_id');
+        if (Columns::normalize($this->modx, $task)) {
+            $this->modx->log(
+                modX::LOG_LEVEL_WARN,
+                '[mxBoard] Задача #' . $taskId . ': column_id ' . $wasColumnId . ' вне scope проекта #'
+                . (int) $project->get('id') . ' — нормализован на ' . (int) $task->get('column_id') . '.'
+            );
+        }
+
+        $current = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
 
         $target = $this->columnBy($project, ['key' => $columnKey]);
         if (!$target) {

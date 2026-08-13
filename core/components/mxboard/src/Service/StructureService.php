@@ -7,6 +7,7 @@ namespace MxBoard\Service;
 use MODX\Revolution\modUser;
 use MODX\Revolution\modUserGroup;
 use MODX\Revolution\modX;
+use MxBoard\Helpers\Columns;
 use MxBoard\Helpers\Transitions;
 use MxBoard\Model\MxBoardColumn;
 use MxBoard\Model\MxBoardDepartment;
@@ -636,6 +637,13 @@ class StructureService
      * Флаги is_initial/is_final/is_start здесь игнорируются: у проекта они уже стоят на
      * других колонках (инвариант «ровно одна»), перенос — через updateColumn.
      *
+     * Проект без собственных колонок сперва МАТЕРИАЛИЗУЕТСЯ (#2607-217): в него копируется
+     * весь глобальный шаблон, а его задачи переезжают на одноимённые колонки проекта.
+     * Иначе одна добавленная колонка переключала бы scope проекта с шаблона на себя, и
+     * проект оставался без is_initial/is_final (создание и переводы карточек падали бы),
+     * а старые задачи молча висели бы на строках шаблона — тот самый рассинхрон, из-за
+     * которого автозапуск очереди пропускал видимо-backlog карточку.
+     *
      * @param array<string, mixed> $data project_id + key/name/description/move_roles/color/position
      *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
@@ -654,8 +662,19 @@ class StructureService
             return $this->fail('mxboard_err_column_invalid');
         }
 
-        if ($this->modx->getObject(MxBoardColumn::class, ['project_id' => $projectId, 'key' => $key])) {
+        // Проект на fallback: ключи, которые вот-вот приедут из шаблона, тоже заняты.
+        $needsMaterialize = $projectId > 0 && !Columns::hasOwn($this->modx, $projectId);
+        $dupScope = $needsMaterialize ? 0 : $projectId;
+        if ($this->modx->getObject(MxBoardColumn::class, ['project_id' => $dupScope, 'key' => $key])) {
             return $this->fail('mxboard_err_column_exists');
+        }
+
+        $this->modx->beginTransaction();
+
+        if ($needsMaterialize && !$this->materializeTemplate($projectId)) {
+            $this->modx->rollback();
+
+            return $this->fail('mxboard_err_save');
         }
 
         $position = array_key_exists('position', $data)
@@ -679,10 +698,71 @@ class StructureService
         ]);
 
         if (!$column->save()) {
+            $this->modx->rollback();
+
             return $this->fail('mxboard_err_save');
         }
 
+        $this->modx->commit();
+
         return $this->ok($column->toArray());
+    }
+
+    /**
+     * Скопировать глобальный шаблон в проект и перевести его задачи на новые колонки
+     * по ключу (не нашлось ключа — на начальную стадию). Транзакцию держит вызывающий.
+     */
+    private function materializeTemplate(int $projectId): bool
+    {
+        [$columns, $error] = $this->templateColumns();
+        if ($error !== null) {
+            return false;
+        }
+
+        $now = time();
+        $byKey = [];
+        $initialId = 0;
+
+        foreach ($columns as $pos => $col) {
+            /** @var MxBoardColumn $column */
+            $column = $this->modx->newObject(MxBoardColumn::class);
+            $column->fromArray([
+                'project_id' => $projectId,
+                'key' => $col['key'],
+                'name' => $col['name'],
+                'description' => $col['description'],
+                'position' => $pos,
+                'move_roles' => $col['move_roles'],
+                'color' => $col['color'],
+                'is_initial' => $col['is_initial'],
+                'is_final' => $col['is_final'],
+                'is_start' => $col['is_start'] ?? false,
+                'createdon' => $now,
+            ]);
+            if (!$column->save()) {
+                return false;
+            }
+            $byKey[(string) $col['key']] = (int) $column->get('id');
+            if (!empty($col['is_initial'])) {
+                $initialId = (int) $column->get('id');
+            }
+        }
+
+        if ($initialId <= 0) {
+            return false;
+        }
+
+        $moved = Columns::remapTasksToScope($this->modx, $projectId, $byKey, $initialId);
+        if ($moved === null) {
+            return false;
+        }
+
+        $this->modx->log(
+            modX::LOG_LEVEL_INFO,
+            "[mxBoard] Проект #{$projectId}: шаблон стадий материализован, карточек переставлено — {$moved}."
+        );
+
+        return true;
     }
 
     /**
@@ -793,6 +873,11 @@ class StructureService
      * иначе смена column_id осиротила бы карточки. Идемпотентно: прежние свои колонки
      * проекта удаляются, затем создаётся набор источника (позиция — по порядку).
      *
+     * Запрет сознательно сохранён и после #2607-217: набор источника — произвольный, и
+     * молча перекладывать живые карточки в чужие стадии здесь нельзя. Проекту с задачами,
+     * которому нужны свои стадии, шаблон материализует createColumn (полный набор + перенос
+     * по ключу), а вернуть проект на шаблон умеет resetColumns.
+     *
      * @return array{success: bool, message: string, object: array<string, mixed>|null}
      */
     public function copyColumns(modUser $user, int $targetProjectId, int $sourceId): array
@@ -898,26 +983,14 @@ class StructureService
             return $this->fail('mxboard_err_reset_no_template');
         }
 
-        // id собственной колонки → её ключ (для переноса задач на шаблон).
-        $keyById = [];
-        foreach ($own as $id => $col) {
-            $keyById[$id] = (string) $col->get('key');
-        }
-
         $this->modx->beginTransaction();
 
-        // Перенос задач проекта, стоящих в собственных колонках, на шаблон по ключу.
-        foreach ($this->modx->getCollection(MxBoardTask::class, ['project_id' => $projectId]) as $task) {
-            $cid = (int) $task->get('column_id');
-            if (!isset($keyById[$cid])) {
-                continue; // задача уже на шаблонной/чужой колонке — не трогаем
-            }
-            $task->set('column_id', $tplByKey[$keyById[$cid]] ?? $tplInitial);
-            if (!$task->save()) {
-                $this->modx->rollback();
+        // Перенос задач проекта на шаблон по ключу — тем же хелпером, что и материализация
+        // в обратную сторону (createColumn): правило «по ключу, иначе в начальную» одно.
+        if (Columns::remapTasksToScope($this->modx, $projectId, $tplByKey, $tplInitial) === null) {
+            $this->modx->rollback();
 
-                return $this->fail('mxboard_err_save');
-            }
+            return $this->fail('mxboard_err_save');
         }
 
         // Снести собственные колонки — проект вернётся на fallback-шаблон.
