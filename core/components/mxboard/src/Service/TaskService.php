@@ -17,6 +17,7 @@ use MxBoard\Model\MxBoardComment;
 use MxBoard\Model\MxBoardDepartment;
 use MxBoard\Model\MxBoardField;
 use MxBoard\Model\MxBoardLog;
+use MxBoard\Model\MxBoardNotification;
 use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardTask;
 use MxBoard\Model\MxBoardTaskType;
@@ -784,6 +785,10 @@ class TaskService
      * Закрытую карточку удалить нельзя: финальная стадия делает её read-only целиком.
      * Нужно удалить — сперва верните её из финала move(), потом удаляйте по обычным правам.
      *
+     * Удаление — единственная операция, после которой некуда писать журнал: собственные
+     * записи карточки уходят каскадом вместе с ней. Поэтому след оставляем отдельно, до
+     * remove(), — см. logDeletion().
+     *
      * @return array{success: bool, message: string, object: null}
      */
     public function delete(modUser $user, int $taskId, string $channel = 'mgr'): array
@@ -803,10 +808,23 @@ class TaskService
             return $this->fail(ClosedGuard::ERROR);
         }
 
+        // Занимала ли карточка очередь — считаем ДО удаления: после remove() ни isFirst(),
+        // ни колонка уже не вычисляются. Двигать очередь дальше нужно, только если ушла
+        // та самая карточка, которой очередь была занята (см. queueHeld()).
+        $queueHeld = $this->queueHeld($task);
+
+        // Журнал — до remove(): composite снимет записи с task_id этой карточки.
+        $this->logDeletion($task, $user, $channel);
+
         // Открепляем подзадачи, чтобы каскад composite не снёс чужие задачи.
         $childrenTable = $this->modx->getTableName(MxBoardTask::class);
         $stmt = $this->modx->prepare("UPDATE {$childrenTable} SET parent_id = 0 WHERE parent_id = :id");
         $stmt->execute([':id' => $taskId]);
+
+        // Уведомления связаны с задачей aggregate'ом (owner="foreign") — каскада нет, и
+        // без явной чистки в колокольчике остаются строки, ведущие на несуществующую
+        // карточку. Ровно та ручная уборка, ради отсутствия которой удаление и заводили.
+        $this->modx->removeCollection(MxBoardNotification::class, ['task_id' => $taskId]);
 
         // Физфайлы всех вложений (задачи и её комментов) — до remove(): composite снимет
         // только записи, файлы в источнике останутся сиротами, если их не снести явно.
@@ -818,7 +836,88 @@ class TaskService
 
         $this->fireEvent('mxbOnTaskDelete', $task, $user, ['channel' => $channel]);
 
+        // Очередь двигают закрытия карточек; удаление активной карточки для очереди —
+        // такой же уход работы, иначе конвейер молча встанет и следующая не стартует.
+        if ($queueHeld) {
+            (new QueueService($this->modx))->advance($task);
+        }
+
         return ['success' => true, 'message' => '', 'object' => null];
+    }
+
+    /**
+     * Держала ли карточка свою очередь, то есть остановится ли очередь без неё.
+     *
+     * Держит первая незакрытая карточка очереди, уже вышедшая из начальной стадии:
+     * это и есть «взятая в работу». Карточка, спокойно лежащая в backlog, очередь не
+     * занимает — её удаление не повод запускать следующую раньше срока.
+     */
+    private function queueHeld(MxBoardTask $task): bool
+    {
+        if ((int) $task->get('queue_id') <= 0) {
+            return false;
+        }
+
+        /** @var MxBoardProject|null $project */
+        $project = $this->modx->getObject(MxBoardProject::class, (int) $task->get('project_id'));
+        $initial = $project ? $this->columnBy($project, ['is_initial' => true]) : null;
+        if ($initial && (int) $initial->get('id') === (int) $task->get('column_id')) {
+            return false;
+        }
+
+        return (new QueueService($this->modx))->isFirst($task);
+    }
+
+    /**
+     * След удалённой карточки в журнале.
+     *
+     * Пишем ДО remove() и с task_id = 0: у записи с настоящим task_id было бы два пути в
+     * никуда — её снёс бы каскад composite, а уцелей она, ссылалась бы на несуществующую
+     * карточку. Номер и заголовок уходят в note, они и есть весь опознавательный знак.
+     * Прецедент такой записи в пакете уже есть — logAiCheck() для проверок без карточки.
+     *
+     * Подзадаче дополнительно пишем запись в журнал РОДИТЕЛЯ: там она видна на экране,
+     * тогда как запись с task_id = 0 остаётся аудитом в БД (журнал в UI выбирается по
+     * task_id карточки).
+     */
+    private function logDeletion(MxBoardTask $task, modUser $user, string $channel): void
+    {
+        $num = (string) $task->get('num');
+        $title = (string) $task->get('title');
+        $note = trim('#' . ($num !== '' ? $num : (string) $task->get('id')) . ' ' . $title);
+
+        /** @var MxBoardLog $log */
+        $log = $this->modx->newObject(MxBoardLog::class);
+        $log->fromArray([
+            'task_id' => 0,
+            'user_id' => (int) $user->get('id'),
+            'action' => 'delete',
+            'from_column' => (string) ($this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'))?->get('key') ?? ''),
+            'to_column' => '',
+            'note' => mb_substr($note, 0, 255),
+            'channel' => $channel,
+            'createdon' => time(),
+        ]);
+        $log->save();
+
+        $parentId = (int) $task->get('parent_id');
+        if ($parentId <= 0) {
+            return;
+        }
+
+        /** @var MxBoardLog $parentLog */
+        $parentLog = $this->modx->newObject(MxBoardLog::class);
+        $parentLog->fromArray([
+            'task_id' => $parentId,
+            'user_id' => (int) $user->get('id'),
+            'action' => 'subtask_delete',
+            'from_column' => '',
+            'to_column' => '',
+            'note' => mb_substr($note, 0, 255),
+            'channel' => $channel,
+            'createdon' => time(),
+        ]);
+        $parentLog->save();
     }
 
     /**

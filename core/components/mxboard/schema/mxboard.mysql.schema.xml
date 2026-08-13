@@ -433,7 +433,8 @@
         <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="actor_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0"/>
         <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
-        <!-- create | move | comment | close | deadline_dispute | deadline_resolve -->
+        <!-- create | move | comment | delete | close | deadline_dispute | deadline_resolve.
+             У типа delete task_id = 0: карточки уже нет, номер и заголовок лежат в payload. -->
         <field key="type" dbtype="varchar" precision="32" phptype="string" null="false" default="" index="index"/>
         <field key="payload" dbtype="text" phptype="string" null="true"/>
         <field key="seen" dbtype="tinyint" precision="1" attributes="unsigned" phptype="boolean" null="false" default="0" index="index"/>

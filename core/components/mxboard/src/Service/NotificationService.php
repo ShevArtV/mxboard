@@ -24,12 +24,13 @@ final class NotificationService
 {
     /**
      * Событие MODX → тип уведомления. События вне карты уведомлений не порождают
-     * (BeforeTaskMove/Update/Delete/Take/Release, а также Close — его покрывает Move).
+     * (BeforeTaskMove/Update/Take/Release, а также Close — его покрывает Move).
      */
     private const EVENT_TYPES = [
         'mxbOnTaskCreate' => 'create',
         'mxbOnTaskMove' => 'move',
         'mxbOnTaskComment' => 'comment',
+        'mxbOnTaskDelete' => 'delete',
         'mxbOnDeadlineDispute' => 'deadline_dispute',
         'mxbOnDeadlineResolve' => 'deadline_resolve',
         'mxbOnPlanDispute' => 'plan_dispute',
@@ -71,13 +72,18 @@ final class NotificationService
         $payload = $this->payload($task, $type, $extra);
         $now = time();
 
+        // Удалённая карточка адреса не имеет: с настоящим task_id уведомление вело бы на
+        // 404, а список в UI открывает карточку по этому полю. Ноль гасит переход, номер и
+        // заголовок остаются в payload — по ним и понятно, что именно исчезло.
+        $taskId = $type === 'delete' ? 0 : (int) $task->get('id');
+
         foreach ($recipients as $uid) {
             /** @var MxBoardNotification $n */
             $n = $this->modx->newObject(MxBoardNotification::class);
             $n->fromArray([
                 'user_id' => $uid,
                 'actor_id' => $actorId,
-                'task_id' => (int) $task->get('id'),
+                'task_id' => $taskId,
                 'type' => $type,
                 'payload' => $payload,
                 'seen' => 0,
