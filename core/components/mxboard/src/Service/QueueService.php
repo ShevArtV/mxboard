@@ -259,6 +259,10 @@ class QueueService
             return $this->fail('mxboard_err_queue_denied');
         }
 
+        // Колонку берём приведённой к scope проекта (#2607-217) и сразу чиним запись:
+        // задача, попадающая в очередь, обязана ссылаться на стадию своего проекта —
+        // именно по ней потом решает автозапуск.
+        Columns::normalize($this->modx, $task);
         $column = $this->modx->getObject(MxBoardColumn::class, (int) $task->get('column_id'));
         if (!$column || !(bool) $column->get('is_initial')) {
             return $this->fail('mxboard_err_queue_not_initial');
@@ -432,6 +436,10 @@ class QueueService
      * стадии. Задачу, которую уже двигали руками, автозапуск не трогает: тащить её назад в
      * стартовую было бы хуже, чем не сделать ничего.
      *
+     * «Стоит в начальной» определяется по колонке, приведённой к scope проекта (#2607-217),
+     * а не по raw column_id: карточка со старым шаблонным column_id видимо стоит в backlog,
+     * и пропускать её из-за id, которого на доске не видно, нельзя.
+     *
      * Перевод идёт обычным TaskService::move() от имени АВТОРА следующей задачи — значит
      * работают штатные права, журнал и события (mxbOnTaskMove и остальные). Обхода правил
      * здесь нет: если автор не вправе двигать свою карточку, очередь просто не поедет.
@@ -456,20 +464,34 @@ class QueueService
             return null;
         }
 
-        $initialId = $this->columnByFlag($projectId, 'is_initial')?->get('id');
-        if (!$initialId) {
+        $initial = $this->columnByFlag($projectId, 'is_initial');
+        if (!$initial) {
             return null;
         }
+        $initialId = (int) $initial->get('id');
 
         $next = null;
         foreach ($this->openTasks($queueId) as $candidate) {
             if ((int) $candidate->get('id') === (int) $closed->get('id')) {
                 continue;
             }
-            if ((int) $candidate->get('column_id') === (int) $initialId) {
-                $next = $candidate;
-                break;
+            // Сравниваем не raw column_id, а колонку, приведённую к scope проекта (#2607-217):
+            // карточка со старым шаблонным column_id видимо стоит в backlog и в очереди
+            // числится — пропускать её из-за id, которого пользователь не видит, нельзя.
+            $effective = Columns::effectiveFor($this->modx, $candidate);
+            if (!$effective || (int) $effective->get('id') !== $initialId) {
+                continue;
             }
+            if ((int) $candidate->get('column_id') !== $initialId) {
+                $this->modx->log(
+                    modX::LOG_LEVEL_WARN,
+                    '[mxBoard] Очередь #' . $queueId . ': у задачи #' . (int) $candidate->get('id')
+                    . ' колонка ' . (int) $candidate->get('column_id') . ' вне scope проекта #'
+                    . $projectId . ' — нормализуем на ' . $initialId . '.'
+                );
+            }
+            $next = $candidate;
+            break;
         }
         if (!$next) {
             return null;
