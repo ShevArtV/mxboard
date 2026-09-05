@@ -732,6 +732,11 @@ class BoardQuery
         $c->innerJoin(MxBoardTask::class, 'Task', 'Task.id = MxBoardLog.task_id');
         $c->leftJoin(MxBoardProject::class, 'Project', 'Project.id = Task.project_id');
         $c->leftJoin(modUser::class, 'Actor', 'Actor.id = MxBoardLog.user_id');
+        // Логины участников карточки. Внешняя автоматизация адресует комментарии по
+        // упоминанию (`@login`), а сопоставить его с участником по одним id нельзя:
+        // в тексте комментария человек пишет имя, а не число.
+        $c->leftJoin(modUser::class, 'Author', 'Author.id = Task.author_id');
+        $c->leftJoin(modUser::class, 'Assignee', 'Assignee.id = Task.assignee_id');
         // Текущая стадия карточки. У события `move` стадия видна по from/to, но у `create`
         // и `comment` её нет вовсе — а внешней автоматизации она нужна, чтобы решать,
         // будить ли исполнителя (комментарий к карточке в бэклоге работу не открывает).
@@ -756,6 +761,8 @@ class BoardQuery
             'project_id' => 'Task.project_id',
             'author_id' => 'Task.author_id',
             'assignee_id' => 'Task.assignee_id',
+            'author' => 'Author.username',
+            'assignee' => 'Assignee.username',
             'project_key' => 'Project.key',
             'task_stage' => 'Stage.key',
             // Очередь задачи: внешняя автоматизация читает эту ленту, а не события MODX,
@@ -795,6 +802,8 @@ class BoardQuery
                 'task_stage' => (string) ($r['task_stage'] ?? ''),
                 'author_id' => (int) $r['author_id'],
                 'assignee_id' => (int) $r['assignee_id'],
+                'author' => (string) ($r['author'] ?? ''),
+                'assignee' => (string) ($r['assignee'] ?? ''),
                 'queue' => (int) ($r['queue'] ?? 0),
             ];
         }

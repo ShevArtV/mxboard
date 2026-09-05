@@ -4,7 +4,7 @@ return [
     'name' => 'mxBoard',
     'name_lower' => 'mxboard',
     'name_short' => 'mxb',
-    'version' => '3.1.0',
+    'version' => '3.2.0',
     'release' => 'pl',
     'php_version' => '8.1',
 
