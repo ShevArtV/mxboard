@@ -158,8 +158,9 @@ final class Server
                 'column' => ['type' => 'string', 'description' => 'Ключ колонки: показать только её.'],
                 'mine' => ['type' => 'boolean', 'description' => 'Только карточки, взятые вами.'],
             ]),
-            $this->tool('task_get', 'Карточка целиком: поля, родитель, подзадачи, комментарии.', [
+            $this->tool('task_get', 'Карточка: поля, родитель, подзадачи, состояние и последний комментарий. Вся переписка — только по запросу (comments).', [
                 'task_id' => ['type' => 'string', 'description' => 'Адрес карточки: id (число) или num (напр. 2607-15).'],
+                'comments' => ['type' => 'string', 'description' => 'Сколько вернуть комментариев: last:1 (по умолчанию), last:N, since:<id последнего прочитанного>, all, 0. Лента — самая тяжёлая часть карточки; берите её целиком, только когда это правда нужно.'],
             ], ['task_id']),
             $this->tool('task_schema', 'Какие поля нужны для типа задачи (встроенные + обязательные).', [
                 'type' => ['type' => 'string', 'description' => 'Ключ типа задачи.'],
@@ -639,6 +640,18 @@ final class Server
         $out[] = 'План: ' . ((int) ($detail['plan_hours'] ?? 0) > 0 ? (int) $detail['plan_hours'] . ' ч' : '—')
             . (!empty($detail['plan_disputed']) ? ' (оспорен → ' . (int) $detail['plan_proposed'] . ' ч)' : '')
             . ' · факт: ' . $this->factHours($detail);
+        // Состояние карточки: где мы и чей ход. Без этой строки агент отвечал на тот же
+        // вопрос вычитыванием всей ленты комментариев — самой дорогой части ответа.
+        $state = $this->query->taskState(
+            $taskId,
+            (int) ($detail['author_id'] ?? 0),
+            (int) ($detail['assignee_id'] ?? 0)
+        );
+        if ($state) {
+            $out[] = 'Состояние: в стадии «' . $state['stage'] . '» с '
+                . date('Y-m-d H:i', $state['at']) . ' (перевёл ' . ($state['actor'] ?: '—') . ')'
+                . ' · ход за ' . ($state['turn'] ?: '—');
+        }
         if (!empty($detail['parent'])) {
             $out[] = 'Родитель: #' . $detail['parent']['id'] . ' ' . $detail['parent']['title'];
         }
@@ -656,10 +669,18 @@ final class Server
                     . ($s['assignee'] ? ' (' . $s['assignee'] . ')' : '');
             }
         }
-        if (!empty($detail['comments'])) {
-            $out[] = 'Комментарии:';
-            foreach ($detail['comments'] as $c) {
-                $out[] = '  ' . ($c['user'] ?: '—') . ': ' . $c['content'];
+        $slice = BoardQuery::sliceComments(
+            is_array($detail['comments'] ?? null) ? $detail['comments'] : [],
+            (string) ($args['comments'] ?? 'last:1')
+        );
+        if ($slice['total'] > 0) {
+            $out[] = 'Комментарии: всего ' . $slice['total'] . ', показано ' . $slice['shown']
+                . ', id последнего ' . $slice['last_id']
+                . ($slice['shown'] < $slice['total']
+                    ? ' (остальные: comments=all или comments=since:<id прочитанного>)'
+                    : '');
+            foreach ($slice['comments'] as $c) {
+                $out[] = '  #' . (int) ($c['id'] ?? 0) . ' ' . ($c['user'] ?: '—') . ': ' . $c['content'];
             }
         }
 

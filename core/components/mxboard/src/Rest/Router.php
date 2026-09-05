@@ -154,7 +154,7 @@ final class Router
 
         // /tasks ...
         if ($resource === 'tasks') {
-            return $this->tasksRoute($method, $seg, $body);
+            return $this->tasksRoute($method, $seg, $query, $body);
         }
 
         // Структура (менеджер): POST /types, /projects, /departments
@@ -177,7 +177,7 @@ final class Router
      *
      * @return array{status: int, body: array<string, mixed>}
      */
-    private function tasksRoute(string $method, array $seg, array $body): array
+    private function tasksRoute(string $method, array $seg, array $query, array $body): array
     {
         // POST /tasks — создать
         if ($method === 'POST' && !isset($seg[1])) {
@@ -198,6 +198,17 @@ final class Router
             if ($detail === null) {
                 return $this->fail('mxboard_err_view_denied', 403);
             }
+            // Лента комментариев — самая тяжёлая часть карточки. REST читают внешние
+            // интеграции, поэтому по умолчанию отдаём её целиком, как и раньше; агенту
+            // достаточно `?comments=last:1` (в MCP это значение по умолчанию).
+            $slice = BoardQuery::sliceComments(
+                is_array($detail['comments'] ?? null) ? $detail['comments'] : [],
+                (string) ($query['comments'] ?? 'all')
+            );
+            $detail['comments'] = $slice['comments'];
+            $detail['comments_total'] = $slice['total'];
+            $detail['comments_shown'] = $slice['shown'];
+            $detail['comments_last_id'] = $slice['last_id'];
 
             return $this->ok($detail);
         }

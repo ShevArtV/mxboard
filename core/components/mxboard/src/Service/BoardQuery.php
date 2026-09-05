@@ -682,6 +682,85 @@ class BoardQuery
     }
 
     /**
+     * Срез ленты комментариев для агентских фасадов (MCP и REST).
+     *
+     * Лента карточки — самая тяжёлая её часть и при этом почти всегда уже прочитанная:
+     * агент перечитывает карточку каждый ход и каждый раз оплачивает всю переписку
+     * заново (замер 05.09.2026: 97% объёма ответа `task_get` — комментарии, 36 079
+     * символов из 37 114). Поэтому по умолчанию отдаём последний, остальное — по
+     * явному запросу.
+     *
+     * `$spec`: `0`/`none` — без комментариев, `all` — все, `last:N` — последние N,
+     * `since:<id>` — все с id больше указанного. Неразобранная спецификация трактуется
+     * как значение по умолчанию: агент, ошибившийся в параметре, должен получить
+     * карточку, а не ошибку.
+     *
+     * @param list<array<string, mixed>> $comments лента по возрастанию времени
+     * @return array{comments: list<array<string, mixed>>, total: int, shown: int, last_id: int, spec: string}
+     */
+    public static function sliceComments(array $comments, string $spec = 'last:1'): array
+    {
+        $total = count($comments);
+        $lastId = $total > 0 ? (int) ($comments[$total - 1]['id'] ?? 0) : 0;
+        $spec = trim($spec) === '' ? 'last:1' : strtolower(trim($spec));
+
+        if ($spec === '0' || $spec === 'none') {
+            $slice = [];
+        } elseif ($spec === 'all') {
+            $slice = $comments;
+        } elseif (preg_match('/^last:(\d+)$/', $spec, $m)) {
+            $n = (int) $m[1];
+            $slice = $n > 0 ? array_slice($comments, -$n) : [];
+        } elseif (preg_match('/^since:(\d+)$/', $spec, $m)) {
+            $since = (int) $m[1];
+            $slice = array_filter(
+                $comments,
+                static fn(array $c): bool => (int) ($c['id'] ?? 0) > $since
+            );
+        } else {
+            $spec = 'last:1';
+            $slice = array_slice($comments, -1);
+        }
+
+        return [
+            'comments' => array_values($slice),
+            'total' => $total,
+            'shown' => count($slice),
+            'last_id' => $lastId,
+            'spec' => $spec,
+        ];
+    }
+
+    /**
+     * Состояние карточки по журналу: когда и кем сделан последний переход.
+     *
+     * Нужно агенту вместо вычитывания всей ленты ради ответа «где мы и чей ход».
+     * Чей ход — то же правило, по которому маршрутизирует поллер: кто сделал ход,
+     * тот его и закончил, значит очередь второго участника.
+     *
+     * @return array{stage: string, at: int, actor: string, turn: string}|null
+     */
+    public function taskState(int $taskId, int $authorId, int $assigneeId): ?array
+    {
+        foreach (array_reverse($this->taskLog($taskId)) as $row) {
+            if ((string) ($row['action'] ?? '') !== 'move') {
+                continue;
+            }
+            $actorId = (int) ($row['user_id'] ?? 0);
+            $turnId = $actorId === $assigneeId ? $authorId : $assigneeId;
+
+            return [
+                'stage' => (string) ($row['to_column'] ?? ''),
+                'at' => (int) ($row['createdon'] ?? 0),
+                'actor' => (string) ($row['user'] ?? ''),
+                'turn' => $this->username($turnId),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
      * Журнал переходов задачи по возрастанию времени.
      *
      * Права здесь НЕ проверяются: вызывающий обязан сперва пройти taskDetail/canView.
@@ -701,6 +780,9 @@ class BoardQuery
             'MxBoardLog.note',
             'MxBoardLog.channel',
             'MxBoardLog.createdon',
+            // id актора нужен, чтобы определить, чей сейчас ход (см. taskState);
+            // по имени это не считается — имена не сравниваются с author_id.
+            'MxBoardLog.user_id',
             'user' => 'User.username',
         ]);
         $c->sortby('MxBoardLog.createdon', 'ASC');
