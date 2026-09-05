@@ -4,14 +4,18 @@
 #   ./_deploy.sh            — собрать пакет, залить, установить
 #   ./_deploy.sh --no-build — только залить и установить (пакет уже собран)
 #
-# Стенд: hostland:~/modx3.art-sites.ru/htdocs/www/ (MODX 3 + miniShop3 + VueTools).
+# Стенд: hostland23:~/modx3.art-sites.ru/htdocs/www/ (MODX 3 + miniShop3 + VueTools).
 # Одно SSH-подключение на серию команд — на Hostland частые коннекты ловит fail2ban.
+#
+# 05.09.2026: аккаунт переехал с serv21 на serv23 — на serv21 логин отвечает
+# «This account is currently not available», из-за чего rsync падал с
+# «protocol version mismatch». Хост переопределяется переменной: MXB_REMOTE=... ./_deploy.sh
 
 set -euo pipefail
 
 PROJECT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODXAPP="${HOME}/.config/composer/vendor/bin/modxapp"
-REMOTE="hostland"
+REMOTE="${MXB_REMOTE:-hostland23}"
 REMOTE_ROOT="modx3.art-sites.ru/htdocs/www"
 VERSION="$(php -r '$c = require "'"${PROJECT}"'/package_builder/packages/mxboard/config.php"; echo $c["version"] . "-" . $c["release"];')"
 SIGNATURE="mxboard-${VERSION}"
