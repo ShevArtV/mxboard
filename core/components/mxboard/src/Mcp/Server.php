@@ -320,8 +320,8 @@ final class Server
                     'items' => ['type' => 'integer'],
                 ],
             ], ['queue', 'order']),
-            $this->tool('queue_remove', 'Удалить очередь (менеджер). Задачи остаются, из очереди они просто выходят.', [
-                'queue' => ['type' => 'string', 'description' => 'Очередь: ключ или id.'],
+            $this->tool('queue_remove', 'УДАЛИТЬ САМУ ОЧЕРЕДЬ ЦЕЛИКОМ (менеджер), необратимо: очередь исчезает у проекта, порядок запуска карточек теряется. Карточки при этом уцелеют, но выпадут из очереди. Нужно вынуть ОДНУ карточку — это `task_queue_remove`, не этот тул.', [
+                'queue' => ['type' => 'string', 'description' => 'Очередь: ключ или id. Ищется только в указанном проекте.'],
                 'project' => ['type' => 'string', 'description' => 'Ключ проекта (нужен, если очередь задана ключом). По умолчанию — из настроек.'],
             ], ['queue']),
         ];
@@ -1260,20 +1260,29 @@ final class Server
             return null;
         }
 
+        // Без проекта очередь по числовому id не ищем: промах по id снёс бы чужую
+        // очередь другого проекта (инцидент 07.09.2026 — основная очередь `default`
+        // исчезала дважды, следов не осталось).
         $projectId = $this->stageProjectId($args) ?? 0;
+        if ($projectId <= 0) {
+            return null;
+        }
         $id = $this->queueIdByRef($ref, $projectId);
 
         return $id > 0 ? $id : null;
     }
 
-    /** Очередь по id или по ключу в проекте. 0 — не нашли. */
+    /** Очередь по id или по ключу в проекте. 0 — не нашли. Чужой проект — не нашли. */
     private function queueIdByRef(string $ref, int $projectId): int
     {
         if (ctype_digit($ref)) {
             /** @var MxBoardQueue|null $byId */
             $byId = $this->modx->getObject(MxBoardQueue::class, (int) $ref);
+            if (!$byId || ($projectId > 0 && (int) $byId->get('project_id') !== $projectId)) {
+                return 0;
+            }
 
-            return $byId ? (int) $byId->get('id') : 0;
+            return (int) $byId->get('id');
         }
 
         /** @var MxBoardQueue|null $byKey */
