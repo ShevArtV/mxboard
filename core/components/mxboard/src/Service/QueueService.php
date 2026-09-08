@@ -9,6 +9,7 @@ use MODX\Revolution\modX;
 use MxBoard\Helpers\Columns;
 use MxBoard\Helpers\Transitions;
 use MxBoard\Model\MxBoardColumn;
+use MxBoard\Model\MxBoardLog;
 use MxBoard\Model\MxBoardProject;
 use MxBoard\Model\MxBoardQueue;
 use MxBoard\Model\MxBoardTask;
@@ -220,6 +221,10 @@ class QueueService
             return $this->fail($error);
         }
 
+        // Состав снимаем ДО удаления: после него восстановить, что стояло в очереди,
+        // неоткуда — членство обнуляется, а сама строка исчезает.
+        $affected = (int) $this->modx->getCount(MxBoardTask::class, ['queue_id' => $id]);
+
         $this->modx->updateCollection(MxBoardTask::class, [
             'queue_id' => 0,
             'queue_position' => 0,
@@ -229,7 +234,40 @@ class QueueService
             return $this->fail('mxboard_err_save');
         }
 
+        $this->logRemoval($queue, $user, $affected);
+
         return $this->ok(['id' => $id]);
+    }
+
+    /**
+     * Удаление очереди в журнал доски. Без этой записи удаление бесшумно: очередь
+     * `[main] Основная` проекта `default` исчезала дважды (07 и 08.09.2026), и по базе
+     * нельзя было сказать, кто её снёс.
+     *
+     * `task_id = 0` — записи не к чему привязать (карточки уцелели, но очереди уже нет);
+     * прецедент такой записи в пакете есть — logDeletion()/logAiCheck() в TaskService.
+     */
+    private function logRemoval(MxBoardQueue $queue, modUser $user, int $affected): void
+    {
+        $note = '#' . (int) $queue->get('id') . ' [' . (string) $queue->get('key') . '] '
+            . (string) $queue->get('name') . ' — проект ' . (int) $queue->get('project_id')
+            . ', карточек ' . $affected;
+
+        /** @var MxBoardLog $log */
+        $log = $this->modx->newObject(MxBoardLog::class);
+        $log->fromArray([
+            'task_id' => 0,
+            'user_id' => (int) $user->get('id'),
+            'action' => 'queue_delete',
+            'from_column' => '',
+            'to_column' => '',
+            'note' => mb_substr($note, 0, 255),
+            'channel' => self::CHANNEL,
+            'createdon' => time(),
+        ]);
+        if (!$log->save()) {
+            $this->modx->log(modX::LOG_LEVEL_ERROR, '[mxBoard] Не удалось записать удаление очереди #' . (int) $queue->get('id'));
+        }
     }
 
     /**

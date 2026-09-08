@@ -326,7 +326,8 @@
         <field key="task_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <field key="user_id" dbtype="integer" precision="11" attributes="unsigned" phptype="integer" null="false" default="0" index="index"/>
         <!-- create | take | release | move | comment | close | reopen
-             | deadline_dispute | deadline_accepted | deadline_rejected | subtask_add -->
+             | deadline_dispute | deadline_accepted | deadline_rejected | subtask_add
+             | delete | queue_delete (последние два с task_id = 0: привязывать не к чему) -->
         <field key="action" dbtype="varchar" precision="32" phptype="string" null="false" default="" index="index"/>
         <field key="from_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
         <field key="to_column" dbtype="varchar" precision="100" phptype="string" null="true" default=""/>
